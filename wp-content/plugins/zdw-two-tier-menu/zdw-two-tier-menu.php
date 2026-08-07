@@ -461,7 +461,7 @@ function zdw_two_tier_menu_install_menus( $replace = false ) {
 function zdw_two_tier_menu_activate() {
 	$installed = zdw_two_tier_menu_install_menus();
 	if ( $installed ) {
-		add_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1' );
+		update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1' );
 		add_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, ZDW_TWO_TIER_MENU_DB_VERSION );
 	} else {
 		update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0' );
@@ -563,7 +563,7 @@ function zdw_two_tier_menu_upgrade() {
 
 			return;
 		}
-		add_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1' );
+		update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1' );
 		add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_ENABLED, '1' );
 		add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_TEXT_CS, "SEE YOU IN MAY '27⭐" );
 		add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_TEXT_EN, "SEE YOU IN MAY '27⭐" );

@@ -40,6 +40,9 @@ docker compose exec -T wordpress php \
 
 docker compose exec -T wordpress php \
   /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/two-tier-menu-restore.php
+
+docker compose exec -T wordpress php \
+  /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/two-tier-enable-retry.php
 ```
 
 ## Safety model
