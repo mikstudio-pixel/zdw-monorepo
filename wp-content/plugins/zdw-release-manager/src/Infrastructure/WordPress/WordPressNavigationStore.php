@@ -16,6 +16,7 @@ final class WordPressNavigationStore implements NavigationStore
             && function_exists('zdw_two_tier_menu_blueprints')
             && function_exists('zdw_two_tier_menu_blueprints_resolvable')
             && function_exists('zdw_two_tier_menu_menu_matches_blueprint')
+            && function_exists('zdw_two_tier_menu_enable_completed_install')
             && function_exists('zdw_two_tier_menu_install_menus');
     }
 
@@ -75,18 +76,8 @@ final class WordPressNavigationStore implements NavigationStore
 
     public function enableTwoTierNavigation(): void
     {
-        if (!update_option('zdw_two_tier_menu_enabled', '1')) {
-            $stored = get_option('zdw_two_tier_menu_enabled', null);
-            if ('1' !== (string) $stored) {
-                throw new RuntimeException('Víceúrovňovou navigaci se nepodařilo zapnout.');
-            }
-        }
-
-        if (defined('ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL')) {
-            delete_option(ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL);
-        }
-        if (defined('ZDW_TWO_TIER_MENU_OPTION_DB_VERSION') && defined('ZDW_TWO_TIER_MENU_DB_VERSION')) {
-            update_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, ZDW_TWO_TIER_MENU_DB_VERSION);
+        if (!zdw_two_tier_menu_enable_completed_install()) {
+            throw new RuntimeException('Víceúrovňovou navigaci se nepodařilo bezpečně zapnout.');
         }
     }
 

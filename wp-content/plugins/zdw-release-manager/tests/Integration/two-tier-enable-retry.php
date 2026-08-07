@@ -19,6 +19,21 @@ try {
     update_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0');
     update_option(ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, '1');
     delete_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION);
+
+    $stateLock = zdw_two_tier_menu_acquire_state_lock();
+    if (!is_string($stateLock)) {
+        throw new RuntimeException('The header state lock could not be acquired.');
+    }
+    try {
+        if (false !== zdw_two_tier_menu_record_install_success()
+            || '0' !== (string) get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1')
+            || '1' !== (string) get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, '0')) {
+            throw new RuntimeException('Install completion changed header state while another request owned its lock.');
+        }
+    } finally {
+        zdw_two_tier_menu_release_state_lock($stateLock);
+    }
+
     zdw_two_tier_menu_activate();
     if ('1' !== (string) get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0')
         || ZDW_TWO_TIER_MENU_DB_VERSION !== get_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION)
