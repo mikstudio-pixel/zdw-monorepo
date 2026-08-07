@@ -38,6 +38,7 @@ final class NavigationMigrationTest extends TestCase
 
         self::assertSame(1, $navigation->rebuilds);
         self::assertSame(42, $navigation->legacySponsorPageId);
+        self::assertTrue($navigation->enabled);
         self::assertSame('pass', $migration->verify()[0]->severity());
 
         $migration->apply();
@@ -54,6 +55,23 @@ final class NavigationMigrationTest extends TestCase
         self::assertSame('blocker', $migration->preflight()[0]->severity());
         $result = $migration->preflight()[0];
         self::assertStringContainsString('cílov', $result->message());
+
+        $this->expectException(\RuntimeException::class);
+        try {
+            $migration->apply();
+        } finally {
+            self::assertSame(0, $navigation->rebuilds);
+        }
+    }
+
+    public function test_missing_legacy_parents_block_before_any_menu_is_rebuilt(): void
+    {
+        $pages = new InMemoryPageStore([new PostRecord(42, 'sponzori', 'content')]);
+        $navigation = new FakeNavigationStore();
+        $navigation->legacyParentsResolvable = false;
+        $migration = new NavigationMigration($pages, $navigation);
+
+        self::assertSame('blocker', $migration->preflight()[0]->severity());
 
         $this->expectException(\RuntimeException::class);
         try {

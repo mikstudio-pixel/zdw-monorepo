@@ -53,6 +53,11 @@ wp search-replace \
 wp option update blog_public 0 --quiet
 
 if ! wp user get "${ZDW_LOCAL_ADMIN_USER}" >/dev/null 2>&1; then
+    existing_login="$(wp user get "${ZDW_LOCAL_ADMIN_EMAIL}" --field=user_login 2>/dev/null || true)"
+    if [ -n "${existing_login}" ]; then
+        echo "E-mail ${ZDW_LOCAL_ADMIN_EMAIL} už používá jiný účet (${existing_login}); lokálního administrátora nelze vytvořit." >&2
+        exit 1
+    fi
     wp user create \
         "${ZDW_LOCAL_ADMIN_USER}" \
         "${ZDW_LOCAL_ADMIN_EMAIL}" \
@@ -74,7 +79,11 @@ else
     echo "Upozornění: není dostupné vlastní ani výchozí téma." >&2
 fi
 
-wp rewrite structure '/%postname%/' --hard --quiet || true
-wp cache flush --quiet || true
+if ! wp rewrite structure '/%postname%/' --hard --quiet; then
+    echo 'Upozornění: nepodařilo se nastavit pretty permalinks.' >&2
+fi
+if ! wp cache flush --quiet; then
+    echo 'Upozornění: nepodařilo se vyprázdnit cache.' >&2
+fi
 
 echo "Lokální kopie je připravená na ${ZDW_LOCAL_URL}"

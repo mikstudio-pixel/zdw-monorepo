@@ -10,9 +10,11 @@ final class FakeNavigationStore implements NavigationStore
 {
     public bool $available = true;
     public bool $blueprintsResolvable = true;
+    public bool $legacyParentsResolvable = true;
     public bool $matching = false;
     public int $rebuilds = 0;
     public int $legacySponsorPageId = 0;
+    public bool $enabled = false;
 
     public function isAvailable(): bool
     {
@@ -24,6 +26,11 @@ final class FakeNavigationStore implements NavigationStore
         return $this->blueprintsResolvable;
     }
 
+    public function legacyParentsResolvable(): bool
+    {
+        return $this->legacyParentsResolvable;
+    }
+
     public function rebuildTwoTierMenus(): void
     {
         ++$this->rebuilds;
@@ -32,11 +39,16 @@ final class FakeNavigationStore implements NavigationStore
     public function ensureLegacySponsorItem(int $sponsorPageId): void
     {
         $this->legacySponsorPageId = $sponsorPageId;
+    }
+
+    public function enableTwoTierNavigation(): void
+    {
+        $this->enabled = true;
         $this->matching = true;
     }
 
     public function matchesDesiredNavigation(int $sponsorPageId): bool
     {
-        return $this->matching && $this->legacySponsorPageId === $sponsorPageId;
+        return $this->enabled && $this->matching && $this->legacySponsorPageId === $sponsorPageId;
     }
 }

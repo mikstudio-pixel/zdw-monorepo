@@ -23,6 +23,32 @@ final class WordPressNavigationStore implements NavigationStore
         return $this->isAvailable() && zdw_two_tier_menu_blueprints_resolvable();
     }
 
+    public function legacyParentsResolvable(): bool
+    {
+        foreach ($this->legacyMenus() as $definition) {
+            $menu = wp_get_nav_menu_object($definition['menu']);
+            $parentPageId = $this->pageIdBySlug($definition['parentSlug']);
+            if (!$menu || 0 === $parentPageId) {
+                return false;
+            }
+
+            $found = false;
+            foreach ((array) wp_get_nav_menu_items((int) $menu->term_id) as $item) {
+                if ('page' === $item->object
+                    && $parentPageId === (int) $item->object_id
+                    && 0 === (int) $item->menu_item_parent) {
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public function rebuildTwoTierMenus(): void
     {
         if (!$this->isAvailable()) {
@@ -43,6 +69,16 @@ final class WordPressNavigationStore implements NavigationStore
                 $definition['title'],
                 $sponsorPageId
             );
+        }
+    }
+
+    public function enableTwoTierNavigation(): void
+    {
+        if (!update_option('zdw_two_tier_menu_enabled', '1')) {
+            $stored = get_option('zdw_two_tier_menu_enabled', null);
+            if ('1' !== (string) $stored) {
+                throw new RuntimeException('Víceúrovňovou navigaci se nepodařilo zapnout.');
+            }
         }
     }
 
@@ -94,7 +130,7 @@ final class WordPressNavigationStore implements NavigationStore
 
     public function matchesDesiredNavigation(int $sponsorPageId): bool
     {
-        if (!$this->isAvailable()) {
+        if (!$this->isAvailable() || '1' !== (string) get_option('zdw_two_tier_menu_enabled', '0')) {
             return false;
         }
 

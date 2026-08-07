@@ -55,6 +55,7 @@ final class NavigationMigration implements Migration
 
         $this->navigation->rebuildTwoTierMenus();
         $this->navigation->ensureLegacySponsorItem($sponsorPageId);
+        $this->navigation->enableTwoTierNavigation();
     }
 
     public function verify(): array
@@ -85,11 +86,19 @@ final class NavigationMigration implements Migration
                 'navigation.api',
                 'API pluginu ZDW Multi-level Header není dostupné.'
             );
-        } elseif (!$this->navigation->blueprintsResolvable()) {
-            $checks[] = PreflightCheck::blocker(
-                'navigation.targets',
-                'Některé cílové stránky víceúrovňové navigace neexistují nebo nejsou publikované.'
-            );
+        } else {
+            if (!$this->navigation->blueprintsResolvable()) {
+                $checks[] = PreflightCheck::blocker(
+                    'navigation.targets',
+                    'Některé cílové stránky víceúrovňové navigace neexistují nebo nejsou publikované.'
+                );
+            }
+            if (!$this->navigation->legacyParentsResolvable()) {
+                $checks[] = PreflightCheck::blocker(
+                    'navigation.legacy_parents',
+                    'V původních menu chybí očekávané nadřazené položky sekce Festival.'
+                );
+            }
         }
 
         return $checks;

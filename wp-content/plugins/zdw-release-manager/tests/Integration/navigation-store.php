@@ -20,6 +20,9 @@ if (!$store->isAvailable()) {
 if (!$store->blueprintsResolvable()) {
     throw new RuntimeException('Navigation blueprint contains an unavailable target.');
 }
+if (!$store->legacyParentsResolvable()) {
+    throw new RuntimeException('Legacy navigation parents are unavailable.');
+}
 if (!$store->matchesDesiredNavigation((int) $sponsorPage->ID)) {
     throw new RuntimeException('Navigation does not match its blueprint.');
 }

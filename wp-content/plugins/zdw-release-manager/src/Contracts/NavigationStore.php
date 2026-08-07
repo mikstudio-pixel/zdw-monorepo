@@ -10,9 +10,13 @@ interface NavigationStore
 
     public function blueprintsResolvable(): bool;
 
+    public function legacyParentsResolvable(): bool;
+
     public function rebuildTwoTierMenus(): void;
 
     public function ensureLegacySponsorItem(int $sponsorPageId): void;
+
+    public function enableTwoTierNavigation(): void;
 
     public function matchesDesiredNavigation(int $sponsorPageId): bool;
 }

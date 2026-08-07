@@ -265,6 +265,123 @@ function zdw_two_tier_menu_insert_blueprint_item( $menu_id, $item, $parent_id = 
 }
 
 /**
+ * Capture enough data to reconstruct a menu and its hierarchy.
+ *
+ * @param int $menu_id Menu term ID.
+ * @return array<int, array<string, mixed>>
+ */
+function zdw_two_tier_menu_snapshot_items( $menu_id ) {
+	$snapshot = array();
+	foreach ( (array) wp_get_nav_menu_items( $menu_id ) as $item ) {
+		$snapshot[] = array(
+			'original_id' => (int) $item->ID,
+			'title'       => (string) $item->title,
+			'description' => (string) $item->description,
+			'attr_title'  => (string) $item->attr_title,
+			'target'      => (string) $item->target,
+			'classes'     => is_array( $item->classes ) ? implode( ' ', $item->classes ) : (string) $item->classes,
+			'xfn'         => (string) $item->xfn,
+			'url'         => (string) $item->url,
+			'status'      => (string) $item->post_status,
+			'type'        => (string) $item->type,
+			'object'      => (string) $item->object,
+			'object_id'   => (int) $item->object_id,
+			'parent_id'   => (int) $item->menu_item_parent,
+			'position'    => (int) $item->menu_order,
+		);
+	}
+
+	return $snapshot;
+}
+
+/**
+ * Convert one snapshot row to wp_update_nav_menu_item() arguments.
+ *
+ * @param array<string, mixed> $item Snapshot row.
+ * @param int                  $parent_id Restored parent item ID.
+ * @return array<string, mixed>
+ */
+function zdw_two_tier_menu_snapshot_item_args( $item, $parent_id ) {
+	return array(
+		'menu-item-title'       => (string) $item['title'],
+		'menu-item-description' => (string) $item['description'],
+		'menu-item-attr-title'  => (string) $item['attr_title'],
+		'menu-item-target'      => (string) $item['target'],
+		'menu-item-classes'     => (string) $item['classes'],
+		'menu-item-xfn'         => (string) $item['xfn'],
+		'menu-item-url'         => (string) $item['url'],
+		'menu-item-status'      => (string) $item['status'],
+		'menu-item-type'        => (string) $item['type'],
+		'menu-item-object'      => (string) $item['object'],
+		'menu-item-object-id'   => (int) $item['object_id'],
+		'menu-item-parent-id'   => $parent_id,
+		'menu-item-position'    => (int) $item['position'],
+	);
+}
+
+/**
+ * Remove every item from one menu.
+ *
+ * @param int $menu_id Menu term ID.
+ * @return bool
+ */
+function zdw_two_tier_menu_clear_items( $menu_id ) {
+	foreach ( (array) wp_get_nav_menu_items( $menu_id ) as $item ) {
+		if ( ! wp_delete_post( $item->ID, true ) ) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+/**
+ * Restore a snapshot after a failed replacement.
+ *
+ * @param int                             $menu_id Menu term ID.
+ * @param array<int, array<string, mixed>> $snapshot Original items.
+ * @return bool
+ */
+function zdw_two_tier_menu_restore_items( $menu_id, $snapshot ) {
+	if ( ! zdw_two_tier_menu_clear_items( $menu_id ) ) {
+		return false;
+	}
+
+	$restored_ids = array();
+	foreach ( $snapshot as $item ) {
+		$result = wp_update_nav_menu_item(
+			$menu_id,
+			0,
+			zdw_two_tier_menu_snapshot_item_args( $item, 0 )
+		);
+		if ( is_wp_error( $result ) || ! $result ) {
+			return false;
+		}
+		$restored_ids[ (int) $item['original_id'] ] = (int) $result;
+	}
+
+	foreach ( $snapshot as $item ) {
+		$original_parent = (int) $item['parent_id'];
+		if ( 0 === $original_parent ) {
+			continue;
+		}
+		if ( ! isset( $restored_ids[ $original_parent ], $restored_ids[ (int) $item['original_id'] ] ) ) {
+			return false;
+		}
+		$result = wp_update_nav_menu_item(
+			$menu_id,
+			$restored_ids[ (int) $item['original_id'] ],
+			zdw_two_tier_menu_snapshot_item_args( $item, $restored_ids[ $original_parent ] )
+		);
+		if ( is_wp_error( $result ) || ! $result ) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+/**
  * Create the four editable menus, optionally replacing their seeded content.
  *
  * @param bool $replace Whether existing items should be replaced.
@@ -277,29 +394,61 @@ function zdw_two_tier_menu_install_menus( $replace = false ) {
 		return false;
 	}
 
+	$menus = array();
 	foreach ( $names as $row => $languages ) {
 		foreach ( $languages as $language => $name ) {
-			$menu    = wp_get_nav_menu_object( $name );
-			$menu_id = $menu ? (int) $menu->term_id : (int) wp_create_nav_menu( $name );
-			$items   = wp_get_nav_menu_items( $menu_id );
-
-			if ( $replace ) {
-				foreach ( (array) $items as $item ) {
-					wp_delete_post( $item->ID, true );
+			$menu = wp_get_nav_menu_object( $name );
+			if ( $menu ) {
+				$menu_id = (int) $menu->term_id;
+			} else {
+				$created = wp_create_nav_menu( $name );
+				if ( is_wp_error( $created ) || ! $created ) {
+					return false;
 				}
-			} elseif ( ! empty( $items ) ) {
+				$menu_id = (int) $created;
+			}
+			$menus[] = array(
+				'id'        => $menu_id,
+				'blueprint' => $blueprints[ $row ][ $language ],
+				'snapshot'  => zdw_two_tier_menu_snapshot_items( $menu_id ),
+			);
+		}
+	}
+
+	if ( ! $replace ) {
+		foreach ( $menus as $menu ) {
+			if ( ! empty( $menu['snapshot'] ) ) {
 				continue;
 			}
-
-			if ( ! isset( $blueprints[ $row ][ $language ] ) || ! is_array( $blueprints[ $row ][ $language ] ) ) {
-				continue;
-			}
-
-			foreach ( $blueprints[ $row ][ $language ] as $item ) {
-				if ( ! zdw_two_tier_menu_insert_blueprint_item( $menu_id, $item ) ) {
+			foreach ( $menu['blueprint'] as $item ) {
+				if ( ! zdw_two_tier_menu_insert_blueprint_item( $menu['id'], $item ) ) {
 					return false;
 				}
 			}
+		}
+
+		return true;
+	}
+
+	$affected = array();
+	foreach ( $menus as $menu ) {
+		$affected[] = $menu;
+		$success    = zdw_two_tier_menu_clear_items( $menu['id'] );
+		if ( $success ) {
+			foreach ( $menu['blueprint'] as $item ) {
+				if ( ! zdw_two_tier_menu_insert_blueprint_item( $menu['id'], $item ) ) {
+					$success = false;
+					break;
+				}
+			}
+		}
+
+		if ( ! $success ) {
+			foreach ( $affected as $affected_menu ) {
+				zdw_two_tier_menu_restore_items( $affected_menu['id'], $affected_menu['snapshot'] );
+			}
+
+			return false;
 		}
 	}
 
@@ -310,14 +459,19 @@ function zdw_two_tier_menu_install_menus( $replace = false ) {
  * Install defaults for a fresh activation.
  */
 function zdw_two_tier_menu_activate() {
-	zdw_two_tier_menu_install_menus();
-	add_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1' );
+	$installed = zdw_two_tier_menu_install_menus();
+	if ( $installed ) {
+		add_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1' );
+		add_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, ZDW_TWO_TIER_MENU_DB_VERSION );
+	} else {
+		update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0' );
+		delete_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION );
+	}
 	add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_ENABLED, '1' );
 	add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_TEXT_CS, "SEE YOU IN MAY '27⭐" );
 	add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_TEXT_EN, "SEE YOU IN MAY '27⭐" );
 	add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_URL_CS, '' );
 	add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_URL_EN, '' );
-	add_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, ZDW_TWO_TIER_MENU_DB_VERSION );
 }
 register_activation_hook( __FILE__, 'zdw_two_tier_menu_activate' );
 
@@ -404,7 +558,11 @@ function zdw_two_tier_menu_upgrade() {
 			return;
 		}
 
-		zdw_two_tier_menu_install_menus();
+		if ( ! zdw_two_tier_menu_install_menus() ) {
+			update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0' );
+
+			return;
+		}
 		add_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1' );
 		add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_ENABLED, '1' );
 		add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_TEXT_CS, "SEE YOU IN MAY '27⭐" );

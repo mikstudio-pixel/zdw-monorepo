@@ -76,7 +76,6 @@ final class Plugin
                     'zdw_intro_overlay_opacity' => '30',
                     'zdw_intro_overlay_blend_mode' => 'multiply',
                     'zdw_intro_plain_title' => '1',
-                    'zdw_two_tier_menu_enabled' => '1',
                     'zdw_two_tier_menu_notice_enabled' => '1',
                     'zdw_two_tier_menu_notice_text_cs' => "SEE YOU IN MAY '27⭐",
                     'zdw_two_tier_menu_notice_text_en' => "SEE YOU IN MAY '27⭐",
