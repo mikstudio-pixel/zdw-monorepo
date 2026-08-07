@@ -58,4 +58,10 @@ final class SpyMigration implements Migration
 
         return $this->verificationChecks;
     }
+
+    /** @param list<PreflightCheck> $checks */
+    public function setVerification(array $checks): void
+    {
+        $this->verificationChecks = $checks;
+    }
 }

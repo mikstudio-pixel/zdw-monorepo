@@ -15,7 +15,8 @@ verze 6.8.6 uvedené v hlavičce exportu není v oficiálním registru dostupný
 ## Spuštění
 
 1. Spusťte Docker Desktop.
-2. Volitelně zkopírujte `.env.example` jako `.env` a změňte lokální heslo.
+2. Zkopírujte `.env.example` jako `.env`, nastavte `ZDW_SQL_DUMP` na lokální
+   SQL.gz export a změňte lokální heslo.
 3. Spusťte:
 
    ```sh

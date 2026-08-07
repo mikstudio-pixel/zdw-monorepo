@@ -82,11 +82,20 @@ final class MigrationRunner
             );
         }
 
+        if (!$this->stateStore->claim($migrationId)) {
+            return new RunResult(
+                RunResult::SKIPPED,
+                'Migraci právě provádí jiný požadavek nebo už byla aplikována.'
+            );
+        }
+
         try {
             $migration->apply();
             $verification = $migration->verify();
 
             if ($this->hasBlocker($verification)) {
+                $this->stateStore->release($migrationId);
+
                 return new RunResult(
                     RunResult::FAILED,
                     'Závěrečné ověření migrace selhalo.',
@@ -96,6 +105,8 @@ final class MigrationRunner
 
             $this->stateStore->markApplied($migrationId);
         } catch (Throwable $error) {
+            $this->stateStore->release($migrationId);
+
             return new RunResult(RunResult::FAILED, $error->getMessage());
         }
 

@@ -15,6 +15,7 @@ const ZDW_TWO_TIER_MENU_OPTION_NOTICE_TEXT_EN = 'zdw_two_tier_menu_notice_text_e
 const ZDW_TWO_TIER_MENU_OPTION_NOTICE_URL_CS  = 'zdw_two_tier_menu_notice_url_cs';
 const ZDW_TWO_TIER_MENU_OPTION_NOTICE_URL_EN  = 'zdw_two_tier_menu_notice_url_en';
 const ZDW_TWO_TIER_MENU_OPTION_DB_VERSION     = 'zdw_two_tier_menu_db_version';
+const ZDW_TWO_TIER_MENU_OPTION_UPGRADE_LOCK   = 'zdw_two_tier_menu_upgrade_lock';
 const ZDW_TWO_TIER_MENU_DB_VERSION            = '0.2.1';
 
 /**
@@ -144,7 +145,7 @@ function zdw_two_tier_menu_blueprints() {
 					array( 'page' => 21738, 'title' => 'Jury 2026' ),
 					array( 'page' => 44083, 'title' => 'Finalists 2026' ),
 					array( 'page' => 29580, 'title' => 'FAQ' ),
-					array( 'path' => '/best-in-design-rocniky/', 'title' => 'Previous years' ),
+					array( 'path' => '/en/best-in-design/minule-rocniky/', 'title' => 'Previous years' ),
 					array( 'page' => 1013, 'title' => 'Contact' ),
 				) ),
 				array( 'page' => 12192, 'title' => 'Design CANTEEN' ),
@@ -168,8 +169,10 @@ function zdw_two_tier_menu_insert_blueprint_item( $menu_id, $item, $parent_id = 
 			$page_id = $page instanceof WP_Post ? (int) $page->ID : 0;
 		}
 		$item_id = zdw_two_tier_menu_add_page( $menu_id, $page_id, (string) $item['title'], $parent_id );
-	} else {
+	} elseif ( isset( $item['path'], $item['title'] ) ) {
 		$item_id = zdw_two_tier_menu_add_url( $menu_id, (string) $item['title'], home_url( (string) $item['path'] ), $parent_id );
+	} else {
+		return;
 	}
 
 	if ( ! $item_id || empty( $item['children'] ) ) {
@@ -204,6 +207,10 @@ function zdw_two_tier_menu_install_menus( $replace = false ) {
 				continue;
 			}
 
+			if ( ! isset( $blueprints[ $row ][ $language ] ) || ! is_array( $blueprints[ $row ][ $language ] ) ) {
+				continue;
+			}
+
 			foreach ( $blueprints[ $row ][ $language ] as $item ) {
 				zdw_two_tier_menu_insert_blueprint_item( $menu_id, $item );
 			}
@@ -234,14 +241,26 @@ function zdw_two_tier_menu_upgrade() {
 		return;
 	}
 
-	zdw_two_tier_menu_install_menus( true );
-	update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1' );
-	update_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_ENABLED, '1' );
-	update_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_TEXT_CS, "SEE YOU IN MAY '27⭐" );
-	update_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_TEXT_EN, "SEE YOU IN MAY '27⭐" );
-	update_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_URL_CS, '' );
-	update_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_URL_EN, '' );
-	update_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, ZDW_TWO_TIER_MENU_DB_VERSION );
+	if ( ! add_option( ZDW_TWO_TIER_MENU_OPTION_UPGRADE_LOCK, time(), '', false ) ) {
+		return;
+	}
+
+	try {
+		if ( ZDW_TWO_TIER_MENU_DB_VERSION === get_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION ) ) {
+			return;
+		}
+
+		zdw_two_tier_menu_install_menus();
+		add_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1' );
+		add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_ENABLED, '1' );
+		add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_TEXT_CS, "SEE YOU IN MAY '27⭐" );
+		add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_TEXT_EN, "SEE YOU IN MAY '27⭐" );
+		add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_URL_CS, '' );
+		add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_URL_EN, '' );
+		update_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, ZDW_TWO_TIER_MENU_DB_VERSION );
+	} finally {
+		delete_option( ZDW_TWO_TIER_MENU_OPTION_UPGRADE_LOCK );
+	}
 }
 add_action( 'init', 'zdw_two_tier_menu_upgrade', 5 );
 
@@ -577,7 +596,7 @@ function zdw_two_tier_menu_showcase_assets() {
 		'zdw-homepage-showcase',
 		plugins_url( 'assets/showcase.css', __FILE__ ),
 		array(),
-		(string) filemtime( $path )
+		file_exists( $path ) ? (string) filemtime( $path ) : ZDW_TWO_TIER_MENU_DB_VERSION
 	);
 }
 add_action( 'wp_enqueue_scripts', 'zdw_two_tier_menu_showcase_assets', 31 );
@@ -591,17 +610,19 @@ function zdw_two_tier_menu_assets() {
 	}
 
 	$asset_dir = __DIR__ . '/assets';
+	$menu_css  = $asset_dir . '/menu.css';
+	$menu_js   = $asset_dir . '/menu.js';
 	wp_enqueue_style(
 		'zdw-two-tier-menu',
 		plugins_url( 'assets/menu.css', __FILE__ ),
 		array(),
-		(string) filemtime( $asset_dir . '/menu.css' )
+		file_exists( $menu_css ) ? (string) filemtime( $menu_css ) : ZDW_TWO_TIER_MENU_DB_VERSION
 	);
 	wp_enqueue_script(
 		'zdw-two-tier-menu',
 		plugins_url( 'assets/menu.js', __FILE__ ),
 		array(),
-		(string) filemtime( $asset_dir . '/menu.js' ),
+		file_exists( $menu_js ) ? (string) filemtime( $menu_js ) : ZDW_TWO_TIER_MENU_DB_VERSION,
 		true
 	);
 }

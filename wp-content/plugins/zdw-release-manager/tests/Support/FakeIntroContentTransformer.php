@@ -9,6 +9,8 @@ use ZDW\ReleaseManager\Domain\MediaAsset;
 
 final class FakeIntroContentTransformer implements IntroContentTransformer
 {
+    public bool $alwaysMismatch = false;
+
     public function desiredPageContent(string $content, MediaAsset $video, MediaAsset $poster): string
     {
         $suffix = sprintf('|intro:%d:%d', $video->id(), $poster->id());
@@ -18,6 +20,6 @@ final class FakeIntroContentTransformer implements IntroContentTransformer
 
     public function equivalent(string $first, string $second): bool
     {
-        return $first === $second;
+        return !$this->alwaysMismatch && $first === $second;
     }
 }

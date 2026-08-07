@@ -22,7 +22,7 @@ final class WordPressEnvironmentCollector
     {
         global $wp_version;
 
-        $themes = array_keys(wp_get_themes());
+        $themes = array_map('strval', array_keys(wp_get_themes()));
         $plugins = (array) get_option('active_plugins', []);
 
         if (is_multisite()) {
@@ -56,8 +56,8 @@ final class WordPressEnvironmentCollector
 
         return new EnvironmentSnapshot(
             PHP_VERSION,
-            (string) $wp_version,
-            get_stylesheet(),
+            function_exists('wp_get_wp_version') ? wp_get_wp_version() : (string) $wp_version,
+            (string) get_stylesheet(),
             array_values(array_unique($themes)),
             array_values(array_unique($plugins)),
             $pageCounts,

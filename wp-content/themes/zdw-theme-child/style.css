@@ -72,12 +72,12 @@ mark.has-light-color {
 }
 
 .footer.footer .footer-connect {
-	padding-bottom: 8rem;
+	padding-block: 8rem;
 }
 
 @media (min-width: 960px) {
 	.footer.footer .footer-connect {
-		padding-bottom: 10rem;
+		padding-block: 10rem;
 	}
 }
 
@@ -117,6 +117,7 @@ body.page-id-193 .wp-block-zdw-intro-effect {
 	--zdw-intro-overlay-blend-mode: multiply;
 	--zdw-intro-overlay-color: #000;
 	--zdw-intro-overlay-opacity: .3;
+
 	background-position: center;
 	background-repeat: no-repeat;
 	background-size: cover;

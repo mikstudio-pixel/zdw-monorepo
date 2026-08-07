@@ -92,6 +92,9 @@ final class RunnerTest extends TestCase
         self::assertSame(RunResult::FAILED, $result->status());
         self::assertStringContainsString('Simulated apply failure', $result->message());
         self::assertFalse($store->isApplied($migration->id()));
+
+        $migration->throwOnApply = false;
+        self::assertSame(RunResult::APPLIED, $runner->apply($migration->id())->status());
     }
 
     public function test_failed_verification_is_never_marked_applied(): void
@@ -109,6 +112,23 @@ final class RunnerTest extends TestCase
 
         self::assertSame(RunResult::FAILED, $result->status());
         self::assertFalse($store->isApplied($migration->id()));
+
+        $migration->setVerification([PreflightCheck::pass('audit.saved', 'Audit byl uložen.')]);
+        self::assertSame(RunResult::APPLIED, $runner->apply($migration->id())->status());
+    }
+
+    public function test_an_active_claim_prevents_a_concurrent_apply(): void
+    {
+        $migration = new SpyMigration('20260807_001_audit', 'Audit');
+        $store = new InMemoryStateStore();
+        self::assertTrue($store->claim($migration->id()));
+        $runner = new MigrationRunner(new MigrationRegistry([$migration]), $store);
+
+        $result = $runner->apply($migration->id());
+
+        self::assertSame(RunResult::SKIPPED, $result->status());
+        self::assertSame(0, $migration->applyCalls);
+        self::assertStringContainsString('jiný požadavek', $result->message());
     }
 
     public function test_unknown_migration_id_is_reported_without_throwing(): void
@@ -118,6 +138,6 @@ final class RunnerTest extends TestCase
         $result = $runner->apply('20260807_999_unknown');
 
         self::assertSame(RunResult::FAILED, $result->status());
-        self::assertStringContainsString('Unknown migration', $result->message());
+        self::assertStringContainsString('Neznámá migrace', $result->message());
     }
 }

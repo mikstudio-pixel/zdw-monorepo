@@ -28,17 +28,17 @@ add_action( 'add_meta_boxes_page', 'zdw_sponsors_block_remove_legacy_home_metabo
  */
 function zdw_sponsors_block_sections() {
 	return array(
-		'poradatele'                           => array( 'title' => 'organiser', 'size' => 'large' ),
-		'festival_vznika_za_podpory'           => array( 'title' => 'festival-supporters', 'size' => 'large' ),
-		'hlavni_partner'                       => array( 'title' => 'main-partner', 'size' => 'default' ),
-		'generalni_medialni_partner'           => array( 'title' => 'general-media-partner', 'size' => 'default' ),
-		'hlavni_medialni_partneri'             => array( 'title' => 'main-media-partners', 'size' => 'default' ),
-		'oficialni_vuz_festivalu'              => array( 'title' => 'official-festival-car', 'size' => 'default' ),
-		'oficialni_hotel_festivalu'            => array( 'title' => 'official-festival-hotel', 'size' => 'default' ),
-		'hlavni_napoj_festivalu'               => array( 'title' => 'main-festival-drink', 'size' => 'default' ),
-		'partneri'                             => array( 'title' => 'partners', 'size' => 'default' ),
-		'medialni_partneri'                    => array( 'title' => 'media-partners', 'size' => 'default' ),
-		'garanti_a_partneri_best_in_design'    => array( 'title' => 'guarantors-and-partners-best-in-design', 'size' => 'default' ),
+		'poradatele'                        => array( 'title' => 'organiser', 'editorTitle' => 'Pořadatelé', 'size' => 'large' ),
+		'festival_vznika_za_podpory'        => array( 'title' => 'festival-supporters', 'editorTitle' => 'Festival vzniká za finanční podpory', 'size' => 'large' ),
+		'hlavni_partner'                    => array( 'title' => 'main-partner', 'editorTitle' => 'Hlavní partner', 'size' => 'default' ),
+		'generalni_medialni_partner'        => array( 'title' => 'general-media-partner', 'editorTitle' => 'Generální mediální partner', 'size' => 'default' ),
+		'hlavni_medialni_partneri'          => array( 'title' => 'main-media-partners', 'editorTitle' => 'Hlavní mediální partneři', 'size' => 'default' ),
+		'oficialni_vuz_festivalu'           => array( 'title' => 'official-festival-car', 'editorTitle' => 'Oficiální vůz festivalu', 'size' => 'default' ),
+		'oficialni_hotel_festivalu'         => array( 'title' => 'official-festival-hotel', 'editorTitle' => 'Oficiální hotel festivalu', 'size' => 'default' ),
+		'hlavni_napoj_festivalu'            => array( 'title' => 'main-festival-drink', 'editorTitle' => 'Hlavní nápoj festivalu', 'size' => 'default' ),
+		'partneri'                          => array( 'title' => 'partners', 'editorTitle' => 'Partneři', 'size' => 'default' ),
+		'medialni_partneri'                 => array( 'title' => 'media-partners', 'editorTitle' => 'Mediální partneři', 'size' => 'default' ),
+		'garanti_a_partneri_best_in_design' => array( 'title' => 'guarantors-and-partners-best-in-design', 'editorTitle' => 'Garanti a partneři Best in Design', 'size' => 'default' ),
 	);
 }
 
@@ -104,7 +104,8 @@ function zdw_sponsors_block_render( $attributes ) {
 		foreach ( array_filter( $image_ids ) as $attachment_id ) {
 			$language = (string) zdw_sponsors_block_attachment_field( 'jazyky', $attachment_id );
 
-			if ( ( 'cs' === $language && 'cs' !== $current_language ) || ( 'en' === $language && 'en' !== $current_language ) ) {
+			if ( in_array( $current_language, array( 'cs', 'en' ), true )
+				&& ( ( 'cs' === $language && 'cs' !== $current_language ) || ( 'en' === $language && 'en' !== $current_language ) ) ) {
 				continue;
 			}
 
@@ -168,27 +169,40 @@ function zdw_sponsors_block_render( $attributes ) {
 
 function zdw_sponsors_block_register() {
 	$block_dir = __DIR__ . '/block';
+	$editor_js = $block_dir . '/editor.js';
+	$style_css = $block_dir . '/style.css';
+	$editor_css = $block_dir . '/editor.css';
 
 	wp_register_script(
 		'zdw-sponsors-block-editor',
 		plugins_url( 'block/editor.js', __FILE__ ),
 		array( 'wp-blocks', 'wp-block-editor', 'wp-components', 'wp-data', 'wp-element' ),
-		(string) filemtime( $block_dir . '/editor.js' ),
+		file_exists( $editor_js ) ? (string) filemtime( $editor_js ) : '1.2.0',
 		true
+	);
+
+	$editor_sections = array();
+	foreach ( zdw_sponsors_block_sections() as $key => $section ) {
+		$editor_sections[] = array( $key, $section['editorTitle'] );
+	}
+	wp_localize_script(
+		'zdw-sponsors-block-editor',
+		'zdwSponsorsBlockConfig',
+		array( 'sections' => $editor_sections )
 	);
 
 	wp_register_style(
 		'zdw-sponsors-block',
 		plugins_url( 'block/style.css', __FILE__ ),
 		array(),
-		(string) filemtime( $block_dir . '/style.css' )
+		file_exists( $style_css ) ? (string) filemtime( $style_css ) : '1.2.0'
 	);
 
 	wp_register_style(
 		'zdw-sponsors-block-editor',
 		plugins_url( 'block/editor.css', __FILE__ ),
 		array(),
-		(string) filemtime( $block_dir . '/editor.css' )
+		file_exists( $editor_css ) ? (string) filemtime( $editor_css ) : '1.2.0'
 	);
 
 	register_block_type(
@@ -214,3 +228,22 @@ function zdw_sponsors_block_register() {
 	);
 }
 add_action( 'init', 'zdw_sponsors_block_register' );
+
+/**
+ * Register a shared inserter category for ZDW blocks.
+ *
+ * @param array<int, array<string, string>> $categories Existing categories.
+ * @return array<int, array<string, string>>
+ */
+function zdw_sponsors_block_categories( $categories ) {
+	foreach ( $categories as $category ) {
+		if ( 'zdw' === ( $category['slug'] ?? '' ) ) {
+			return $categories;
+		}
+	}
+
+	$categories[] = array( 'slug' => 'zdw', 'title' => 'ZDW' );
+
+	return $categories;
+}
+add_filter( 'block_categories_all', 'zdw_sponsors_block_categories' );

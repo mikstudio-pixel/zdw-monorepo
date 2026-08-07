@@ -11,12 +11,14 @@ use ZDW\ReleaseManager\Contracts\MediaStore;
 use ZDW\ReleaseManager\Contracts\Migration;
 use ZDW\ReleaseManager\Contracts\PostStore;
 use ZDW\ReleaseManager\Domain\MediaAsset;
+use ZDW\ReleaseManager\Domain\PostRecord;
 use ZDW\ReleaseManager\Domain\PreflightCheck;
 
 final class HomepageIntroMigration implements Migration
 {
     private const VIDEO_FILENAME = 'zdw-bg-trimmed-30-muted.mp4';
     private const POSTER_ID = 35610;
+    private const POSTER_FILENAME = '16-zdw-tag-jiri-edit-1-2.jpg';
 
     public function __construct(
         private readonly PostStore $posts,
@@ -37,13 +39,14 @@ final class HomepageIntroMigration implements Migration
 
     public function preflight(): array
     {
-        $checks = $this->blockingChecks();
+        [$post, $videos, $poster] = $this->resolvedTargets();
+        $checks = $this->blockingChecks($post, $videos, $poster);
         if ([] !== $checks) {
             return $checks;
         }
 
         try {
-            [$post, $video, $poster] = $this->targets();
+            [$post, $video, $poster] = $this->targets($post, $videos, $poster);
             $desired = $this->transformer->desiredPageContent($post->content(), $video, $poster);
         } catch (Throwable $error) {
             return [PreflightCheck::blocker('intro.transform', $error->getMessage())];
@@ -56,11 +59,12 @@ final class HomepageIntroMigration implements Migration
 
     public function apply(): void
     {
-        if ([] !== $this->blockingChecks()) {
+        [$post, $videos, $poster] = $this->resolvedTargets();
+        if ([] !== $this->blockingChecks($post, $videos, $poster)) {
             throw new RuntimeException('Nelze bezpečně migrovat úvodní blok homepage.');
         }
 
-        [$post, $video, $poster] = $this->targets();
+        [$post, $video, $poster] = $this->targets($post, $videos, $poster);
         $desired = $this->transformer->desiredPageContent($post->content(), $video, $poster);
         if (!$this->transformer->equivalent($post->content(), $desired)) {
             $this->posts->updateContent($post->id(), $desired);
@@ -69,13 +73,14 @@ final class HomepageIntroMigration implements Migration
 
     public function verify(): array
     {
-        $checks = $this->blockingChecks();
+        [$post, $videos, $poster] = $this->resolvedTargets();
+        $checks = $this->blockingChecks($post, $videos, $poster);
         if ([] !== $checks) {
             return $checks;
         }
 
         try {
-            [$post, $video, $poster] = $this->targets();
+            [$post, $video, $poster] = $this->targets($post, $videos, $poster);
             $desired = $this->transformer->desiredPageContent($post->content(), $video, $poster);
         } catch (Throwable $error) {
             return [PreflightCheck::blocker('intro.verify', $error->getMessage())];
@@ -87,10 +92,9 @@ final class HomepageIntroMigration implements Migration
     }
 
     /** @return list<PreflightCheck> */
-    private function blockingChecks(): array
+    private function blockingChecks(?PostRecord $post, array $videos, ?MediaAsset $poster): array
     {
         $checks = [];
-        $videos = $this->media->findByFilename(self::VIDEO_FILENAME);
         if ([] === $videos) {
             $checks[] = PreflightCheck::blocker(
                 'intro.video_missing',
@@ -103,11 +107,15 @@ final class HomepageIntroMigration implements Migration
             );
         }
 
-        if (!$this->media->find(self::POSTER_ID) instanceof MediaAsset) {
+        if (!$poster instanceof MediaAsset) {
             $checks[] = PreflightCheck::blocker('intro.poster_missing', sprintf('Chybí poster obrázek ID %d.', self::POSTER_ID));
+        } elseif (self::POSTER_FILENAME !== $this->filename($poster)) {
+            $checks[] = PreflightCheck::blocker(
+                'intro.poster_mismatch',
+                sprintf('Poster ID %d neodpovídá souboru %s.', self::POSTER_ID, self::POSTER_FILENAME)
+            );
         }
 
-        $post = $this->posts->find(2);
         if (null === $post || 'zdw' !== $post->slug()) {
             $checks[] = PreflightCheck::blocker('intro.homepage', 'Homepage ID 2 se slugem zdw nebyla nalezena.');
         }
@@ -116,15 +124,29 @@ final class HomepageIntroMigration implements Migration
     }
 
     /** @return array{0: \ZDW\ReleaseManager\Domain\PostRecord, 1: MediaAsset, 2: MediaAsset} */
-    private function targets(): array
+    private function targets(?PostRecord $post, array $videos, ?MediaAsset $poster): array
     {
-        $post = $this->posts->find(2);
-        $videos = $this->media->findByFilename(self::VIDEO_FILENAME);
-        $poster = $this->media->find(self::POSTER_ID);
         if (null === $post || 1 !== count($videos) || !$poster instanceof MediaAsset) {
             throw new RuntimeException('Cíle úvodní migrace nejsou jednoznačné.');
         }
 
         return [$post, $videos[0], $poster];
+    }
+
+    /** @return array{0: ?PostRecord, 1: list<MediaAsset>, 2: ?MediaAsset} */
+    private function resolvedTargets(): array
+    {
+        return [
+            $this->posts->find(2),
+            $this->media->findByFilename(self::VIDEO_FILENAME),
+            $this->media->find(self::POSTER_ID),
+        ];
+    }
+
+    private function filename(MediaAsset $asset): string
+    {
+        $path = parse_url($asset->url(), PHP_URL_PATH);
+
+        return is_string($path) ? rawurldecode(basename($path)) : '';
     }
 }

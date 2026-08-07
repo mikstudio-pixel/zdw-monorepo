@@ -12,8 +12,11 @@ final class InMemoryPageStore implements PageStore
     /** @var array<int, PostRecord> */
     private array $pages = [];
 
-    /** @var array<int, true> */
+    /** @var array<int, string> */
     private array $attachments = [];
+
+    /** @var array<int, string> */
+    private array $languages = [];
 
     /** @var list<int> */
     public array $writes = [];
@@ -21,15 +24,15 @@ final class InMemoryPageStore implements PageStore
     public ?int $languagePostId = null;
 
     /** @param list<PostRecord> $pages
-     *  @param list<int> $attachments
+     *  @param array<int, string> $attachments
      */
     public function __construct(array $pages = [], array $attachments = [])
     {
         foreach ($pages as $page) {
             $this->pages[$page->id()] = $page;
         }
-        foreach ($attachments as $attachmentId) {
-            $this->attachments[$attachmentId] = true;
+        foreach ($attachments as $attachmentId => $filename) {
+            $this->attachments[$attachmentId] = $filename;
         }
     }
 
@@ -65,10 +68,21 @@ final class InMemoryPageStore implements PageStore
     public function setLanguage(int $postId, string $language): void
     {
         $this->languagePostId = $postId;
+        $this->languages[$postId] = $language;
+    }
+
+    public function language(int $postId): ?string
+    {
+        return $this->languages[$postId] ?? null;
     }
 
     public function attachmentExists(int $attachmentId): bool
     {
         return isset($this->attachments[$attachmentId]);
+    }
+
+    public function attachmentFilename(int $attachmentId): ?string
+    {
+        return $this->attachments[$attachmentId] ?? null;
     }
 }

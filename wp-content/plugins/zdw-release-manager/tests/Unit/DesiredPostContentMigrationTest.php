@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ZDW\ReleaseManager\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use ZDW\ReleaseManager\Domain\PostRecord;
 use ZDW\ReleaseManager\Migrations\DesiredPostContentMigration;
 use ZDW\ReleaseManager\Tests\Support\InMemoryPostStore;
@@ -41,6 +42,20 @@ final class DesiredPostContentMigrationTest extends TestCase
 
         self::assertSame([17], $store->writes);
         self::assertSame('pass', $verification[0]->severity());
+    }
+
+    public function test_apply_rechecks_identity_before_writing(): void
+    {
+        $store = new InMemoryPostStore([new PostRecord(17, 'wrong-slug', 'old')]);
+        $migration = $this->migration($store);
+
+        $this->expectException(RuntimeException::class);
+
+        try {
+            $migration->apply();
+        } finally {
+            self::assertSame([], $store->writes);
+        }
     }
 
     private function migration(InMemoryPostStore $store): DesiredPostContentMigration

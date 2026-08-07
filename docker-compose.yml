@@ -15,7 +15,7 @@ services:
       - --max-allowed-packet=256M
     volumes:
       - db_data:/var/lib/mysql
-      - ./zlindesignweek-migrate-20260728110645.sql.gz:/docker-entrypoint-initdb.d/10-zdw.sql.gz:ro
+      - ${ZDW_SQL_DUMP:?Nastavte ZDW_SQL_DUMP na cestu k SQL.gz exportu v souboru .env}:/docker-entrypoint-initdb.d/10-zdw.sql.gz:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s

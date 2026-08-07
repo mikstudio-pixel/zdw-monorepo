@@ -10,7 +10,7 @@ use ZDW\ReleaseManager\Domain\PreflightCheck;
 
 final class DesiredOptionsMigration implements Migration
 {
-    /** @param array<string, mixed> $desiredValues */
+    /** @param array<string, scalar> $desiredValues */
     public function __construct(
         private readonly string $migrationId,
         private readonly string $migrationLabel,

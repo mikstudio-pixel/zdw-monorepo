@@ -28,16 +28,33 @@ final class WordPressNavigationStore implements NavigationStore
 
     public function ensureLegacySponsorItem(int $sponsorPageId): void
     {
-        $menu = wp_get_nav_menu_object('Header Menu');
+        foreach ($this->legacyMenus() as $definition) {
+            $this->ensureLegacyMenuItem(
+                $definition['menu'],
+                $definition['parentSlug'],
+                $definition['title'],
+                $sponsorPageId
+            );
+        }
+    }
+
+    private function ensureLegacyMenuItem(
+        string $menuName,
+        string $parentSlug,
+        string $title,
+        int $sponsorPageId
+    ): void {
+        $menu = wp_get_nav_menu_object($menuName);
         if (!$menu) {
-            throw new RuntimeException('Menu Header Menu nebylo nalezeno.');
+            throw new RuntimeException(sprintf('Menu %s nebylo nalezeno.', $menuName));
         }
 
+        $parentPageId = $this->pageIdBySlug($parentSlug);
         $items = (array) wp_get_nav_menu_items((int) $menu->term_id);
         $festivalParentId = 0;
         $sponsorItemId = 0;
         foreach ($items as $item) {
-            if ('page' === $item->object && 10204 === (int) $item->object_id && 0 === (int) $item->menu_item_parent) {
+            if ('page' === $item->object && $parentPageId === (int) $item->object_id && 0 === (int) $item->menu_item_parent) {
                 $festivalParentId = (int) $item->ID;
             }
             if ('page' === $item->object && $sponsorPageId === (int) $item->object_id) {
@@ -46,14 +63,14 @@ final class WordPressNavigationStore implements NavigationStore
         }
 
         if (0 === $festivalParentId) {
-            throw new RuntimeException('V menu Header Menu chybí nadřazená položka O festivalu.');
+            throw new RuntimeException(sprintf('V menu %s chybí nadřazená festivalová položka.', $menuName));
         }
 
         $result = wp_update_nav_menu_item(
             (int) $menu->term_id,
             $sponsorItemId,
             [
-                'menu-item-title' => 'Sponzoři',
+                'menu-item-title' => $title,
                 'menu-item-parent-id' => $festivalParentId,
                 'menu-item-object' => 'page',
                 'menu-item-object-id' => $sponsorPageId,
@@ -69,15 +86,28 @@ final class WordPressNavigationStore implements NavigationStore
 
     public function matchesDesiredNavigation(int $sponsorPageId): bool
     {
-        if (!$this->isAvailable() || !$this->legacySponsorItemMatches($sponsorPageId)) {
+        if (!$this->isAvailable()) {
             return false;
+        }
+
+        foreach ($this->legacyMenus() as $definition) {
+            if (!$this->legacySponsorItemMatches(
+                $definition['menu'],
+                $definition['parentSlug'],
+                $definition['title'],
+                $sponsorPageId
+            )) {
+                return false;
+            }
         }
 
         $names = zdw_two_tier_menu_names();
         $blueprints = zdw_two_tier_menu_blueprints();
         foreach ($names as $row => $languages) {
             foreach ($languages as $language => $name) {
-                if (!$this->menuMatchesBlueprint((string) $name, $blueprints[$row][$language])) {
+                if (!isset($blueprints[$row][$language])
+                    || !is_array($blueprints[$row][$language])
+                    || !$this->menuMatchesBlueprint((string) $name, $blueprints[$row][$language])) {
                     return false;
                 }
             }
@@ -86,9 +116,14 @@ final class WordPressNavigationStore implements NavigationStore
         return true;
     }
 
-    private function legacySponsorItemMatches(int $sponsorPageId): bool
+    private function legacySponsorItemMatches(
+        string $menuName,
+        string $parentSlug,
+        string $title,
+        int $sponsorPageId
+    ): bool
     {
-        $menu = wp_get_nav_menu_object('Header Menu');
+        $menu = wp_get_nav_menu_object($menuName);
         if (!$menu) {
             return false;
         }
@@ -105,7 +140,10 @@ final class WordPressNavigationStore implements NavigationStore
 
             $parent = $byId[(int) $item->menu_item_parent] ?? null;
 
-            return null !== $parent && 'page' === $parent->object && 10204 === (int) $parent->object_id;
+            return (string) $item->title === $title
+                && null !== $parent
+                && 'page' === $parent->object
+                && $this->pageIdBySlug($parentSlug) === (int) $parent->object_id;
         }
 
         return false;
@@ -180,6 +218,10 @@ final class WordPressNavigationStore implements NavigationStore
                 && $pageId === (int) $actual->object_id;
         }
 
+        if (!isset($definition['path'])) {
+            return false;
+        }
+
         $expectedUrl = home_url((string) $definition['path']);
 
         return 'custom' === (string) $actual->type
@@ -191,5 +233,14 @@ final class WordPressNavigationStore implements NavigationStore
         $page = get_page_by_path($slug, OBJECT, 'page');
 
         return $page instanceof WP_Post ? (int) $page->ID : 0;
+    }
+
+    /** @return list<array{menu: string, parentSlug: string, title: string}> */
+    private function legacyMenus(): array
+    {
+        return [
+            ['menu' => 'Header Menu', 'parentSlug' => 'o-festivalu', 'title' => 'Sponzoři'],
+            ['menu' => 'Header Menu EN', 'parentSlug' => 'about-the-festival-2', 'title' => 'Partners'],
+        ];
     }
 }

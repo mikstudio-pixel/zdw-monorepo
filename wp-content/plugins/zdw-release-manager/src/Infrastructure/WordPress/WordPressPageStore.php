@@ -14,7 +14,7 @@ final class WordPressPageStore implements PageStore
     public function find(int $postId): ?PostRecord
     {
         $post = get_post($postId);
-        if (!$post instanceof WP_Post || 'page' !== $post->post_type) {
+        if (!$post instanceof WP_Post || 'page' !== $post->post_type || 'publish' !== $post->post_status) {
             return null;
         }
 
@@ -23,6 +23,8 @@ final class WordPressPageStore implements PageStore
 
     public function updateContent(int $postId, string $content): void
     {
+        $this->assertUnfilteredHtmlCapability();
+
         $result = wp_update_post(['ID' => $postId, 'post_content' => wp_slash($content)], true);
         if (is_wp_error($result) || $postId !== (int) $result) {
             $message = is_wp_error($result) ? $result->get_error_message() : 'Neznámá chyba WordPressu.';
@@ -35,7 +37,7 @@ final class WordPressPageStore implements PageStore
         $ids = get_posts([
             'name' => $slug,
             'post_type' => 'page',
-            'post_status' => 'any',
+            'post_status' => 'publish',
             'numberposts' => -1,
             'fields' => 'ids',
             'suppress_filters' => true,
@@ -46,6 +48,8 @@ final class WordPressPageStore implements PageStore
 
     public function createPage(string $title, string $slug, string $content): int
     {
+        $this->assertUnfilteredHtmlCapability();
+
         $result = wp_insert_post([
             'post_type' => 'page',
             'post_status' => 'publish',
@@ -69,10 +73,41 @@ final class WordPressPageStore implements PageStore
         pll_set_post_language($postId, $language);
     }
 
+    public function language(int $postId): ?string
+    {
+        if (!function_exists('pll_get_post_language')) {
+            return null;
+        }
+
+        $language = pll_get_post_language($postId, 'slug');
+
+        return is_string($language) && '' !== $language ? $language : null;
+    }
+
     public function attachmentExists(int $attachmentId): bool
     {
         $post = get_post($attachmentId);
 
-        return $post instanceof WP_Post && 'attachment' === $post->post_type;
+        return $post instanceof WP_Post
+            && 'attachment' === $post->post_type
+            && 'inherit' === $post->post_status;
+    }
+
+    public function attachmentFilename(int $attachmentId): ?string
+    {
+        if (!$this->attachmentExists($attachmentId)) {
+            return null;
+        }
+
+        $path = get_attached_file($attachmentId);
+
+        return is_string($path) && '' !== $path ? basename($path) : null;
+    }
+
+    private function assertUnfilteredHtmlCapability(): void
+    {
+        if (!current_user_can('unfiltered_html')) {
+            throw new RuntimeException('Aktuální účet nemůže bezpečně uložit nefiltrovaný Gutenberg obsah.');
+        }
     }
 }

@@ -12,19 +12,9 @@
 	var RangeControl = wp.components.RangeControl;
 	var useSelect = wp.data.useSelect;
 
-	var sectionDefinitions = [
-		[ 'poradatele', 'Pořadatelé' ],
-		[ 'festival_vznika_za_podpory', 'Festival vzniká za finanční podpory' ],
-		[ 'hlavni_partner', 'Hlavní partner' ],
-		[ 'generalni_medialni_partner', 'Generální mediální partner' ],
-		[ 'hlavni_medialni_partneri', 'Hlavní mediální partneři' ],
-		[ 'oficialni_vuz_festivalu', 'Oficiální vůz festivalu' ],
-		[ 'oficialni_hotel_festivalu', 'Oficiální hotel festivalu' ],
-		[ 'hlavni_napoj_festivalu', 'Hlavní nápoj festivalu' ],
-		[ 'partneri', 'Partneři' ],
-		[ 'medialni_partneri', 'Mediální partneři' ],
-		[ 'garanti_a_partneri_best_in_design', 'Garanti a partneři Best in Design' ]
-	];
+	var sectionDefinitions = window.zdwSponsorsBlockConfig && Array.isArray( window.zdwSponsorsBlockConfig.sections )
+		? window.zdwSponsorsBlockConfig.sections
+		: [];
 
 	function LogoItem( props ) {
 		var item = useSelect( function ( select ) {

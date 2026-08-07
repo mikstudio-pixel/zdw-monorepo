@@ -15,13 +15,13 @@ final class WordPressMediaStore implements MediaStore
         $ids = get_posts([
             'post_type' => 'attachment',
             'post_status' => 'inherit',
-            'numberposts' => -1,
+            'numberposts' => 10,
             'fields' => 'ids',
             'suppress_filters' => true,
             'meta_query' => [[
                 'key' => '_wp_attached_file',
-                'value' => $filename,
-                'compare' => 'LIKE',
+                'value' => '(^|/)' . preg_quote($filename, '/') . '$',
+                'compare' => 'REGEXP',
             ]],
         ]);
         $assets = [];
@@ -43,7 +43,7 @@ final class WordPressMediaStore implements MediaStore
     public function find(int $attachmentId): ?MediaAsset
     {
         $post = get_post($attachmentId);
-        if (!$post instanceof WP_Post || 'attachment' !== $post->post_type) {
+        if (!$post instanceof WP_Post || 'attachment' !== $post->post_type || 'inherit' !== $post->post_status) {
             return null;
         }
 

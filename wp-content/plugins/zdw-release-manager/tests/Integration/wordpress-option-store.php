@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-require '/var/www/html/wp-load.php';
-require_once '/var/www/html/wp-content/plugins/zdw-release-manager/zdw-release-manager.php';
+$wordpressRoot = getenv('WP_ROOT') ?: '/var/www/html';
+require $wordpressRoot . '/wp-load.php';
+require_once dirname(__DIR__, 2) . '/zdw-release-manager.php';
 
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressOptionStore;
 

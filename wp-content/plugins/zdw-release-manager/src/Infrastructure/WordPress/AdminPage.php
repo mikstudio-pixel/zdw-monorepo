@@ -166,6 +166,10 @@ final class AdminPage
             esc_html($result->status()),
             esc_html($result->message())
         );
+
+        if ([] !== $result->checks()) {
+            $this->renderChecks($result->checks());
+        }
     }
 
     /** @param list<PreflightCheck> $checks */

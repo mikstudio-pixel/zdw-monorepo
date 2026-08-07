@@ -11,10 +11,10 @@ use ZDW\ReleaseManager\Domain\PreflightCheck;
 
 final class SponsorPageMigration implements Migration
 {
-    /** @param list<int> $attachmentIds */
+    /** @param array<int, string> $attachments */
     public function __construct(
         private readonly PageStore $store,
-        private readonly array $attachmentIds,
+        private readonly array $attachments,
         private readonly string $desiredContent
     ) {
     }
@@ -43,7 +43,9 @@ final class SponsorPageMigration implements Migration
 
         $page = $this->store->find($pageIds[0]);
 
-        return null !== $page && $page->content() === $this->desiredContent
+        return null !== $page
+            && $page->content() === $this->desiredContent
+            && 'cs' === $this->store->language($page->id())
             ? [PreflightCheck::pass('sponsors.ready', 'Stránka Sponzoři už odpovídá této verzi.')]
             : [PreflightCheck::warning('sponsors.update', 'Bude aktualizován obsah stránky Sponzoři.')];
     }
@@ -69,6 +71,9 @@ final class SponsorPageMigration implements Migration
         if ($page->content() !== $this->desiredContent) {
             $this->store->updateContent($page->id(), $this->desiredContent);
         }
+        if ('cs' !== $this->store->language($page->id())) {
+            $this->store->setLanguage($page->id(), 'cs');
+        }
     }
 
     public function verify(): array
@@ -87,6 +92,9 @@ final class SponsorPageMigration implements Migration
         if (null === $page || $page->content() !== $this->desiredContent) {
             return [PreflightCheck::blocker('sponsors.content', 'Obsah stránky Sponzoři neodpovídá migraci.')];
         }
+        if ('cs' !== $this->store->language($page->id())) {
+            return [PreflightCheck::blocker('sponsors.language', 'Stránka Sponzoři není přiřazena k češtině.')];
+        }
 
         return [PreflightCheck::pass('sponsors.saved', 'Stránka Sponzoři byla ověřena.')];
     }
@@ -95,14 +103,22 @@ final class SponsorPageMigration implements Migration
     private function blockingChecks(): array
     {
         $checks = [];
-        $missingAttachments = array_values(array_filter(
-            $this->attachmentIds,
-            fn (int $attachmentId): bool => !$this->store->attachmentExists($attachmentId)
-        ));
-        if ([] !== $missingAttachments) {
+        $invalidAttachments = [];
+        foreach ($this->attachments as $attachmentId => $expectedFilename) {
+            $actualFilename = $this->store->attachmentFilename($attachmentId);
+            if (!$this->store->attachmentExists($attachmentId) || $expectedFilename !== $actualFilename) {
+                $invalidAttachments[] = sprintf(
+                    '%d (%s; nalezeno %s)',
+                    $attachmentId,
+                    $expectedFilename,
+                    $actualFilename ?? 'nic'
+                );
+            }
+        }
+        if ([] !== $invalidAttachments) {
             $checks[] = PreflightCheck::blocker(
                 'sponsors.attachments',
-                sprintf('Chybí loga v knihovně médií: %s.', implode(', ', $missingAttachments))
+                sprintf('Loga v knihovně médií neodpovídají manifestu: %s.', implode(', ', $invalidAttachments))
             );
         }
 

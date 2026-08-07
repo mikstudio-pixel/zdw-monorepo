@@ -53,6 +53,17 @@ zdw_ftp_validate_remote_path() {
             exit 2
             ;;
     esac
+
+    case "${1}" in
+        *'//'*)
+            echo "Vzdálená cesta obsahuje prázdnou část: ${1}" >&2
+            exit 2
+            ;;
+        '/.'|*'/./'*|*'/.'|'/..'|*'/../'*|*'/..')
+            echo "Vzdálená cesta nesmí obsahovat . ani ..: ${1}" >&2
+            exit 2
+            ;;
+    esac
 }
 
 zdw_ftp_connection_settings() {

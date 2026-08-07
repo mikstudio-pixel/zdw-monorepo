@@ -14,7 +14,13 @@ final class WordPressIntroContentTransformer implements IntroContentTransformer
     {
         $replacement = $this->introBlock($video, $poster);
         $pattern = '/<!--\s+wp:zdw\/intro-effect\s+.*?-->.*?<!--\s+\/wp:zdw\/intro-effect\s+-->/s';
-        $updated = preg_replace($pattern, $replacement, $content, 1, $count);
+        $updated = preg_replace_callback(
+            $pattern,
+            static fn (): string => $replacement,
+            $content,
+            1,
+            $count
+        );
 
         if (null === $updated) {
             throw new RuntimeException('Regulární výraz úvodního bloku selhal.');

@@ -43,7 +43,7 @@ case "${ZDW_COMPONENT_TYPE}" in
 esac
 
 case "${ZDW_COMPONENT_NAME}" in
-    ''|*[!A-Za-z0-9_.-]*)
+    ''|'.'|'..'|*[!A-Za-z0-9_.-]*)
         echo "Neplatný název adresáře: ${ZDW_COMPONENT_NAME}" >&2
         exit 2
         ;;

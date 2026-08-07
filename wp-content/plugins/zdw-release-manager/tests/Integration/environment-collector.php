@@ -26,12 +26,20 @@ if (!in_array('zdw-theme-child', $snapshot->installedThemes, true)) {
     throw new RuntimeException('Child theme was not detected.');
 }
 
-if (($snapshot->pageSlugCounts['kontakty'] ?? 0) !== 1) {
-    throw new RuntimeException('Kontakty page must be uniquely detected.');
+foreach (['kontakty', 'sponzori'] as $slug) {
+    if (($snapshot->pageSlugCounts[$slug] ?? 0) !== 1) {
+        throw new RuntimeException(sprintf('Page %s must be uniquely detected.', $slug));
+    }
 }
 
-if (($snapshot->menuNameCounts['Header Menu'] ?? 0) !== 1) {
-    throw new RuntimeException('Header Menu must be uniquely detected.');
+foreach (['Header Menu', 'Header Menu EN'] as $menuName) {
+    if (($snapshot->menuNameCounts[$menuName] ?? 0) !== 1) {
+        throw new RuntimeException(sprintf('Menu %s must be uniquely detected.', $menuName));
+    }
+}
+
+if ('zdw-theme-child' !== $snapshot->activeTheme) {
+    throw new RuntimeException('Child theme must be active in the release fixture.');
 }
 
 echo "WordPressEnvironmentCollector integration test passed.\n";

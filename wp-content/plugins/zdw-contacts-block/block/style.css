@@ -4,6 +4,7 @@
 	--zdw-contacts-accent: var(--zdw, #ed176a);
 	--zdw-contacts-text-large: clamp(1.35rem, 2.1vw, 1.75rem);
 	--zdw-contacts-text-small: .875rem;
+
 	margin-top: 1rem;
 	margin-bottom: 2.5rem;
 	color: var(--zdw-contacts-text);

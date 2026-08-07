@@ -31,7 +31,7 @@ final class InitialContactContent
         ];
     }
 
-    /** @return array{section: string, name: string, role: string, email: string, phone: string} */
+    /** @return array{section?: string, name: string, role: string, email: string, phone: string} */
     private static function contact(
         string $section,
         string $name,

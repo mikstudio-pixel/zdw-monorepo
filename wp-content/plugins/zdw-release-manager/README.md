@@ -7,7 +7,7 @@ sponsor page, navigation, and the homepage intro video.
 
 ## Development
 
-Requirements: PHP 8.1+ and Composer.
+Requirements: PHP 8.2+ and Composer.
 
 ```sh
 composer install

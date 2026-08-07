@@ -40,7 +40,7 @@ final class EnvironmentAuditTest extends TestCase
         self::assertSame(PreflightCheck::BLOCKER, $this->find($checks, 'plugin.advanced_custom_fields_pro')->severity());
         self::assertSame(PreflightCheck::BLOCKER, $this->find($checks, 'page.kontakty')->severity());
         self::assertSame(PreflightCheck::BLOCKER, $this->find($checks, 'menu.header_menu')->severity());
-        self::assertSame(PreflightCheck::WARNING, $this->find($checks, 'theme.active')->severity());
+        self::assertSame(PreflightCheck::BLOCKER, $this->find($checks, 'theme.active')->severity());
     }
 
     public function test_unsupported_php_is_a_blocker_but_older_wordpress_is_a_warning(): void
@@ -56,7 +56,7 @@ final class EnvironmentAuditTest extends TestCase
     private function audit(): EnvironmentAudit
     {
         return new EnvironmentAudit(new AuditRequirements(
-            minimumPhpVersion: '8.1.0',
+            minimumPhpVersion: '8.2.0',
             recommendedWordPressVersion: '6.8.0',
             expectedActiveTheme: 'zdw-theme-child',
             requiredThemes: ['zdw-theme', 'zdw-theme-child'],

@@ -1,5 +1,5 @@
-.intro-effect[data-effect-intensity] .ie-bg-video,
-.intro-effect[data-effect-intensity] .zdw-intro-video-base {
+.wp-block-zdw-intro-effect.intro-effect[data-effect-intensity] .ie-bg-video,
+.wp-block-zdw-intro-effect.intro-effect[data-effect-intensity] .zdw-intro-video-base {
 	position: absolute !important;
 	inset: 0 !important;
 	display: block;
@@ -13,25 +13,25 @@
 	pointer-events: none;
 }
 
-.intro-effect[data-effect-intensity] .zdw-intro-video-base {
+.wp-block-zdw-intro-effect.intro-effect[data-effect-intensity] .zdw-intro-video-base {
 	z-index: 0 !important;
 }
 
-.intro-effect[data-effect-intensity] .zdw-intro-video-filtered {
+.wp-block-zdw-intro-effect.intro-effect[data-effect-intensity] .zdw-intro-video-filtered {
 	z-index: 1 !important;
 }
 
-.intro-effect[data-effect-mode="overlay"] {
+.wp-block-zdw-intro-effect.intro-effect[data-effect-mode="overlay"] {
 	isolation: isolate;
 }
 
-.intro-effect[data-effect-mode="overlay"] .zdw-intro-video-source {
+.wp-block-zdw-intro-effect.intro-effect[data-effect-mode="overlay"] .zdw-intro-video-source {
 	z-index: 0 !important;
 	filter: none !important;
 	opacity: 1 !important;
 }
 
-.intro-effect[data-effect-mode="overlay"] .zdw-intro-color-overlay {
+.wp-block-zdw-intro-effect.intro-effect[data-effect-mode="overlay"] .zdw-intro-color-overlay {
 	position: absolute;
 	inset: 0;
 	z-index: 1;
@@ -41,33 +41,33 @@
 	pointer-events: none;
 }
 
-.intro-effect[data-title-effect="plain"] .zdw-intro-effect-inner,
-.intro-effect[data-title-effect="plain"] .zdw-intro-effect-inner h2.wp-block-heading {
+.wp-block-zdw-intro-effect.intro-effect[data-title-effect="plain"] .zdw-intro-effect-inner,
+.wp-block-zdw-intro-effect.intro-effect[data-title-effect="plain"] .zdw-intro-effect-inner h2.wp-block-heading {
 	mix-blend-mode: normal !important;
 	color: #fff !important;
 }
 
 @media (min-width: 1000px) {
-	.intro-effect-big .zdw-intro-effect-side {
+	.wp-block-zdw-intro-effect.zdw-intro-experiment.intro-effect-big .zdw-intro-effect-side {
 		left: auto;
 		right: max(0px, calc((100% - 1100px) / 2));
 		width: min(640px, 100%);
 		text-align: right;
 	}
 
-	.intro-effect-big .zdw-intro-effect-side h3 {
+	.wp-block-zdw-intro-effect.zdw-intro-experiment.intro-effect-big .zdw-intro-effect-side h3 {
 		margin-block: 0;
 	}
 }
 
 @media (min-width: 1440px) {
-	.intro-effect-big .zdw-intro-effect-side {
+	.wp-block-zdw-intro-effect.zdw-intro-experiment.intro-effect-big .zdw-intro-effect-side {
 		right: calc((100% - 1240px) / 2);
 	}
 }
 
 @media (min-width: 1600px) {
-	.intro-effect-big .zdw-intro-effect-side {
+	.wp-block-zdw-intro-effect.zdw-intro-experiment.intro-effect-big .zdw-intro-effect-side {
 		right: calc((100% - 1430px) / 2);
 	}
 }

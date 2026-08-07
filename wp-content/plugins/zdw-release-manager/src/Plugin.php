@@ -33,13 +33,13 @@ final class Plugin
 
     public static function boot(): void
     {
-        if (self::$booted) {
+        if (self::$booted || !is_admin()) {
             return;
         }
         self::$booted = true;
 
         $requirements = new AuditRequirements(
-            '8.1.0',
+            '8.2.0',
             '6.8.0',
             'zdw-theme-child',
             ['zdw-theme', 'zdw-theme-child'],
@@ -62,6 +62,8 @@ final class Plugin
             $requirements->requiredMenuNames
         );
         $optionStore = new WordPressOptionStore();
+        $postStore = new WordPressPostStore();
+        $pageStore = new WordPressPageStore();
         $registry = new MigrationRegistry([
             new DesiredOptionsMigration(
                 '20260807_001_interface_settings',
@@ -85,24 +87,24 @@ final class Plugin
             new DesiredPostContentMigration(
                 '20260807_002_primary_contacts',
                 'Hlavní kontakty a kontakt Best in Design',
-                new WordPressPostStore(),
+                $postStore,
                 InitialContactContent::desiredPosts()
             ),
             new SecondaryContactsMigration(
-                new WordPressPostStore(),
+                $postStore,
                 new WordPressContactContentTransformer()
             ),
             new SponsorPageMigration(
-                new WordPressPageStore(),
-                InitialSponsorContent::attachmentIds(),
+                $pageStore,
+                InitialSponsorContent::attachments(),
                 InitialSponsorContent::block()
             ),
             new NavigationMigration(
-                new WordPressPageStore(),
+                $pageStore,
                 new WordPressNavigationStore()
             ),
             new HomepageIntroMigration(
-                new WordPressPostStore(),
+                $postStore,
                 new WordPressMediaStore(),
                 new WordPressIntroContentTransformer()
             ),

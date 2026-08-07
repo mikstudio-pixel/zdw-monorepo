@@ -35,7 +35,7 @@ final class EnvironmentAudit
 
         $checks[] = $snapshot->activeTheme === $this->requirements->expectedActiveTheme
             ? PreflightCheck::pass('theme.active', sprintf('Aktivní theme je %s.', $snapshot->activeTheme))
-            : PreflightCheck::warning(
+            : PreflightCheck::blocker(
                 'theme.active',
                 sprintf('Aktivní theme je %s; očekává se %s.', $snapshot->activeTheme, $this->requirements->expectedActiveTheme)
             );

@@ -72,7 +72,7 @@
 				</div>
 			</header>
 			<?php endif; ?>
-		<?php if ( zdw_page_supports_side_images() ) : ?>
+		<?php if ( function_exists( 'zdw_page_supports_side_images' ) && zdw_page_supports_side_images() ) : ?>
 			<div id="side-images">
 				<img class="side-image rellax" id="side-things-1" alt="" data-rellax-speed="2" src="<?php echo esc_url( get_template_directory_uri() . '/img/side-things.png?v=3' ); ?>" srcset="<?php echo esc_url( get_template_directory_uri() . '/img/side-things.png?v=3' ); ?>, <?php echo esc_url( get_template_directory_uri() . '/img/side-things@2x.png?v=3' ); ?> 2x">
 				<img class="side-image rellax" id="side-things-2" alt="" data-rellax-speed="1" src="<?php echo esc_url( get_template_directory_uri() . '/img/side-things-2.png?v=2' ); ?>" srcset="<?php echo esc_url( get_template_directory_uri() . '/img/side-things-2.png?v=2' ); ?>, <?php echo esc_url( get_template_directory_uri() . '/img/side-things-2@2x.png?v=2' ); ?> 2x">

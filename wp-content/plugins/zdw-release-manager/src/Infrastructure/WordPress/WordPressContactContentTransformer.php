@@ -13,11 +13,12 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
     public function pressPage(string $content, array $contacts): string
     {
         $replacement = $this->parsedContactBlock($contacts, 'compact');
+        $blocks = parse_blocks($content);
+        $contactIndex = $this->contactTargetIndex($blocks);
         $updated = [];
-        $contactReplaced = false;
         $skipBlankTail = false;
 
-        foreach (parse_blocks($content) as $block) {
+        foreach ($blocks as $index => $block) {
             $serialized = serialize_block($block);
             $isAccreditation = false !== stripos($serialized, 'AKREDITACE')
                 || false !== stripos($serialized, 'ACCREDITATION');
@@ -31,16 +32,8 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
                 continue;
             }
 
-            if (!$contactReplaced && 'zdw/contacts' === ($block['blockName'] ?? null)) {
+            if ($contactIndex === $index) {
                 $updated[] = $replacement;
-                $contactReplaced = true;
-                $skipBlankTail = false;
-                continue;
-            }
-
-            if (!$contactReplaced && 'core/group' === ($block['blockName'] ?? null)) {
-                $updated[] = $replacement;
-                $contactReplaced = true;
                 $skipBlankTail = false;
                 continue;
             }
@@ -51,10 +44,6 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
 
             $skipBlankTail = false;
             $updated[] = $block;
-        }
-
-        if (!$contactReplaced) {
-            throw new RuntimeException('Na stránce pro média nebyl nalezen původní kontakt.');
         }
 
         return serialize_blocks($updated);
@@ -70,7 +59,13 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
         ];
 
         foreach ($patterns as $pattern) {
-            $updated = preg_replace($pattern, $replacement, $content, 1, $count);
+            $updated = preg_replace_callback(
+                $pattern,
+                static fn (): string => $replacement,
+                $content,
+                1,
+                $count
+            );
             if (null === $updated) {
                 throw new RuntimeException('Regulární výraz pro kontaktní blok selhal.');
             }
@@ -122,6 +117,48 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
 
         return 'core/paragraph' === ($block['blockName'] ?? null)
             && '' === trim(wp_strip_all_tags((string) ($block['innerHTML'] ?? '')));
+    }
+
+    /** @param list<array<string, mixed>> $blocks */
+    private function contactTargetIndex(array $blocks): int
+    {
+        $desired = [];
+        $legacy = [];
+
+        foreach ($blocks as $index => $block) {
+            if ('zdw/contacts' === ($block['blockName'] ?? null)) {
+                $desired[] = $index;
+                continue;
+            }
+
+            if ('core/group' === ($block['blockName'] ?? null)
+                && $this->containsBlock($block, 'acf/contact-person')) {
+                $legacy[] = $index;
+            }
+        }
+
+        $matches = [] !== $desired ? $desired : $legacy;
+        if (1 !== count($matches)) {
+            throw new RuntimeException('Na stránce pro média nebyl nalezen právě jeden původní kontakt.');
+        }
+
+        return $matches[0];
+    }
+
+    /** @param array<string, mixed> $block */
+    private function containsBlock(array $block, string $blockName): bool
+    {
+        foreach (($block['innerBlocks'] ?? []) as $innerBlock) {
+            if (!is_array($innerBlock)) {
+                continue;
+            }
+            if ($blockName === ($innerBlock['blockName'] ?? null)
+                || $this->containsBlock($innerBlock, $blockName)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function normalize(mixed $value): mixed

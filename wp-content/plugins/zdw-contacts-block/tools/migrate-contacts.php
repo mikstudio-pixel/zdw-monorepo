@@ -135,6 +135,47 @@ function zdw_contacts_migration_serialized_block( $contacts, $variant ) {
 }
 
 /**
+ * Whether a parsed block contains a named descendant.
+ *
+ * @param array<string, mixed> $block Parsed block.
+ * @param string               $name  Block name.
+ * @return bool
+ */
+function zdw_contacts_migration_contains_block( $block, $name ) {
+	foreach ( isset( $block['innerBlocks'] ) ? (array) $block['innerBlocks'] : array() as $inner_block ) {
+		if ( ! is_array( $inner_block ) ) {
+			continue;
+		}
+		if ( $name === ( $inner_block['blockName'] ?? null ) || zdw_contacts_migration_contains_block( $inner_block, $name ) ) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/**
+ * Find the only legacy contact group on a press page.
+ *
+ * @param array<int, array<string, mixed>> $blocks Parsed blocks.
+ * @return int
+ */
+function zdw_contacts_migration_contact_group_index( $blocks ) {
+	$matches = array();
+	foreach ( $blocks as $index => $block ) {
+		if ( 'core/group' === ( $block['blockName'] ?? null ) && zdw_contacts_migration_contains_block( $block, 'acf/contact-person' ) ) {
+			$matches[] = $index;
+		}
+	}
+
+	if ( 1 !== count( $matches ) ) {
+		throw new RuntimeException( 'Exactly one legacy contact group is required.' );
+	}
+
+	return (int) $matches[0];
+}
+
+/**
  * Replace the contact group and accreditation group on a press-kit page.
  *
  * @param string                            $content  Existing block content.
@@ -147,11 +188,11 @@ function zdw_contacts_migration_press_content( $content, $contacts ) {
 	}
 
 	$blocks          = parse_blocks( $content );
+	$contact_index   = zdw_contacts_migration_contact_group_index( $blocks );
 	$updated         = array();
-	$contact_replaced = false;
 	$skip_blank_tail = false;
 
-	foreach ( $blocks as $block ) {
+	foreach ( $blocks as $index => $block ) {
 		$serialized       = serialize_block( $block );
 		$is_accreditation = false !== stripos( $serialized, 'AKREDITACE' ) || false !== stripos( $serialized, 'ACCREDITATION' );
 
@@ -163,9 +204,8 @@ function zdw_contacts_migration_press_content( $content, $contacts ) {
 			continue;
 		}
 
-		if ( ! $contact_replaced && 'core/group' === $block['blockName'] ) {
-			$updated[]        = zdw_contacts_migration_block( $contacts, 'compact' );
-			$contact_replaced = true;
+		if ( $contact_index === $index ) {
+			$updated[] = zdw_contacts_migration_block( $contacts, 'compact' );
 			continue;
 		}
 
@@ -193,7 +233,14 @@ function zdw_contacts_migration_replace_first_acf_contact( $content, $contacts )
 	}
 
 	$replacement = zdw_contacts_migration_serialized_block( $contacts, 'compact' );
-	$updated     = preg_replace( '/<!--\s+wp:acf\/contact-person\s+.*?\/-->/s', $replacement, $content, 1 );
+	$updated     = preg_replace_callback(
+		'/<!--\s+wp:acf\/contact-person\s+.*?\/-->/s',
+		static function () use ( $replacement ) {
+			return $replacement;
+		},
+		$content,
+		1
+	);
 
 	if ( null === $updated || $updated === $content ) {
 		throw new RuntimeException( 'Legacy ACF contact block was not found.' );

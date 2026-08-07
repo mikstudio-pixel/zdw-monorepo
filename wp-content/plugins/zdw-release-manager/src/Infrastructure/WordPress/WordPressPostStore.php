@@ -23,6 +23,10 @@ final class WordPressPostStore implements PostStore
 
     public function updateContent(int $postId, string $content): void
     {
+        if (!current_user_can('unfiltered_html')) {
+            throw new RuntimeException('Aktuální účet nemůže bezpečně uložit nefiltrovaný Gutenberg obsah.');
+        }
+
         $result = wp_update_post([
             'ID' => $postId,
             'post_content' => wp_slash($content),

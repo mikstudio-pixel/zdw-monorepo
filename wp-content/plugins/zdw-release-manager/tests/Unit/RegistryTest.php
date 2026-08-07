@@ -45,7 +45,7 @@ final class RegistryTest extends TestCase
     public function test_get_rejects_an_unknown_id(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Unknown migration');
+        $this->expectExceptionMessage('Neznámá migrace');
 
         (new MigrationRegistry())->get('20260807_999_missing');
     }

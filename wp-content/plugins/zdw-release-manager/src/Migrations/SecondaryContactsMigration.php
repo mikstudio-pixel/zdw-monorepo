@@ -64,6 +64,7 @@ final class SecondaryContactsMigration implements Migration
             throw new RuntimeException('Nelze bezpečně určit vedlejší kontaktní stránky.');
         }
 
+        $updates = [];
         foreach (self::POSTS as $postId => $definition) {
             $post = $this->store->find($postId);
             if (null === $post) {
@@ -72,8 +73,12 @@ final class SecondaryContactsMigration implements Migration
 
             $desired = $this->desiredContent($definition['kind'], $post->content());
             if (!$this->transformer->equivalent($post->content(), $desired)) {
-                $this->store->updateContent($postId, $desired);
+                $updates[$postId] = $desired;
             }
+        }
+
+        foreach ($updates as $postId => $desired) {
+            $this->store->updateContent($postId, $desired);
         }
     }
 

@@ -37,6 +37,23 @@ final class SecondaryContactsMigrationTest extends TestCase
         self::assertSame([202, 1330, 15606, 15608], $store->writes);
     }
 
+    public function test_all_content_is_transformed_before_the_first_write(): void
+    {
+        $store = new InMemoryPostStore($this->posts());
+        $transformer = new FakeContactContentTransformer();
+        $transformer->throwOnContent = 'en press';
+        $migration = new SecondaryContactsMigration($store, $transformer);
+
+        try {
+            $migration->apply();
+            self::fail('Transform failure was not propagated.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('transform failure', $error->getMessage());
+        }
+
+        self::assertSame([], $store->writes);
+    }
+
     /** @return list<PostRecord> */
     private function posts(): array
     {

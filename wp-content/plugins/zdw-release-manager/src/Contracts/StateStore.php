@@ -8,5 +8,9 @@ interface StateStore
 {
     public function isApplied(string $migrationId): bool;
 
+    public function claim(string $migrationId): bool;
+
+    public function release(string $migrationId): void;
+
     public function markApplied(string $migrationId): void;
 }

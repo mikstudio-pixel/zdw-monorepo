@@ -44,7 +44,7 @@ final class MigrationRegistry
     public function get(string $migrationId): Migration
     {
         if (!isset($this->migrations[$migrationId])) {
-            throw new InvalidArgumentException(sprintf('Unknown migration: %s', $migrationId));
+            throw new InvalidArgumentException(sprintf('Neznámá migrace: %s', $migrationId));
         }
 
         return $this->migrations[$migrationId];
