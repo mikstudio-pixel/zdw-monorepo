@@ -1,0 +1,112 @@
+.wp-block-zdw-sponsors.zdw-sponsors {
+	padding-top: var(--zdw-sponsors-pt-mobile, 32px);
+	padding-bottom: var(--zdw-sponsors-pb-mobile, 32px);
+}
+
+.zdw-sponsors__inner {
+	max-width: 1100px;
+	margin: 0 auto;
+	padding-inline: 24px;
+}
+
+.zdw-sponsors__section + .zdw-sponsors__section {
+	margin-top: var(--zdw-sponsors-section-gap, 80px);
+}
+
+.zdw-sponsors__title {
+	margin: 0 0 var(--zdw-sponsors-title-gap, 12px);
+	font-size: 2rem;
+	line-height: 1.15;
+	text-transform: none;
+}
+
+.zdw-sponsors__logos {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	column-gap: var(--zdw-sponsors-logo-gap, 0px);
+	row-gap: var(--zdw-sponsors-logo-row-gap, 0px);
+}
+
+.zdw-sponsors__logo {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	max-width: calc(50% - (var(--zdw-sponsors-logo-gap, 24px) / 2));
+}
+
+.zdw-sponsors__section--poradatele .zdw-sponsors__logos {
+	column-gap: 20px;
+}
+
+.zdw-sponsors__section--poradatele .zdw-sponsors__logo {
+	max-width: calc(50% - 10px);
+}
+
+.zdw-sponsors__logo a {
+	display: block;
+	color: inherit;
+}
+
+.zdw-sponsors__image {
+	display: block;
+	width: auto;
+	height: auto;
+	max-width: 100%;
+	max-height: 140px;
+}
+
+.zdw-sponsors__label {
+	position: absolute;
+	top: 2px;
+	right: 2px;
+	z-index: 1;
+	padding: 6px 10px 3px;
+	background: #000;
+	color: #fff;
+	font-size: 12px;
+	font-weight: 500;
+	letter-spacing: .5px;
+	line-height: 1.25;
+	text-align: right;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+	.wp-block-zdw-sponsors.zdw-sponsors {
+		padding-top: var(--zdw-sponsors-pt, 64px);
+		padding-bottom: var(--zdw-sponsors-pb, 64px);
+	}
+
+	.zdw-sponsors__logo {
+		max-width: 200px;
+	}
+
+	.zdw-sponsors__section--large .zdw-sponsors__logo {
+		max-width: 340px;
+	}
+
+	.zdw-sponsors__section--poradatele .zdw-sponsors__logos {
+		column-gap: 32px;
+	}
+
+	.zdw-sponsors__section--poradatele .zdw-sponsors__logo {
+		max-width: 300px;
+	}
+}
+
+@media (min-width: 1440px) {
+	.zdw-sponsors__inner {
+		width: 1240px;
+		max-width: 1240px;
+	}
+}
+
+@media (min-width: 1600px) {
+	.zdw-sponsors__inner {
+		width: 1430px;
+		max-width: 1430px;
+	}
+}

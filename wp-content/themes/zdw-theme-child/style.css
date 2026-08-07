@@ -1,0 +1,149 @@
+/*
+Theme Name: ZDW Theme Child
+Description: Safe local overrides for the ZDW website.
+Template: zdw-theme
+Version: 1.0.0
+Author: Zlin Design Week
+*/
+
+/*
+ * Both legacy accent tokens now use the same light primary color. Keep text
+ * on primary-colored surfaces dark enough to meet WCAG contrast requirements.
+ */
+.has-zdw-background-color,
+.has-light-background-color {
+	color: var(--bg);
+}
+
+.has-zdw-background-color a,
+.has-light-background-color a,
+.has-zdw-background-color.has-dark-color,
+.has-zdw-background-color.has-light-color,
+.has-zdw-background-color.has-zdw-color,
+.has-zdw-background-color.has-white-color,
+.has-light-background-color.has-dark-color,
+.has-light-background-color.has-light-color,
+.has-light-background-color.has-zdw-color,
+.has-light-background-color.has-white-color,
+.has-zdw-background-color .has-dark-color,
+.has-zdw-background-color .has-light-color,
+.has-zdw-background-color .has-zdw-color,
+.has-zdw-background-color .has-white-color,
+.has-light-background-color .has-dark-color,
+.has-light-background-color .has-light-color,
+.has-light-background-color .has-zdw-color,
+.has-light-background-color .has-white-color {
+	color: var(--bg) !important;
+}
+
+mark.has-zdw-color,
+mark.has-light-color {
+	background-color: transparent;
+}
+
+/* Keep the footer flush with the preceding content and use the site's dark mode. */
+.footer.footer.mt-2 {
+	margin-top: 0;
+}
+
+.footer.footer.has-dark-background-color,
+.footer.footer .footer-connect {
+	background-color: var(--bg) !important;
+	color: var(--dark);
+}
+
+.footer.footer .container.has-bg-color,
+.footer.footer .copyright,
+.footer.footer .copyright a,
+.footer.footer .copyright a:hover,
+.footer.footer .copyright a:visited {
+	color: var(--dark);
+}
+
+.footer.footer .footer-legal {
+	border-top-color: rgba(222, 222, 222, .22);
+	color: var(--dark);
+}
+
+.footer.footer .footer-legal a,
+.footer.footer .footer-legal a:hover,
+.footer.footer .footer-legal a:visited {
+	color: var(--dark);
+}
+
+.footer.footer .footer-connect {
+	padding-bottom: 8rem;
+}
+
+@media (min-width: 960px) {
+	.footer.footer .footer-connect {
+		padding-bottom: 10rem;
+	}
+}
+
+/* Align the homepage header, hero and footer with the showcase intro text. */
+body.home {
+	--zdw-home-content-edge: calc(6px + clamp(2rem, 5vw, 6rem));
+}
+
+body.home .zdw-two-tier__inner,
+body.home .zdw-intro-experiment .zdw-intro-effect-inner > .wp-block-group__inner-container,
+body.home footer.footer .container {
+	width: auto;
+	max-width: none;
+	margin-inline: var(--zdw-home-content-edge);
+	padding-inline: 0;
+}
+
+@media (min-width: 1000px) {
+	body.home .zdw-intro-experiment .zdw-intro-effect-side {
+		right: var(--zdw-home-content-edge);
+		left: auto;
+	}
+
+	body.home .zdw-intro-experiment .zdw-intro-effect-side > .wp-block-group__inner-container {
+		padding-inline: 0;
+	}
+}
+
+@media (max-width: 767.98px) {
+	body.home {
+		--zdw-home-content-edge: calc(4px + 1.25rem);
+	}
+}
+
+/* Best in Design: keep the hero photo proportional and soften content panels. */
+body.page-id-193 .wp-block-zdw-intro-effect {
+	--zdw-intro-overlay-blend-mode: multiply;
+	--zdw-intro-overlay-color: #000;
+	--zdw-intro-overlay-opacity: .3;
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+body.page-id-193 .wp-block-zdw-intro-effect::before {
+	background: var(--zdw-intro-overlay-color);
+	content: "";
+	inset: 0;
+	mix-blend-mode: var(--zdw-intro-overlay-blend-mode);
+	opacity: var(--zdw-intro-overlay-opacity);
+	pointer-events: none;
+	position: absolute;
+	z-index: 1;
+}
+
+body.page-id-193 .wp-block-zdw-intro-effect .zdw-intro-effect-inner,
+body.page-id-193 .wp-block-zdw-intro-effect h2.wp-block-heading {
+	color: var(--dark);
+	mix-blend-mode: normal;
+}
+
+body.page-id-193 .wp-block-zdw-intro-effect:not([data-apply-effect]) canvas {
+	display: none !important;
+}
+
+body.page-id-193 main > .wp-block-group.has-light-background-color,
+body.page-id-193 main > .wp-block-group.has-zdw-background-color {
+	background-color: #f2f2f2 !important;
+}

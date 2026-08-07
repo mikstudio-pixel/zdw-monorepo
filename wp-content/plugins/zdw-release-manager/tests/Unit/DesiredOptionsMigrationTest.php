@@ -1,0 +1,62 @@
+<?php
+
+declare(strict_types=1);
+
+namespace ZDW\ReleaseManager\Tests\Unit;
+
+use PHPUnit\Framework\TestCase;
+use ZDW\ReleaseManager\Migrations\DesiredOptionsMigration;
+use ZDW\ReleaseManager\Tests\Support\InMemoryOptionStore;
+
+final class DesiredOptionsMigrationTest extends TestCase
+{
+    public function test_preflight_reports_the_number_of_changed_options_without_writing(): void
+    {
+        $store = new InMemoryOptionStore(['effect' => 'filter', 'enabled' => '1']);
+        $migration = new DesiredOptionsMigration(
+            '20260807_001_interface_settings',
+            'Nastavení rozhraní',
+            $store,
+            ['effect' => 'overlay', 'enabled' => '1', 'opacity' => '30']
+        );
+
+        $checks = $migration->preflight();
+
+        self::assertSame('warning', $checks[0]->severity());
+        self::assertStringContainsString('2', $checks[0]->message());
+        self::assertSame([], $store->writes);
+    }
+
+    public function test_apply_only_writes_values_that_differ_and_verify_passes(): void
+    {
+        $store = new InMemoryOptionStore(['effect' => 'filter', 'enabled' => '1']);
+        $migration = new DesiredOptionsMigration(
+            '20260807_001_interface_settings',
+            'Nastavení rozhraní',
+            $store,
+            ['effect' => 'overlay', 'enabled' => '1', 'opacity' => '30']
+        );
+
+        $migration->apply();
+        $verification = $migration->verify();
+
+        self::assertSame(['effect', 'opacity'], $store->writes);
+        self::assertSame('pass', $verification[0]->severity());
+    }
+
+    public function test_verify_blocks_when_a_value_does_not_match(): void
+    {
+        $store = new InMemoryOptionStore(['effect' => 'filter']);
+        $migration = new DesiredOptionsMigration(
+            '20260807_001_interface_settings',
+            'Nastavení rozhraní',
+            $store,
+            ['effect' => 'overlay']
+        );
+
+        $verification = $migration->verify();
+
+        self::assertSame('blocker', $verification[0]->severity());
+        self::assertStringContainsString('effect', $verification[0]->message());
+    }
+}

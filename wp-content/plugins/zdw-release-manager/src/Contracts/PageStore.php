@@ -1,0 +1,17 @@
+<?php
+
+declare(strict_types=1);
+
+namespace ZDW\ReleaseManager\Contracts;
+
+interface PageStore extends PostStore
+{
+    /** @return list<int> */
+    public function findPageIdsBySlug(string $slug): array;
+
+    public function createPage(string $title, string $slug, string $content): int;
+
+    public function setLanguage(int $postId, string $language): void;
+
+    public function attachmentExists(int $attachmentId): bool;
+}

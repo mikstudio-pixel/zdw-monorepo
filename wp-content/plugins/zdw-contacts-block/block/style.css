@@ -1,0 +1,177 @@
+.wp-block-zdw-contacts.zdw-contacts {
+	--zdw-contacts-text: #dedede;
+	--zdw-contacts-muted: #aaa;
+	--zdw-contacts-accent: var(--zdw, #ed176a);
+	--zdw-contacts-text-large: clamp(1.35rem, 2.1vw, 1.75rem);
+	--zdw-contacts-text-small: .875rem;
+	margin-top: 1rem;
+	margin-bottom: 2.5rem;
+	color: var(--zdw-contacts-text);
+}
+
+.zdw-contacts__inner {
+	max-width: 1100px;
+	margin: 0 auto;
+	padding-inline: 24px;
+}
+
+.zdw-contacts--grid {
+	padding-block: 1rem 2.75rem;
+}
+
+.zdw-contacts__track {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 5.5rem 3rem;
+}
+
+.zdw-contacts__section {
+	min-width: 0;
+}
+
+.zdw-contacts--grid .zdw-contacts__section:first-child {
+	grid-column: 1 / -1;
+}
+
+.zdw-contacts--grid .zdw-contacts__section:first-child .zdw-contacts__people {
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.zdw-contacts__section-title {
+	margin: 0 0 1.5rem;
+	color: var(--zdw-contacts-accent);
+	font-size: var(--zdw-contacts-text-small);
+	font-weight: 500;
+	letter-spacing: 0;
+	line-height: 1.2;
+	text-transform: uppercase;
+}
+
+.zdw-contacts__people {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 2rem;
+}
+
+.zdw-contacts__person {
+	display: flex;
+	min-width: 0;
+	min-height: 0;
+	flex-direction: column;
+	justify-content: flex-start;
+}
+
+.zdw-contacts__identity {
+	padding-bottom: .85rem;
+}
+
+.zdw-contacts__name {
+	margin: 0 0 .45rem;
+	color: var(--zdw-contacts-text);
+	font-size: var(--zdw-contacts-text-large);
+	line-height: 1;
+	text-transform: none;
+}
+
+.zdw-contacts__role {
+	margin: 0;
+	color: var(--zdw-contacts-muted);
+	font-size: var(--zdw-contacts-text-small);
+	font-weight: 400;
+	line-height: 1.25;
+}
+
+.zdw-contacts__details {
+	display: flex;
+	align-items: flex-start;
+	min-width: 0;
+	flex-direction: column;
+	gap: .2rem;
+}
+
+.zdw-contacts__link,
+main .zdw-contacts__link,
+main .zdw-contacts__link:visited {
+	max-width: 100%;
+	color: var(--zdw-contacts-text);
+	font-size: var(--zdw-contacts-text-small);
+	line-height: 1.3;
+	overflow-wrap: anywhere;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 3px;
+}
+
+.zdw-contacts__link:hover,
+.zdw-contacts__link:focus-visible,
+main .zdw-contacts__link:hover,
+main .zdw-contacts__link:focus-visible {
+	color: var(--zdw-contacts-accent);
+}
+
+.zdw-contacts--compact {
+	margin-block: 1.5rem 3rem;
+}
+
+.zdw-contacts--compact .zdw-contacts__inner {
+	padding-inline: 0;
+}
+
+.zdw-contacts--compact .zdw-contacts__track {
+	display: block;
+	overflow: visible;
+	padding-bottom: 0;
+}
+
+.zdw-contacts--compact .zdw-contacts__people {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+	max-width: 620px;
+}
+
+.zdw-contacts--compact .zdw-contacts__person {
+	min-height: 150px;
+	justify-content: space-between;
+}
+
+@media (max-width: 767px) {
+	.zdw-contacts--grid {
+		padding-block: .5rem 1.5rem;
+	}
+
+	.zdw-contacts__track {
+		grid-template-columns: 1fr;
+		gap: 3rem;
+	}
+
+	.zdw-contacts--grid .zdw-contacts__section:first-child {
+		grid-column: auto;
+	}
+
+	.zdw-contacts__people,
+	.zdw-contacts--grid .zdw-contacts__section:first-child .zdw-contacts__people {
+		grid-template-columns: 1fr;
+		gap: 2.25rem;
+	}
+
+	.zdw-contacts__person {
+		min-height: 0;
+	}
+
+	.zdw-contacts__identity {
+		padding-bottom: .65rem;
+	}
+}
+
+@media (min-width: 1440px) {
+	.zdw-contacts__inner {
+		width: 1240px;
+		max-width: 1240px;
+	}
+}
+
+@media (min-width: 1600px) {
+	.zdw-contacts__inner {
+		width: 1430px;
+		max-width: 1430px;
+	}
+}

@@ -1,0 +1,86 @@
+name: zdw-local
+
+services:
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${DB_NAME:-wordpress}
+      MARIADB_USER: ${DB_USER:-wordpress}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-wordpress-local}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root-local}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --max-allowed-packet=256M
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./zlindesignweek-migrate-20260728110645.sql.gz:/docker-entrypoint-initdb.d/10-zdw.sql.gz:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+
+  wordpress:
+    image: ${WORDPRESS_IMAGE:-wordpress:php8.3-apache}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${WP_PORT:-8080}:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: ${DB_NAME:-wordpress}
+      WORDPRESS_DB_USER: ${DB_USER:-wordpress}
+      WORDPRESS_DB_PASSWORD: ${DB_PASSWORD:-wordpress-local}
+      WORDPRESS_TABLE_PREFIX: zdw2026_
+      ZDW_LOCAL_URL: ${ZDW_LOCAL_URL:-http://localhost:8080}
+      ZDW_ALLOW_EXTERNAL_HTTP: ${ZDW_ALLOW_EXTERNAL_HTTP:-0}
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_HOME', getenv('ZDW_LOCAL_URL'));
+        define('WP_SITEURL', getenv('ZDW_LOCAL_URL'));
+        define('WP_ENVIRONMENT_TYPE', 'local');
+        define('DISABLE_WP_CRON', true);
+        define('DISALLOW_FILE_EDIT', true);
+        define('AUTOMATIC_UPDATER_DISABLED', true);
+        if (getenv('ZDW_ALLOW_EXTERNAL_HTTP') !== '1') {
+            define('WP_HTTP_BLOCK_EXTERNAL', true);
+            define('WP_ACCESSIBLE_HOSTS', 'localhost,127.0.0.1,::1,db');
+        }
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./wp-content:/var/www/html/wp-content
+      - ./docker/php-local.ini:/usr/local/etc/php/conf.d/zz-zdw-local.ini:ro
+
+  bootstrap:
+    image: ${WPCLI_IMAGE:-wordpress:cli-php8.3}
+    depends_on:
+      db:
+        condition: service_healthy
+      wordpress:
+        condition: service_started
+    restart: "no"
+    environment:
+      HOME: /tmp
+      WP_CLI_ALLOW_ROOT: "1"
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: ${DB_NAME:-wordpress}
+      WORDPRESS_DB_USER: ${DB_USER:-wordpress}
+      WORDPRESS_DB_PASSWORD: ${DB_PASSWORD:-wordpress-local}
+      WORDPRESS_TABLE_PREFIX: zdw2026_
+      ZDW_LOCAL_URL: ${ZDW_LOCAL_URL:-http://localhost:8080}
+      ZDW_LOCAL_ADMIN_USER: ${ZDW_LOCAL_ADMIN_USER:-localadmin}
+      ZDW_LOCAL_ADMIN_PASSWORD: ${ZDW_LOCAL_ADMIN_PASSWORD:-zdw-local-change-me}
+      ZDW_LOCAL_ADMIN_EMAIL: ${ZDW_LOCAL_ADMIN_EMAIL:-localadmin@localhost.invalid}
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./wp-content:/var/www/html/wp-content
+      - ./docker/bootstrap.sh:/usr/local/bin/zdw-bootstrap:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/zdw-bootstrap"]
+
+volumes:
+  db_data:
+  wordpress_data:
