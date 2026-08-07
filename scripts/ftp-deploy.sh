@@ -84,11 +84,11 @@ ${ZDW_LFTP_SETTINGS}
 open --env-password --user ${ZDW_FTP_USER} --port ${ZDW_FTP_PORT} ftp://${ZDW_FTP_HOST};
 mirror --reverse --transfer-all --overwrite --no-perms --parallel=4 --verbose=1 --max-errors=1 ${ZDW_MIRROR_MODE} \
   --exclude-glob .DS_Store \
-  --exclude-glob .git \
-  --exclude-glob vendor \
-  --exclude-glob tests \
-  --exclude-glob tools \
-  --exclude-glob .phpunit.cache \
+  --exclude '^\.git(/|$)' \
+  --exclude '^vendor(/|$)' \
+  --exclude '^tests(/|$)' \
+  --exclude '^tools(/|$)' \
+  --exclude '^\.phpunit\.cache(/|$)' \
   --exclude-glob composer.json \
   --exclude-glob composer.lock \
   --exclude-glob phpunit.xml.dist \
