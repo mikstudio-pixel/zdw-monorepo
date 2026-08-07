@@ -9,6 +9,18 @@ if (!function_exists('zdw_two_tier_menu_snapshot_items')) {
     throw new RuntimeException('Two-tier menu snapshot API is unavailable.');
 }
 
+$installLock = zdw_two_tier_menu_acquire_install_lock();
+if (!is_string($installLock)) {
+    throw new RuntimeException('The menu installation lock could not be acquired.');
+}
+try {
+    if (null !== zdw_two_tier_menu_install_menus()) {
+        throw new RuntimeException('A competing installer entered menu discovery while the installation lock was owned.');
+    }
+} finally {
+    zdw_two_tier_menu_release_install_lock($installLock);
+}
+
 $menuName = 'ZDW rollback integration ' . wp_generate_uuid4();
 $menuId = wp_create_nav_menu($menuName);
 if (is_wp_error($menuId)) {

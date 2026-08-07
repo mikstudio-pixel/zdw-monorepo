@@ -16,6 +16,7 @@ const ZDW_TWO_TIER_MENU_OPTION_NOTICE_URL_CS  = 'zdw_two_tier_menu_notice_url_cs
 const ZDW_TWO_TIER_MENU_OPTION_NOTICE_URL_EN  = 'zdw_two_tier_menu_notice_url_en';
 const ZDW_TWO_TIER_MENU_OPTION_DB_VERSION          = 'zdw_two_tier_menu_db_version';
 const ZDW_TWO_TIER_MENU_OPTION_UPGRADE_LOCK        = 'zdw_two_tier_menu_upgrade_lock';
+const ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK        = 'zdw_two_tier_menu_install_lock';
 const ZDW_TWO_TIER_MENU_OPTION_STATE_LOCK          = 'zdw_two_tier_menu_state_lock';
 const ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL = 'zdw_two_tier_menu_enable_after_install';
 const ZDW_TWO_TIER_MENU_DB_VERSION                 = '0.2.1';
@@ -491,7 +492,7 @@ function zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids = arra
  * @param bool $replace Whether existing items should be replaced.
  * @return bool Whether all four menus were installed completely.
  */
-function zdw_two_tier_menu_install_menus( $replace = false ) {
+function zdw_two_tier_menu_install_menus_unlocked( $replace = false ) {
 	$names      = zdw_two_tier_menu_names();
 	$blueprints = zdw_two_tier_menu_blueprints();
 	if ( ! zdw_two_tier_menu_blueprints_resolvable() ) {
@@ -577,6 +578,25 @@ function zdw_two_tier_menu_install_menus( $replace = false ) {
 }
 
 /**
+ * Serialize complete menu discovery, mutation and rollback across all callers.
+ *
+ * @param bool $replace Whether existing items should be replaced.
+ * @return bool|null Success/failure, or null when another installer owns the lock.
+ */
+function zdw_two_tier_menu_install_menus( $replace = false ) {
+	$lock_token = zdw_two_tier_menu_acquire_install_lock();
+	if ( null === $lock_token ) {
+		return null;
+	}
+
+	try {
+		return zdw_two_tier_menu_install_menus_unlocked( $replace );
+	} finally {
+		zdw_two_tier_menu_release_install_lock( $lock_token );
+	}
+}
+
+/**
  * Fail closed without confusing a deliberate Legacy selection with a retry.
  */
 function zdw_two_tier_menu_record_install_failure() {
@@ -651,9 +671,9 @@ function zdw_two_tier_menu_enable_completed_install() {
  */
 function zdw_two_tier_menu_activate() {
 	$installed = zdw_two_tier_menu_install_menus();
-	if ( $installed ) {
+	if ( true === $installed ) {
 		zdw_two_tier_menu_record_install_success();
-	} else {
+	} elseif ( false === $installed ) {
 		zdw_two_tier_menu_record_install_failure();
 	}
 	add_option( ZDW_TWO_TIER_MENU_OPTION_NOTICE_ENABLED, '1' );
@@ -754,6 +774,27 @@ function zdw_two_tier_menu_release_upgrade_lock( $token ) {
 }
 
 /**
+ * Acquire the menu discovery/mutation lock.
+ *
+ * @return string|null
+ */
+function zdw_two_tier_menu_acquire_install_lock() {
+	return zdw_two_tier_menu_acquire_owned_lock(
+		ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK,
+		ZDW_TWO_TIER_MENU_UPGRADE_LOCK_TTL
+	);
+}
+
+/**
+ * Release the menu discovery/mutation lock.
+ *
+ * @param string $token Opaque ownership token.
+ */
+function zdw_two_tier_menu_release_install_lock( $token ) {
+	zdw_two_tier_menu_release_owned_lock( ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK, $token );
+}
+
+/**
  * Acquire the short-lived header-state lock.
  *
  * @param bool $wait Briefly wait when an administrator is saving the setting.
@@ -804,7 +845,11 @@ function zdw_two_tier_menu_upgrade() {
 			return;
 		}
 
-		if ( ! zdw_two_tier_menu_install_menus() ) {
+		$installed = zdw_two_tier_menu_install_menus();
+		if ( null === $installed ) {
+			return;
+		}
+		if ( ! $installed ) {
 			zdw_two_tier_menu_record_install_failure();
 
 			return;
