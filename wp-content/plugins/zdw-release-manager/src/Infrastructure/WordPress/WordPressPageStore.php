@@ -24,6 +24,9 @@ final class WordPressPageStore implements PageStore
     public function updateContent(int $postId, string $content): void
     {
         $this->assertUnfilteredHtmlCapability();
+        if (!current_user_can('edit_post', $postId)) {
+            throw new RuntimeException(sprintf('Aktuální účet nemůže upravit stránku ID %d.', $postId));
+        }
 
         $result = wp_update_post(['ID' => $postId, 'post_content' => wp_slash($content)], true);
         if (is_wp_error($result) || $postId !== (int) $result) {

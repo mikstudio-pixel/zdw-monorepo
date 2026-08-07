@@ -8,9 +8,16 @@ interface StateStore
 {
     public function isApplied(string $migrationId): bool;
 
-    public function claim(string $migrationId): bool;
+    /**
+     * Acquire a migration lease.
+     *
+     * The returned opaque token owns the lease. A null result means another
+     * request owns it or the migration has already been applied.
+     */
+    public function claim(string $migrationId): ?string;
 
-    public function release(string $migrationId): void;
+    public function release(string $migrationId, string $claimToken): void;
 
-    public function markApplied(string $migrationId): void;
+    /** Complete only the lease identified by the supplied ownership token. */
+    public function markApplied(string $migrationId, string $claimToken): void;
 }

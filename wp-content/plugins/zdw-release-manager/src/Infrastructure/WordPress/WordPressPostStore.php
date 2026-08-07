@@ -26,6 +26,9 @@ final class WordPressPostStore implements PostStore
         if (!current_user_can('unfiltered_html')) {
             throw new RuntimeException('Aktuální účet nemůže bezpečně uložit nefiltrovaný Gutenberg obsah.');
         }
+        if (!current_user_can('edit_post', $postId)) {
+            throw new RuntimeException(sprintf('Aktuální účet nemůže upravit stránku ID %d.', $postId));
+        }
 
         $result = wp_update_post([
             'ID' => $postId,

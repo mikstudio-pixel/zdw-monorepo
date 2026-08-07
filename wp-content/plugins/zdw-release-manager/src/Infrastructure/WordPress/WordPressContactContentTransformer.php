@@ -15,15 +15,12 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
         $replacement = $this->parsedContactBlock($contacts, 'compact');
         $blocks = parse_blocks($content);
         $contactIndex = $this->contactTargetIndex($blocks);
+        $accreditationIndex = $this->accreditationTargetIndex($blocks);
         $updated = [];
         $skipBlankTail = false;
 
         foreach ($blocks as $index => $block) {
-            $serialized = serialize_block($block);
-            $isAccreditation = false !== stripos($serialized, 'AKREDITACE')
-                || false !== stripos($serialized, 'ACCREDITATION');
-
-            if ($isAccreditation) {
+            if ($accreditationIndex === $index) {
                 $last = end($updated);
                 if (is_array($last) && 'core/spacer' === ($last['blockName'] ?? null)) {
                     array_pop($updated);
@@ -143,6 +140,85 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
         }
 
         return $matches[0];
+    }
+
+    /** @param list<array<string, mixed>> $blocks */
+    private function accreditationTargetIndex(array $blocks): ?int
+    {
+        $matches = [];
+        foreach ($blocks as $index => $block) {
+            if ($this->isLegacyAccreditationBlock($block)) {
+                $matches[] = $index;
+            }
+        }
+
+        if (count($matches) > 1) {
+            throw new RuntimeException('Na stránce pro média bylo nalezeno více původních sekcí akreditace.');
+        }
+
+        return $matches[0] ?? null;
+    }
+
+    /** @param array<string, mixed> $block */
+    private function isLegacyAccreditationBlock(array $block): bool
+    {
+        if ('core/group' !== ($block['blockName'] ?? null)) {
+            return false;
+        }
+
+        $columnsBlocks = array_values(array_filter(
+            $block['innerBlocks'] ?? [],
+            static fn (mixed $innerBlock): bool => is_array($innerBlock)
+                && 'core/columns' === ($innerBlock['blockName'] ?? null)
+        ));
+        if (1 !== count($columnsBlocks)) {
+            return false;
+        }
+
+        $columns = array_values(array_filter(
+            $columnsBlocks[0]['innerBlocks'] ?? [],
+            static fn (mixed $innerBlock): bool => is_array($innerBlock)
+                && 'core/column' === ($innerBlock['blockName'] ?? null)
+        ));
+        if (3 !== count($columns)) {
+            return false;
+        }
+
+        $headings = $this->headingTexts($columns[0]);
+        $expectedHeading = 1 === count($headings)
+            && in_array($headings[0], ['AKREDITACE', 'ACCREDITATION'], true);
+
+        return $expectedHeading
+            && $this->containsBlock($columns[0], 'core/button')
+            && '' === $this->plainText($columns[1])
+            && '' === $this->plainText($columns[2]);
+    }
+
+    /** @param array<string, mixed> $block
+     *  @return list<string>
+     */
+    private function headingTexts(array $block): array
+    {
+        $texts = [];
+        foreach (($block['innerBlocks'] ?? []) as $innerBlock) {
+            if (!is_array($innerBlock)) {
+                continue;
+            }
+            if ('core/heading' === ($innerBlock['blockName'] ?? null)) {
+                $texts[] = strtoupper($this->plainText($innerBlock));
+            }
+            $texts = array_merge($texts, $this->headingTexts($innerBlock));
+        }
+
+        return $texts;
+    }
+
+    /** @param array<string, mixed> $block */
+    private function plainText(array $block): string
+    {
+        $text = html_entity_decode(wp_strip_all_tags(serialize_block($block)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return trim((string) preg_replace('/\s+/u', ' ', $text));
     }
 
     /** @param array<string, mixed> $block */

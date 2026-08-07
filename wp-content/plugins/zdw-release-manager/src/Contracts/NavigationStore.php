@@ -8,6 +8,8 @@ interface NavigationStore
 {
     public function isAvailable(): bool;
 
+    public function blueprintsResolvable(): bool;
+
     public function rebuildTwoTierMenus(): void;
 
     public function ensureLegacySponsorItem(int $sponsorPageId): void;

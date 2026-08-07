@@ -43,4 +43,23 @@ final class NavigationMigrationTest extends TestCase
         $migration->apply();
         self::assertSame(1, $navigation->rebuilds);
     }
+
+    public function test_an_unresolvable_blueprint_blocks_before_any_menu_is_rebuilt(): void
+    {
+        $pages = new InMemoryPageStore([new PostRecord(42, 'sponzori', 'content')]);
+        $navigation = new FakeNavigationStore();
+        $navigation->blueprintsResolvable = false;
+        $migration = new NavigationMigration($pages, $navigation);
+
+        self::assertSame('blocker', $migration->preflight()[0]->severity());
+        $result = $migration->preflight()[0];
+        self::assertStringContainsString('cílov', $result->message());
+
+        $this->expectException(\RuntimeException::class);
+        try {
+            $migration->apply();
+        } finally {
+            self::assertSame(0, $navigation->rebuilds);
+        }
+    }
 }

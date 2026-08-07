@@ -34,6 +34,9 @@ docker compose exec -T wordpress php \
 
 docker compose exec -T wordpress php \
   /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/homepage-intro.php
+
+docker compose exec -T wordpress php \
+  /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/two-tier-upgrade-lock.php
 ```
 
 ## Safety model

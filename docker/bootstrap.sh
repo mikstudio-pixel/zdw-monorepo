@@ -61,7 +61,8 @@ if ! wp user get "${ZDW_LOCAL_ADMIN_USER}" >/dev/null 2>&1; then
         --quiet
 fi
 
-if wp theme is-installed zdw-theme-child >/dev/null 2>&1; then
+if wp theme is-installed zdw-theme-child >/dev/null 2>&1 \
+    && wp theme is-installed zdw-theme >/dev/null 2>&1; then
     wp theme activate zdw-theme-child --quiet
 elif wp theme is-installed zdw-theme >/dev/null 2>&1; then
     echo "Child theme zdw-theme-child chybí; dočasně aktivuji parent theme."

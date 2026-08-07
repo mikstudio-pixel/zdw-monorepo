@@ -85,6 +85,11 @@ final class NavigationMigration implements Migration
                 'navigation.api',
                 'API pluginu ZDW Multi-level Header není dostupné.'
             );
+        } elseif (!$this->navigation->blueprintsResolvable()) {
+            $checks[] = PreflightCheck::blocker(
+                'navigation.targets',
+                'Některé cílové stránky víceúrovňové navigace neexistují nebo nejsou publikované.'
+            );
         }
 
         return $checks;

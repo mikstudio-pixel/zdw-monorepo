@@ -82,7 +82,8 @@ final class MigrationRunner
             );
         }
 
-        if (!$this->stateStore->claim($migrationId)) {
+        $claimToken = $this->stateStore->claim($migrationId);
+        if (null === $claimToken) {
             return new RunResult(
                 RunResult::SKIPPED,
                 'Migraci právě provádí jiný požadavek nebo už byla aplikována.'
@@ -94,7 +95,7 @@ final class MigrationRunner
             $verification = $migration->verify();
 
             if ($this->hasBlocker($verification)) {
-                $this->stateStore->release($migrationId);
+                $this->stateStore->release($migrationId, $claimToken);
 
                 return new RunResult(
                     RunResult::FAILED,
@@ -103,9 +104,9 @@ final class MigrationRunner
                 );
             }
 
-            $this->stateStore->markApplied($migrationId);
+            $this->stateStore->markApplied($migrationId, $claimToken);
         } catch (Throwable $error) {
-            $this->stateStore->release($migrationId);
+            $this->stateStore->release($migrationId, $claimToken);
 
             return new RunResult(RunResult::FAILED, $error->getMessage());
         }

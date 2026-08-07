@@ -49,6 +49,21 @@ if (false === strpos($syntheticResult, 'Do not replace') || 1 !== substr_count($
     throw new RuntimeException('Press transform replaced an unrelated group.');
 }
 
+$unrelatedAccreditation = '<!-- wp:group --><div class="wp-block-group"><!-- wp:heading --><h2>Akreditace novinářů bude otevřena později</h2><!-- /wp:heading --></div><!-- /wp:group -->';
+$legacyAccreditation = '<!-- wp:group --><div class="wp-block-group"><!-- wp:columns --><div class="wp-block-columns">'
+    . '<!-- wp:column --><div class="wp-block-column"><!-- wp:heading {"level":4} --><h4>AKREDITACE</h4><!-- /wp:heading --><!-- wp:buttons --><div class="wp-block-buttons"><!-- wp:button --><div class="wp-block-button"><a class="wp-block-button__link wp-element-button">ZOBRAZIT SOUBORY</a></div><!-- /wp:button --></div><!-- /wp:buttons --></div><!-- /wp:column -->'
+    . '<!-- wp:column --><div class="wp-block-column"><!-- wp:heading {"level":4} --><h4></h4><!-- /wp:heading --></div><!-- /wp:column -->'
+    . '<!-- wp:column --><div class="wp-block-column"><!-- wp:heading {"level":4} --><h4></h4><!-- /wp:heading --></div><!-- /wp:column -->'
+    . '</div><!-- /wp:columns --></div><!-- /wp:group -->';
+$safePress = $syntheticPress . $unrelatedAccreditation . $legacyAccreditation;
+$safeResult = $transformer->pressPage($safePress, $eva);
+if (false === strpos($safeResult, 'Akreditace novinářů bude otevřena později')) {
+    throw new RuntimeException('Press transform removed unrelated accreditation copy.');
+}
+if (false !== strpos($safeResult, '>AKREDITACE<')) {
+    throw new RuntimeException('Press transform kept the structurally identified legacy accreditation section.');
+}
+
 $accessibilityRevision = get_post(40676);
 if (!$accessibilityRevision instanceof WP_Post) {
     throw new RuntimeException('Accessibility fixture revision 40676 is missing.');

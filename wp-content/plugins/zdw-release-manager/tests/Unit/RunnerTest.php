@@ -121,7 +121,7 @@ final class RunnerTest extends TestCase
     {
         $migration = new SpyMigration('20260807_001_audit', 'Audit');
         $store = new InMemoryStateStore();
-        self::assertTrue($store->claim($migration->id()));
+        self::assertNotNull($store->claim($migration->id()));
         $runner = new MigrationRunner(new MigrationRegistry([$migration]), $store);
 
         $result = $runner->apply($migration->id());
@@ -129,6 +129,23 @@ final class RunnerTest extends TestCase
         self::assertSame(RunResult::SKIPPED, $result->status());
         self::assertSame(0, $migration->applyCalls);
         self::assertStringContainsString('jiný požadavek', $result->message());
+    }
+
+    public function test_an_expired_owner_cannot_release_or_complete_a_replacement_claim(): void
+    {
+        $migrationId = '20260807_001_audit';
+        $store = new InMemoryStateStore();
+        $firstToken = $store->claim($migrationId);
+        self::assertNotNull($firstToken);
+
+        $replacementToken = $store->replaceClaimForTest($migrationId);
+        self::assertNotSame($firstToken, $replacementToken);
+
+        $store->release($migrationId, $firstToken);
+        self::assertTrue($store->hasClaimForTest($migrationId, $replacementToken));
+
+        $this->expectException(\RuntimeException::class);
+        $store->markApplied($migrationId, $firstToken);
     }
 
     public function test_unknown_migration_id_is_reported_without_throwing(): void

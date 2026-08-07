@@ -11,8 +11,10 @@ final class InMemoryStateStore implements StateStore
     /** @var array<string, true> */
     private array $applied = [];
 
-    /** @var array<string, true> */
+    /** @var array<string, string> */
     private array $claims = [];
+
+    private int $tokenSequence = 0;
 
     /** @param list<string> $applied */
     public function __construct(array $applied = [])
@@ -27,25 +29,52 @@ final class InMemoryStateStore implements StateStore
         return isset($this->applied[$migrationId]);
     }
 
-    public function claim(string $migrationId): bool
+    public function claim(string $migrationId): ?string
     {
         if ($this->isApplied($migrationId) || isset($this->claims[$migrationId])) {
-            return false;
+            return null;
         }
 
-        $this->claims[$migrationId] = true;
+        $token = $this->newToken();
+        $this->claims[$migrationId] = $token;
 
-        return true;
+        return $token;
     }
 
-    public function release(string $migrationId): void
+    public function release(string $migrationId, string $claimToken): void
     {
-        unset($this->claims[$migrationId]);
+        if (($this->claims[$migrationId] ?? null) === $claimToken) {
+            unset($this->claims[$migrationId]);
+        }
     }
 
-    public function markApplied(string $migrationId): void
+    public function markApplied(string $migrationId, string $claimToken): void
     {
+        if (($this->claims[$migrationId] ?? null) !== $claimToken) {
+            throw new \RuntimeException('Nelze potvrdit migraci bez vlastnictví jejího zámku.');
+        }
+
         $this->applied[$migrationId] = true;
-        $this->release($migrationId);
+        $this->release($migrationId, $claimToken);
+    }
+
+    public function replaceClaimForTest(string $migrationId): string
+    {
+        $token = $this->newToken();
+        $this->claims[$migrationId] = $token;
+
+        return $token;
+    }
+
+    public function hasClaimForTest(string $migrationId, string $claimToken): bool
+    {
+        return ($this->claims[$migrationId] ?? null) === $claimToken;
+    }
+
+    private function newToken(): string
+    {
+        ++$this->tokenSequence;
+
+        return 'claim-' . $this->tokenSequence;
     }
 }

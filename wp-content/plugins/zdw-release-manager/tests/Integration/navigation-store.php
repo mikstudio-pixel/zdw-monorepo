@@ -17,6 +17,9 @@ $store = new WordPressNavigationStore();
 if (!$store->isAvailable()) {
     throw new RuntimeException('Navigation API is unavailable.');
 }
+if (!$store->blueprintsResolvable()) {
+    throw new RuntimeException('Navigation blueprint contains an unavailable target.');
+}
 if (!$store->matchesDesiredNavigation((int) $sponsorPage->ID)) {
     throw new RuntimeException('Navigation does not match its blueprint.');
 }

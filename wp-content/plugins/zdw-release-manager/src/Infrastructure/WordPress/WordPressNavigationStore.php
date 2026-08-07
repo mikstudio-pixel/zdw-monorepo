@@ -14,7 +14,13 @@ final class WordPressNavigationStore implements NavigationStore
     {
         return function_exists('zdw_two_tier_menu_names')
             && function_exists('zdw_two_tier_menu_blueprints')
+            && function_exists('zdw_two_tier_menu_blueprints_resolvable')
             && function_exists('zdw_two_tier_menu_install_menus');
+    }
+
+    public function blueprintsResolvable(): bool
+    {
+        return $this->isAvailable() && zdw_two_tier_menu_blueprints_resolvable();
     }
 
     public function rebuildTwoTierMenus(): void
@@ -23,7 +29,9 @@ final class WordPressNavigationStore implements NavigationStore
             throw new RuntimeException('API pluginu ZDW Multi-level Header není dostupné.');
         }
 
-        zdw_two_tier_menu_install_menus(true);
+        if (!$this->blueprintsResolvable() || !zdw_two_tier_menu_install_menus(true)) {
+            throw new RuntimeException('Cíle víceúrovňové navigace nelze bezpečně sestavit.');
+        }
     }
 
     public function ensureLegacySponsorItem(int $sponsorPageId): void
