@@ -8,6 +8,9 @@ require $wordpressRoot . '/wp-load.php';
 if (!function_exists('zdw_two_tier_menu_acquire_upgrade_lock')) {
     throw new RuntimeException('Two-tier menu upgrade lock API is unavailable.');
 }
+if (!defined('ZDW_TWO_TIER_MENU_STATE_LOCK_TTL') || 30 !== ZDW_TWO_TIER_MENU_STATE_LOCK_TTL) {
+    throw new RuntimeException('The header-state lock must use its dedicated 30-second TTL.');
+}
 
 delete_option(ZDW_TWO_TIER_MENU_OPTION_UPGRADE_LOCK);
 

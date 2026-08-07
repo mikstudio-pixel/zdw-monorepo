@@ -1,9 +1,9 @@
 # ZDW Release Manager
 
 Versioned, auditable and idempotent WordPress content migrations for Zlin
-Design Week. Version 0.3.0 includes environment preflight, a tested migration
-runner, and six idempotent migrations for settings, contact content, the
-sponsor page, navigation, and the homepage intro video.
+Design Week. Version 0.4.0 includes environment preflight, a tested migration
+runner, and seven idempotent migrations for colors and settings, contact
+content, translated sponsor pages, navigation, and the final homepage.
 
 ## Development
 
@@ -36,6 +36,15 @@ docker compose exec -T wordpress php \
   /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/homepage-intro.php
 
 docker compose exec -T wordpress php \
+  /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/homepage-body.php
+
+docker compose exec -T wordpress php \
+  /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/media-store.php
+
+docker compose exec -T wordpress php \
+  /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/contact-block-render.php
+
+docker compose exec -T wordpress php \
   /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/two-tier-upgrade-lock.php
 
 docker compose exec -T wordpress php \
@@ -57,4 +66,11 @@ docker compose exec -T wordpress php \
 The homepage intro migration is intentionally blocked until
 `zdw-bg-trimmed-30-muted.mp4` exists exactly once in the WordPress Media
 Library. It resolves the production attachment ID and URL at runtime and
-replaces only the first intro block, preserving the remaining homepage.
+replaces only the first intro block on both Czech and English homepages. A
+separate guarded migration removes the obsolete sections from the Czech
+homepage while retaining its showcase and event tiles.
+
+The content-transformer integration fixture uses revisions `43859` and `40676`
+from the SQL dump configured through `ZDW_SQL_DUMP`. Restore the matching
+Updraft/SQL test copy before running that script; a missing fixture means the
+required test database has not been restored.

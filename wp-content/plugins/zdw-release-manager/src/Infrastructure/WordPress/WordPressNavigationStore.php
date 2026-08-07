@@ -57,14 +57,26 @@ final class WordPressNavigationStore implements NavigationStore
             throw new RuntimeException('API pluginu ZDW Multi-level Header není dostupné.');
         }
 
-        if (!$this->blueprintsResolvable() || !zdw_two_tier_menu_install_menus(true)) {
+        if (!$this->blueprintsResolvable()) {
+            throw new RuntimeException('Cíle víceúrovňové navigace nelze bezpečně sestavit.');
+        }
+
+        $installed = zdw_two_tier_menu_install_menus(true);
+        if (null === $installed) {
+            throw new RuntimeException('Instalaci menu právě provádí jiný požadavek; zkuste migraci znovu.');
+        }
+        if (!$installed) {
             throw new RuntimeException('Cíle víceúrovňové navigace nelze bezpečně sestavit.');
         }
     }
 
-    public function ensureLegacySponsorItem(int $sponsorPageId): void
+    public function ensureLegacySponsorItem(array $sponsorPageIds): void
     {
         foreach ($this->legacyMenus() as $definition) {
+            $sponsorPageId = $sponsorPageIds[$definition['language']] ?? 0;
+            if (0 === $sponsorPageId) {
+                throw new RuntimeException(sprintf('Chybí stránka partnerů pro jazyk %s.', $definition['language']));
+            }
             $this->ensureLegacyMenuItem(
                 $definition['menu'],
                 $definition['parentSlug'],
@@ -95,13 +107,13 @@ final class WordPressNavigationStore implements NavigationStore
         $parentPageId = $this->pageIdBySlug($parentSlug);
         $items = (array) wp_get_nav_menu_items((int) $menu->term_id);
         $festivalParentId = 0;
-        $sponsorItemId = 0;
+        $sponsorItemIds = [];
         foreach ($items as $item) {
             if ('page' === $item->object && $parentPageId === (int) $item->object_id && 0 === (int) $item->menu_item_parent) {
                 $festivalParentId = (int) $item->ID;
             }
             if ('page' === $item->object && $sponsorPageId === (int) $item->object_id) {
-                $sponsorItemId = (int) $item->ID;
+                $sponsorItemIds[] = (int) $item->ID;
             }
         }
 
@@ -109,6 +121,7 @@ final class WordPressNavigationStore implements NavigationStore
             throw new RuntimeException(sprintf('V menu %s chybí nadřazená festivalová položka.', $menuName));
         }
 
+        $sponsorItemId = $sponsorItemIds[0] ?? 0;
         $result = wp_update_nav_menu_item(
             (int) $menu->term_id,
             $sponsorItemId,
@@ -125,15 +138,22 @@ final class WordPressNavigationStore implements NavigationStore
         if (is_wp_error($result)) {
             throw new RuntimeException($result->get_error_message());
         }
+
+        foreach (array_slice($sponsorItemIds, 1) as $duplicateItemId) {
+            if (!wp_delete_post($duplicateItemId, true)) {
+                throw new RuntimeException(sprintf('Duplicitní položku menu ID %d se nepodařilo odstranit.', $duplicateItemId));
+            }
+        }
     }
 
-    public function matchesDesiredNavigation(int $sponsorPageId): bool
+    public function matchesDesiredNavigation(array $sponsorPageIds): bool
     {
         if (!$this->isAvailable() || '1' !== (string) get_option('zdw_two_tier_menu_enabled', '0')) {
             return false;
         }
 
         foreach ($this->legacyMenus() as $definition) {
+            $sponsorPageId = $sponsorPageIds[$definition['language']] ?? 0;
             if (!$this->legacySponsorItemMatches(
                 $definition['menu'],
                 $definition['parentSlug'],
@@ -176,20 +196,25 @@ final class WordPressNavigationStore implements NavigationStore
         foreach ($items as $item) {
             $byId[(int) $item->ID] = $item;
         }
+        $matches = [];
         foreach ($items as $item) {
             if ('page' !== $item->object || $sponsorPageId !== (int) $item->object_id) {
                 continue;
             }
 
-            $parent = $byId[(int) $item->menu_item_parent] ?? null;
-
-            return (string) $item->title === $title
-                && null !== $parent
-                && 'page' === $parent->object
-                && $this->pageIdBySlug($parentSlug) === (int) $parent->object_id;
+            $matches[] = $item;
+        }
+        if (1 !== count($matches)) {
+            return false;
         }
 
-        return false;
+        $item = $matches[0];
+        $parent = $byId[(int) $item->menu_item_parent] ?? null;
+
+        return (string) $item->title === $title
+            && null !== $parent
+            && 'page' === $parent->object
+            && $this->pageIdBySlug($parentSlug) === (int) $parent->object_id;
     }
 
     /** @param list<array<string, mixed>> $blueprint */
@@ -207,12 +232,12 @@ final class WordPressNavigationStore implements NavigationStore
         return $page instanceof WP_Post ? (int) $page->ID : 0;
     }
 
-    /** @return list<array{menu: string, parentSlug: string, title: string}> */
+    /** @return list<array{language: string, menu: string, parentSlug: string, title: string}> */
     private function legacyMenus(): array
     {
         return [
-            ['menu' => 'Header Menu', 'parentSlug' => 'o-festivalu', 'title' => 'Sponzoři'],
-            ['menu' => 'Header Menu EN', 'parentSlug' => 'about-the-festival-2', 'title' => 'Partners'],
+            ['language' => 'cs', 'menu' => 'Header Menu', 'parentSlug' => 'o-festivalu', 'title' => 'Sponzoři'],
+            ['language' => 'en', 'menu' => 'Header Menu EN', 'parentSlug' => 'about-the-festival-2', 'title' => 'Partners'],
         ];
     }
 }

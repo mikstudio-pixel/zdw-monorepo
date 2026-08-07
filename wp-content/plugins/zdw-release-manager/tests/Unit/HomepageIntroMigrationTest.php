@@ -44,6 +44,29 @@ final class HomepageIntroMigrationTest extends TestCase
         self::assertSame('pass', $migration->verify()[0]->severity());
     }
 
+    public function test_apply_updates_both_language_homepages(): void
+    {
+        $posts = new InMemoryPostStore([
+            new PostRecord(2, 'zdw', 'homepage-cs'),
+            new PostRecord(93, 'zdw-en', 'homepage-en'),
+        ]);
+        $media = new FakeMediaStore(
+            [new MediaAsset(99, 'zdw-bg-trimmed-30-muted.mp4')],
+            new MediaAsset(35610, '16-zdw-tag-jiri-edit-1-2.jpg')
+        );
+        $migration = new HomepageIntroMigration(
+            $posts,
+            $media,
+            new FakeIntroContentTransformer(),
+            [2 => 'zdw', 93 => 'zdw-en']
+        );
+
+        $migration->apply();
+
+        self::assertSame([2, 93], $posts->writes);
+        self::assertSame('pass', $migration->verify()[0]->severity());
+    }
+
     public function test_reused_poster_id_with_wrong_file_blocks_the_migration(): void
     {
         $posts = new InMemoryPostStore([new PostRecord(2, 'zdw', 'homepage')]);
@@ -82,7 +105,7 @@ final class HomepageIntroMigrationTest extends TestCase
             new FakeMediaStore([$video], new MediaAsset(35610, '16-zdw-tag-jiri-edit-1-2.jpg')),
             new FakeIntroContentTransformer()
         );
-        self::assertSame('intro.homepage', $wrongHomepage->preflight()[0]->code());
+        self::assertSame('intro.homepage_2', $wrongHomepage->preflight()[0]->code());
     }
 
     public function test_verify_reports_a_content_mismatch(): void

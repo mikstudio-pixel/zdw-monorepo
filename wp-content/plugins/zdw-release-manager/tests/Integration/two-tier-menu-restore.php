@@ -89,7 +89,9 @@ try {
         throw new RuntimeException('The restored menu hierarchy does not match the snapshot.');
     }
 } finally {
-    wp_delete_nav_menu((int) $menuId);
+    if (wp_get_nav_menu_object((int) $menuId)) {
+        wp_delete_nav_menu((int) $menuId);
+    }
     if (wp_get_nav_menu_object((int) $createdMenuId)) {
         wp_delete_nav_menu((int) $createdMenuId);
     }

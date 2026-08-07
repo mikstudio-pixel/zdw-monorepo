@@ -11,6 +11,11 @@ use ZDW\ReleaseManager\Domain\PreflightCheck;
 
 final class SponsorPageMigration implements Migration
 {
+    private const PAGES = [
+        'cs' => ['title' => 'Sponzoři', 'slug' => 'sponzori'],
+        'en' => ['title' => 'Partners', 'slug' => 'partners'],
+    ];
+
     /** @param array<int, string> $attachments */
     public function __construct(
         private readonly PageStore $store,
@@ -21,12 +26,12 @@ final class SponsorPageMigration implements Migration
 
     public function id(): string
     {
-        return '20260807_004_sponsor_page';
+        return '20260808_004_sponsor_pages';
     }
 
     public function label(): string
     {
-        return 'Stránka Sponzoři s editovatelným Gutenberg blokem';
+        return 'Stránky Sponzoři a Partners s editovatelným Gutenberg blokem';
     }
 
     public function preflight(): array
@@ -36,44 +41,44 @@ final class SponsorPageMigration implements Migration
             return $checks;
         }
 
-        $pageIds = $this->store->findPageIdsBySlug('sponzori');
-        if ([] === $pageIds) {
-            return [PreflightCheck::warning('sponsors.create', 'Bude vytvořena stránka Sponzoři.')];
-        }
-
-        $page = $this->store->find($pageIds[0]);
-
-        return null !== $page
-            && $page->content() === $this->desiredContent
-            && 'cs' === $this->store->language($page->id())
-            ? [PreflightCheck::pass('sponsors.ready', 'Stránka Sponzoři už odpovídá této verzi.')]
-            : [PreflightCheck::warning('sponsors.update', 'Bude aktualizován obsah stránky Sponzoři.')];
+        return $this->pagesMatch()
+            ? [PreflightCheck::pass('sponsors.ready', 'Stránky Sponzoři a Partners už odpovídají této verzi.')]
+            : [PreflightCheck::warning('sponsors.update', 'Budou vytvořeny nebo aktualizovány stránky Sponzoři a Partners.')];
     }
 
     public function apply(): void
     {
         if ([] !== $this->blockingChecks()) {
-            throw new RuntimeException('Nelze bezpečně vytvořit nebo aktualizovat stránku Sponzoři.');
+            throw new RuntimeException('Nelze bezpečně vytvořit nebo aktualizovat stránky partnerů.');
         }
 
-        $pageIds = $this->store->findPageIdsBySlug('sponzori');
-        if ([] === $pageIds) {
-            $pageId = $this->store->createPage('Sponzoři', 'sponzori', $this->desiredContent);
-            $this->store->setLanguage($pageId, 'cs');
+        $translations = [];
+        foreach (self::PAGES as $language => $definition) {
+            $pageIds = $this->store->findPageIdsBySlug($definition['slug']);
+            if ([] === $pageIds) {
+                $pageId = $this->store->createPage(
+                    $definition['title'],
+                    $definition['slug'],
+                    $this->desiredContent
+                );
+            } else {
+                $pageId = $pageIds[0];
+                $page = $this->store->find($pageId);
+                if (null === $page) {
+                    throw new RuntimeException(sprintf('Stránku %s se nepodařilo načíst.', $definition['title']));
+                }
+                if ($page->content() !== $this->desiredContent) {
+                    $this->store->updateContent($pageId, $this->desiredContent);
+                }
+            }
 
-            return;
+            if ($language !== $this->store->language($pageId)) {
+                $this->store->setLanguage($pageId, $language);
+            }
+            $translations[$language] = $pageId;
         }
 
-        $page = $this->store->find($pageIds[0]);
-        if (null === $page) {
-            throw new RuntimeException('Stránku Sponzoři se nepodařilo načíst.');
-        }
-        if ($page->content() !== $this->desiredContent) {
-            $this->store->updateContent($page->id(), $this->desiredContent);
-        }
-        if ('cs' !== $this->store->language($page->id())) {
-            $this->store->setLanguage($page->id(), 'cs');
-        }
+        $this->store->setTranslations($translations);
     }
 
     public function verify(): array
@@ -83,20 +88,9 @@ final class SponsorPageMigration implements Migration
             return $checks;
         }
 
-        $pageIds = $this->store->findPageIdsBySlug('sponzori');
-        if (1 !== count($pageIds)) {
-            return [PreflightCheck::blocker('sponsors.count', 'Stránka Sponzoři nebyla jednoznačně nalezena.')];
-        }
-
-        $page = $this->store->find($pageIds[0]);
-        if (null === $page || $page->content() !== $this->desiredContent) {
-            return [PreflightCheck::blocker('sponsors.content', 'Obsah stránky Sponzoři neodpovídá migraci.')];
-        }
-        if ('cs' !== $this->store->language($page->id())) {
-            return [PreflightCheck::blocker('sponsors.language', 'Stránka Sponzoři není přiřazena k češtině.')];
-        }
-
-        return [PreflightCheck::pass('sponsors.saved', 'Stránka Sponzoři byla ověřena.')];
+        return $this->pagesMatch()
+            ? [PreflightCheck::pass('sponsors.saved', 'Stránky Sponzoři a Partners byly ověřeny.')]
+            : [PreflightCheck::blocker('sponsors.content', 'Stránky Sponzoři a Partners neodpovídají migraci.')];
     }
 
     /** @return list<PreflightCheck> */
@@ -122,14 +116,44 @@ final class SponsorPageMigration implements Migration
             );
         }
 
-        $pageIds = $this->store->findPageIdsBySlug('sponzori');
-        if (count($pageIds) > 1) {
-            $checks[] = PreflightCheck::blocker(
-                'sponsors.duplicate',
-                sprintf('Slug sponzori používá více stránek: %s.', implode(', ', $pageIds))
-            );
+        foreach (self::PAGES as $definition) {
+            $pageIds = $this->store->findPageIdsBySlug($definition['slug']);
+            if (count($pageIds) > 1) {
+                $checks[] = PreflightCheck::blocker(
+                    'sponsors.duplicate',
+                    sprintf('Slug %s používá více stránek: %s.', $definition['slug'], implode(', ', $pageIds))
+                );
+            } elseif (1 === count($pageIds) && null === $this->store->find($pageIds[0])) {
+                $checks[] = PreflightCheck::blocker(
+                    'sponsors.unpublished_slug',
+                    sprintf(
+                        'Slug %s už používá nepublikovaná stránka ID %d; nejprve ji publikujte, přejmenujte nebo odstraňte.',
+                        $definition['slug'],
+                        $pageIds[0]
+                    )
+                );
+            }
         }
 
         return $checks;
+    }
+
+    private function pagesMatch(): bool
+    {
+        foreach (self::PAGES as $language => $definition) {
+            $pageIds = $this->store->findPageIdsBySlug($definition['slug']);
+            if (1 !== count($pageIds)) {
+                return false;
+            }
+
+            $page = $this->store->find($pageIds[0]);
+            if (null === $page
+                || $page->content() !== $this->desiredContent
+                || $language !== $this->store->language($page->id())) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

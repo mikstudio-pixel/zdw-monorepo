@@ -16,7 +16,10 @@ verze 6.8.6 uvedené v hlavičce exportu není v oficiálním registru dostupný
 
 1. Spusťte Docker Desktop.
 2. Zkopírujte `.env.example` jako `.env`, nastavte `ZDW_SQL_DUMP` na lokální
-   SQL.gz export a změňte lokální heslo.
+   SQL.gz export a změňte lokální heslo. Před prvním spuštěním obnovte do
+   `wp-content` také odpovídající UpdraftPlus archivy pluginů, parent theme a
+   uploads; samotný Git repozitář je záměrně neobsahuje a bez nich nemůže
+   kontrola prostředí release manageru projít.
 3. Spusťte:
 
    ```sh
@@ -106,11 +109,15 @@ Plugin `zdw-release-manager` přidává do administrace položku **ZDW → Nasaz
 Každá změna má verzované ID, preflight, idempotentní zápis a následné ověření.
 Aktuální manifest pokrývá:
 
-- nastavení úvodního bloku a víceúrovňového headeru,
+- barevnost, nastavení úvodního bloku a víceúrovňového headeru,
 - hlavní kontakty i kontakty v sekcích Pro média, Best in Design a Přístupnost,
-- vytvoření/aktualizaci Gutenberg stránky Sponzoři,
-- čtyři menu nového headeru a odkaz na Sponzory v legacy menu.
-- úvodní video, datum a text intro bloku bez přepisu zbytku homepage.
+- vytvoření/aktualizaci propojených Gutenberg stránek Sponzoři a Partners,
+- čtyři menu nového headeru a jazykově správné odkazy na partnery v legacy menu,
+- úvodní video, datum a text intro bloku na české i anglické homepage,
+- finální skladbu české homepage bez starých obsahových bloků.
+
+Footer s kontaktem, fakturačními údaji, sociálními sítěmi a právními texty je
+součástí samostatné child theme a nevyžaduje zásah do původní šablony.
 
 Produkční postup je: nahrát vlastní pluginy a child theme přes FTPES, přes Média
 nahrát `zdw-bg-trimmed-30-muted.mp4`, aktivovat `zdw-release-manager`, spustit

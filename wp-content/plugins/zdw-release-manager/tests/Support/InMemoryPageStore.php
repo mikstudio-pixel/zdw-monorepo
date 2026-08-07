@@ -18,6 +18,12 @@ final class InMemoryPageStore implements PageStore
     /** @var array<int, string> */
     private array $languages = [];
 
+    /** @var array<string, list<int>> */
+    private array $unpublishedSlugOwners = [];
+
+    /** @var array<string, int> */
+    private array $translations = [];
+
     /** @var list<int> */
     public array $writes = [];
 
@@ -25,8 +31,9 @@ final class InMemoryPageStore implements PageStore
 
     /** @param list<PostRecord> $pages
      *  @param array<int, string> $attachments
+     *  @param array<string, list<int>> $unpublishedSlugOwners
      */
-    public function __construct(array $pages = [], array $attachments = [])
+    public function __construct(array $pages = [], array $attachments = [], array $unpublishedSlugOwners = [])
     {
         foreach ($pages as $page) {
             $this->pages[$page->id()] = $page;
@@ -34,6 +41,7 @@ final class InMemoryPageStore implements PageStore
         foreach ($attachments as $attachmentId => $filename) {
             $this->attachments[$attachmentId] = $filename;
         }
+        $this->unpublishedSlugOwners = $unpublishedSlugOwners;
     }
 
     public function find(int $postId): ?PostRecord
@@ -50,10 +58,12 @@ final class InMemoryPageStore implements PageStore
 
     public function findPageIdsBySlug(string $slug): array
     {
-        return array_values(array_map(
+        $published = array_values(array_map(
             static fn (PostRecord $page): int => $page->id(),
             array_filter($this->pages, static fn (PostRecord $page): bool => $page->slug() === $slug)
         ));
+
+        return array_values(array_merge($published, $this->unpublishedSlugOwners[$slug] ?? []));
     }
 
     public function createPage(string $title, string $slug, string $content): int
@@ -74,6 +84,17 @@ final class InMemoryPageStore implements PageStore
     public function language(int $postId): ?string
     {
         return $this->languages[$postId] ?? null;
+    }
+
+    public function setTranslations(array $translations): void
+    {
+        $this->translations = $translations;
+    }
+
+    /** @return array<string, int> */
+    public function translationGroup(): array
+    {
+        return $this->translations;
     }
 
     public function attachmentExists(int $attachmentId): bool

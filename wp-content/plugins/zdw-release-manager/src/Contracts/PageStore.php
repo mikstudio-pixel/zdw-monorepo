@@ -15,6 +15,9 @@ interface PageStore extends PostStore
 
     public function language(int $postId): ?string;
 
+    /** @param array<string, int> $translations */
+    public function setTranslations(array $translations): void;
+
     public function attachmentExists(int $attachmentId): bool;
 
     public function attachmentFilename(int $attachmentId): ?string;

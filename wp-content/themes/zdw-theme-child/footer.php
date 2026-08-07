@@ -1,8 +1,8 @@
 <?php include get_template_directory() . '/blocks/newsletter.php'; ?>
 <footer class="footer mt-2 has-dark-background-color" role="contentinfo">
-    <?php include get_template_directory() . '/parts/footer-connect.php'; ?>
+    <?php include get_stylesheet_directory() . '/parts/footer-connect.php'; ?>
     <div class="container has-bg-color">
-        <?php include get_template_directory() . '/parts/footer-legal.php'; ?>
+        <?php include get_stylesheet_directory() . '/parts/footer-legal.php'; ?>
 
         <?php if (is_user_logged_in()) { ?>
             <div class="footer-edit-link">

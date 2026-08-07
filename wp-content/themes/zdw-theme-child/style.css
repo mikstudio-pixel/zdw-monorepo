@@ -2,7 +2,7 @@
 Theme Name: ZDW Theme Child
 Description: Safe local overrides for the ZDW website.
 Template: zdw-theme
-Version: 1.0.0
+Version: 1.1.0
 Author: Zlin Design Week
 */
 
@@ -75,9 +75,117 @@ mark.has-light-color {
 	padding-block: 8rem;
 }
 
+.footer-connect__grid {
+	display: grid;
+	gap: 4rem;
+}
+
+.footer-connect__title {
+	color: inherit;
+	font-size: clamp(2.25rem, 4vw, 3.75rem);
+	font-weight: 500;
+	letter-spacing: -.035em;
+	line-height: 1;
+	margin: 0 0 2.75rem;
+	text-transform: none;
+}
+
+.footer-connect__contacts {
+	display: grid;
+	gap: 2rem;
+}
+
+.footer-connect__contact {
+	font-size: 1.05rem;
+	font-style: normal;
+	line-height: 1.4;
+}
+
+.footer-connect__contact p {
+	margin: 0;
+}
+
+.footer-connect__contact p + p {
+	margin-top: 1.5rem;
+}
+
+.footer-connect__contact a,
+.footer-connect__social-links a {
+	color: inherit;
+}
+
+.footer-connect__social-links {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1.75rem;
+}
+
+.footer-connect__social-icon {
+	background-color: currentColor;
+	display: block;
+	height: 2.75rem;
+	-webkit-mask-position: center;
+	-webkit-mask-repeat: no-repeat;
+	-webkit-mask-size: contain;
+	mask-position: center;
+	mask-repeat: no-repeat;
+	mask-size: contain;
+	width: 2.75rem;
+}
+
+.footer-connect__social-icon--instagram {
+	-webkit-mask-image: url("assets/instagram.svg");
+	mask-image: url("assets/instagram.svg");
+}
+
+.footer-connect__social-icon--facebook {
+	-webkit-mask-image: url("assets/facebook.svg");
+	mask-image: url("assets/facebook.svg");
+}
+
+.footer-connect__social-icon--linkedin {
+	-webkit-mask-image: url("assets/linkedin.svg");
+	mask-image: url("assets/linkedin.svg");
+}
+
+.footer-connect__social-icon--spotify {
+	-webkit-mask-image: url("assets/spotify.svg");
+	mask-image: url("assets/spotify.svg");
+}
+
+.footer-legal {
+	display: grid;
+	gap: 1.5rem;
+	padding-block: 2rem 3rem;
+}
+
+.footer-legal p {
+	margin: 0;
+}
+
+.footer-legal__primary,
+.footer-legal__meta {
+	display: grid;
+	gap: .5rem;
+}
+
 @media (min-width: 960px) {
 	.footer.footer .footer-connect {
 		padding-block: 10rem;
+	}
+
+	.footer-connect__grid {
+		grid-template-columns: minmax(0, 2fr) minmax(260px, .8fr);
+		gap: clamp(4rem, 8vw, 9rem);
+	}
+
+	.footer-connect__contacts {
+		grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+	}
+
+	.footer-connect__social-links {
+		margin-top: 4.2rem;
 	}
 }
 

@@ -21,6 +21,7 @@ const ZDW_TWO_TIER_MENU_OPTION_STATE_LOCK          = 'zdw_two_tier_menu_state_lo
 const ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL = 'zdw_two_tier_menu_enable_after_install';
 const ZDW_TWO_TIER_MENU_DB_VERSION                 = '0.2.1';
 const ZDW_TWO_TIER_MENU_UPGRADE_LOCK_TTL           = 300;
+const ZDW_TWO_TIER_MENU_STATE_LOCK_TTL             = 30;
 
 /**
  * Menu names are deliberately independent of theme locations. This keeps the
@@ -123,7 +124,7 @@ function zdw_two_tier_menu_blueprints() {
 					array( 'path' => '/en/rocniky/', 'title' => 'Previous years' ),
 					array( 'page' => 15608, 'title' => 'Festival accessibility' ),
 				) ),
-				array( 'slug' => 'sponzori', 'title' => 'PARTNERS' ),
+				array( 'slug' => 'partners', 'title' => 'PARTNERS' ),
 				array( 'page' => 1330, 'title' => 'PRESS' ),
 				array( 'page' => 179, 'title' => 'CONTACTS' ),
 				array( 'page' => 5536, 'title' => 'BLOG' ),
@@ -740,16 +741,14 @@ function zdw_two_tier_menu_release_owned_lock( $option_name, $token ) {
 	}
 
 	global $wpdb;
-	$deleted = $wpdb->query(
+	$wpdb->query(
 		$wpdb->prepare(
 			"DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s",
 			$option_name,
 			maybe_serialize( $claim )
 		)
 	);
-	if ( 1 === $deleted ) {
-		wp_cache_delete( $option_name, 'options' );
-	}
+	wp_cache_delete( $option_name, 'options' );
 }
 
 /**
@@ -805,7 +804,7 @@ function zdw_two_tier_menu_acquire_state_lock( $wait = false ) {
 	for ( $attempt = 0; $attempt < $attempts; $attempt++ ) {
 		$token = zdw_two_tier_menu_acquire_owned_lock(
 			ZDW_TWO_TIER_MENU_OPTION_STATE_LOCK,
-			ZDW_TWO_TIER_MENU_UPGRADE_LOCK_TTL
+			ZDW_TWO_TIER_MENU_STATE_LOCK_TTL
 		);
 		if ( null !== $token ) {
 			return $token;
@@ -1176,11 +1175,6 @@ function zdw_two_tier_menu_filter_showcase_blocks( $block_content, $block ) {
 	$class_name = (string) ( $block['attrs']['className'] ?? '' );
 	if ( false !== strpos( $class_name, 'na-co-se-tesit-section' ) ) {
 		return zdw_two_tier_menu_render_showcase();
-	}
-
-	$serialized = wp_json_encode( $block );
-	if ( false !== strpos( $serialized, 'Design Market' ) && false !== strpos( $serialized, 'Flash Talks' ) ) {
-		return '';
 	}
 
 	return $block_content;

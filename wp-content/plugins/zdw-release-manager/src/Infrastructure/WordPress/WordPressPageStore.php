@@ -40,7 +40,7 @@ final class WordPressPageStore implements PageStore
         $ids = get_posts([
             'name' => $slug,
             'post_type' => 'page',
-            'post_status' => 'publish',
+            'post_status' => 'any',
             'numberposts' => -1,
             'fields' => 'ids',
             'suppress_filters' => true,
@@ -85,6 +85,15 @@ final class WordPressPageStore implements PageStore
         $language = pll_get_post_language($postId, 'slug');
 
         return is_string($language) && '' !== $language ? $language : null;
+    }
+
+    public function setTranslations(array $translations): void
+    {
+        if (!function_exists('pll_save_post_translations')) {
+            throw new RuntimeException('Polylang API není dostupné.');
+        }
+
+        pll_save_post_translations($translations);
     }
 
     public function attachmentExists(int $attachmentId): bool

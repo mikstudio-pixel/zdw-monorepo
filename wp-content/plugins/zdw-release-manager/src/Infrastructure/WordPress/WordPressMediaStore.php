@@ -48,7 +48,10 @@ final class WordPressMediaStore implements MediaStore
         }
 
         $url = wp_get_attachment_url($attachmentId);
+        $path = get_attached_file($attachmentId);
 
-        return is_string($url) && '' !== $url ? new MediaAsset($attachmentId, $url) : null;
+        return is_string($url) && '' !== $url && is_string($path) && is_file($path)
+            ? new MediaAsset($attachmentId, $url)
+            : null;
     }
 }

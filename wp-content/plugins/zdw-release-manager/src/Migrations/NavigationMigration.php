@@ -12,6 +12,9 @@ use ZDW\ReleaseManager\Domain\PreflightCheck;
 
 final class NavigationMigration implements Migration
 {
+    /** @var array<string, int>|null */
+    private ?array $publishedSponsorPageIds = null;
+
     public function __construct(
         private readonly PageStore $pages,
         private readonly NavigationStore $navigation
@@ -20,7 +23,7 @@ final class NavigationMigration implements Migration
 
     public function id(): string
     {
-        return '20260807_005_navigation';
+        return '20260808_005_navigation';
     }
 
     public function label(): string
@@ -35,9 +38,9 @@ final class NavigationMigration implements Migration
             return $checks;
         }
 
-        $sponsorPageId = $this->sponsorPageId();
+        $sponsorPageIds = $this->sponsorPageIds();
 
-        return $this->navigation->matchesDesiredNavigation($sponsorPageId)
+        return $this->navigation->matchesDesiredNavigation($sponsorPageIds)
             ? [PreflightCheck::pass('navigation.ready', 'Navigace už odpovídá této verzi.')]
             : [PreflightCheck::warning('navigation.changes', 'Budou obnoveny čtyři víceúrovňová menu a odkaz na Sponzory v legacy menu.')];
     }
@@ -48,13 +51,13 @@ final class NavigationMigration implements Migration
             throw new RuntimeException('Nelze bezpečně migrovat navigaci.');
         }
 
-        $sponsorPageId = $this->sponsorPageId();
-        if ($this->navigation->matchesDesiredNavigation($sponsorPageId)) {
+        $sponsorPageIds = $this->sponsorPageIds();
+        if ($this->navigation->matchesDesiredNavigation($sponsorPageIds)) {
             return;
         }
 
         $this->navigation->rebuildTwoTierMenus();
-        $this->navigation->ensureLegacySponsorItem($sponsorPageId);
+        $this->navigation->ensureLegacySponsorItem($sponsorPageIds);
         $this->navigation->enableTwoTierNavigation();
     }
 
@@ -65,7 +68,7 @@ final class NavigationMigration implements Migration
             return $checks;
         }
 
-        return $this->navigation->matchesDesiredNavigation($this->sponsorPageId())
+        return $this->navigation->matchesDesiredNavigation($this->sponsorPageIds())
             ? [PreflightCheck::pass('navigation.saved', 'Navigace byla ověřena.')]
             : [PreflightCheck::blocker('navigation.mismatch', 'Navigace po migraci neodpovídá manifestu.')];
     }
@@ -74,11 +77,11 @@ final class NavigationMigration implements Migration
     private function blockingChecks(): array
     {
         $checks = [];
-        $pageIds = $this->pages->findPageIdsBySlug('sponzori');
-        if (1 !== count($pageIds)) {
+        $pageIds = $this->publishedSponsorPageIds();
+        if (2 !== count($pageIds)) {
             $checks[] = PreflightCheck::blocker(
                 'navigation.sponsor_page',
-                'Navigace vyžaduje právě jednu publikovanou stránku se slugem sponzori.'
+                'Navigace vyžaduje právě jednu publikovanou stránku pro slugy sponzori a partners.'
             );
         }
         if (!$this->navigation->isAvailable()) {
@@ -104,13 +107,35 @@ final class NavigationMigration implements Migration
         return $checks;
     }
 
-    private function sponsorPageId(): int
+    /** @return array<string, int> */
+    private function sponsorPageIds(): array
     {
-        $pageIds = $this->pages->findPageIdsBySlug('sponzori');
-        if (1 !== count($pageIds)) {
-            throw new RuntimeException('Stránku Sponzoři nelze jednoznačně určit.');
+        $pageIds = $this->publishedSponsorPageIds();
+        if (2 !== count($pageIds)) {
+            throw new RuntimeException('Stránky partnerů nelze jednoznačně určit.');
         }
 
-        return $pageIds[0];
+        return $pageIds;
+    }
+
+    /** @return array<string, int> */
+    private function publishedSponsorPageIds(): array
+    {
+        if (null !== $this->publishedSponsorPageIds) {
+            return $this->publishedSponsorPageIds;
+        }
+
+        $this->publishedSponsorPageIds = [];
+        foreach (['cs' => 'sponzori', 'en' => 'partners'] as $language => $slug) {
+            $pageIds = array_values(array_filter(
+                $this->pages->findPageIdsBySlug($slug),
+                fn (int $pageId): bool => null !== $this->pages->find($pageId)
+            ));
+            if (1 === count($pageIds)) {
+                $this->publishedSponsorPageIds[$language] = $pageIds[0];
+            }
+        }
+
+        return $this->publishedSponsorPageIds;
     }
 }

@@ -12,6 +12,7 @@ use ZDW\ReleaseManager\Infrastructure\WordPress\AdminPage;
 use ZDW\ReleaseManager\Infrastructure\WordPress\OptionStateStore;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressContactContentTransformer;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressEnvironmentCollector;
+use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressHomepageBodyTransformer;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressIntroContentTransformer;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressMediaStore;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressNavigationStore;
@@ -21,6 +22,7 @@ use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressPostStore;
 use ZDW\ReleaseManager\Migrations\DesiredOptionsMigration;
 use ZDW\ReleaseManager\Migrations\DesiredPostContentMigration;
 use ZDW\ReleaseManager\Migrations\HomepageIntroMigration;
+use ZDW\ReleaseManager\Migrations\HomepageBodyMigration;
 use ZDW\ReleaseManager\Migrations\InitialContactContent;
 use ZDW\ReleaseManager\Migrations\InitialSponsorContent;
 use ZDW\ReleaseManager\Migrations\NavigationMigration;
@@ -66,8 +68,8 @@ final class Plugin
         $pageStore = new WordPressPageStore();
         $registry = new MigrationRegistry([
             new DesiredOptionsMigration(
-                '20260807_001_interface_settings',
-                'Nastavení úvodního bloku a víceúrovňového menu',
+                '20260808_001_interface_settings',
+                'Barvy a nastavení úvodního bloku a víceúrovňového menu',
                 $optionStore,
                 [
                     'zdw_intro_effect_mode' => 'overlay',
@@ -76,11 +78,14 @@ final class Plugin
                     'zdw_intro_overlay_opacity' => '30',
                     'zdw_intro_overlay_blend_mode' => 'multiply',
                     'zdw_intro_plain_title' => '1',
+                    'zdwf_color_light' => '#9FBAFF',
+                    'zdwf_color_zdw' => '#9FBAFF',
                     'zdw_two_tier_menu_notice_enabled' => '1',
                     'zdw_two_tier_menu_notice_text_cs' => "SEE YOU IN MAY '27⭐",
                     'zdw_two_tier_menu_notice_text_en' => "SEE YOU IN MAY '27⭐",
                     'zdw_two_tier_menu_notice_url_cs' => '',
                     'zdw_two_tier_menu_notice_url_en' => '',
+                    'zdw_two_tier_menu_phase' => 'canteen',
                 ]
             ),
             new DesiredPostContentMigration(
@@ -105,7 +110,12 @@ final class Plugin
             new HomepageIntroMigration(
                 $postStore,
                 new WordPressMediaStore(),
-                new WordPressIntroContentTransformer()
+                new WordPressIntroContentTransformer(),
+                [2 => 'zdw', 93 => 'zdw-en']
+            ),
+            new HomepageBodyMigration(
+                $postStore,
+                new WordPressHomepageBodyTransformer()
             ),
         ]);
         $runner = new MigrationRunner($registry, new OptionStateStore());

@@ -14,9 +14,11 @@ interface NavigationStore
 
     public function rebuildTwoTierMenus(): void;
 
-    public function ensureLegacySponsorItem(int $sponsorPageId): void;
+    /** @param array<string, int> $sponsorPageIds */
+    public function ensureLegacySponsorItem(array $sponsorPageIds): void;
 
     public function enableTwoTierNavigation(): void;
 
-    public function matchesDesiredNavigation(int $sponsorPageId): bool;
+    /** @param array<string, int> $sponsorPageIds */
+    public function matchesDesiredNavigation(array $sponsorPageIds): bool;
 }

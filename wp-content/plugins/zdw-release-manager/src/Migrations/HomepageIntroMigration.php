@@ -23,76 +23,80 @@ final class HomepageIntroMigration implements Migration
     public function __construct(
         private readonly PostStore $posts,
         private readonly MediaStore $media,
-        private readonly IntroContentTransformer $transformer
+        private readonly IntroContentTransformer $transformer,
+        /** @var array<int, string> */
+        private readonly array $homepages = [2 => 'zdw']
     ) {
     }
 
     public function id(): string
     {
-        return '20260807_006_homepage_intro';
+        return '20260808_006_homepage_intros';
     }
 
     public function label(): string
     {
-        return 'Video a obsah úvodního bloku homepage';
+        return 'Video a obsah úvodního bloku obou homepage';
     }
 
     public function preflight(): array
     {
-        [$post, $videos, $poster] = $this->resolvedTargets();
-        $checks = $this->blockingChecks($post, $videos, $poster);
+        [$posts, $videos, $poster] = $this->resolvedTargets();
+        $checks = $this->blockingChecks($posts, $videos, $poster);
         if ([] !== $checks) {
             return $checks;
         }
 
         try {
-            [$post, $video, $poster] = $this->targets($post, $videos, $poster);
-            $desired = $this->transformer->desiredPageContent($post->content(), $video, $poster);
+            [$posts, $video, $poster] = $this->targets($posts, $videos, $poster);
+            $matches = $this->allHomepagesMatch($posts, $video, $poster);
         } catch (Throwable $error) {
             return [PreflightCheck::blocker('intro.transform', $error->getMessage())];
         }
 
-        return $this->transformer->equivalent($post->content(), $desired)
-            ? [PreflightCheck::pass('intro.ready', 'Úvodní blok homepage už odpovídá této verzi.')]
-            : [PreflightCheck::warning('intro.changes', 'Bude nahrazen pouze první úvodní blok homepage; ostatní obsah zůstane zachován.')];
+        return $matches
+            ? [PreflightCheck::pass('intro.ready', 'Úvodní bloky obou homepage už odpovídají této verzi.')]
+            : [PreflightCheck::warning('intro.changes', 'Na české i anglické homepage bude nahrazen pouze první úvodní blok; ostatní obsah zůstane zachován.')];
     }
 
     public function apply(): void
     {
-        [$post, $videos, $poster] = $this->resolvedTargets();
-        if ([] !== $this->blockingChecks($post, $videos, $poster)) {
+        [$posts, $videos, $poster] = $this->resolvedTargets();
+        if ([] !== $this->blockingChecks($posts, $videos, $poster)) {
             throw new RuntimeException('Nelze bezpečně migrovat úvodní blok homepage.');
         }
 
-        [$post, $video, $poster] = $this->targets($post, $videos, $poster);
-        $desired = $this->transformer->desiredPageContent($post->content(), $video, $poster);
-        if (!$this->transformer->equivalent($post->content(), $desired)) {
-            $this->posts->updateContent($post->id(), $desired);
+        [$posts, $video, $poster] = $this->targets($posts, $videos, $poster);
+        foreach ($posts as $post) {
+            $desired = $this->transformer->desiredPageContent($post->content(), $video, $poster);
+            if (!$this->transformer->equivalent($post->content(), $desired)) {
+                $this->posts->updateContent($post->id(), $desired);
+            }
         }
     }
 
     public function verify(): array
     {
-        [$post, $videos, $poster] = $this->resolvedTargets();
-        $checks = $this->blockingChecks($post, $videos, $poster);
+        [$posts, $videos, $poster] = $this->resolvedTargets();
+        $checks = $this->blockingChecks($posts, $videos, $poster);
         if ([] !== $checks) {
             return $checks;
         }
 
         try {
-            [$post, $video, $poster] = $this->targets($post, $videos, $poster);
-            $desired = $this->transformer->desiredPageContent($post->content(), $video, $poster);
+            [$posts, $video, $poster] = $this->targets($posts, $videos, $poster);
+            $matches = $this->allHomepagesMatch($posts, $video, $poster);
         } catch (Throwable $error) {
             return [PreflightCheck::blocker('intro.verify', $error->getMessage())];
         }
 
-        return $this->transformer->equivalent($post->content(), $desired)
-            ? [PreflightCheck::pass('intro.saved', 'Úvodní video a obsah bloku byly ověřeny.')]
-            : [PreflightCheck::blocker('intro.mismatch', 'Úvodní blok homepage neodpovídá migraci.')];
+        return $matches
+            ? [PreflightCheck::pass('intro.saved', 'Úvodní video a obsah bloků obou homepage byly ověřeny.')]
+            : [PreflightCheck::blocker('intro.mismatch', 'Některý úvodní blok homepage neodpovídá migraci.')];
     }
 
     /** @return list<PreflightCheck> */
-    private function blockingChecks(?PostRecord $post, array $videos, ?MediaAsset $poster): array
+    private function blockingChecks(array $posts, array $videos, ?MediaAsset $poster): array
     {
         $checks = [];
         if ([] === $videos) {
@@ -116,31 +120,55 @@ final class HomepageIntroMigration implements Migration
             );
         }
 
-        if (null === $post || 'zdw' !== $post->slug()) {
-            $checks[] = PreflightCheck::blocker('intro.homepage', 'Homepage ID 2 se slugem zdw nebyla nalezena.');
+        foreach ($this->homepages as $postId => $slug) {
+            $post = $posts[$postId] ?? null;
+            if (!$post instanceof PostRecord || $slug !== $post->slug()) {
+                $checks[] = PreflightCheck::blocker(
+                    'intro.homepage_' . $postId,
+                    sprintf('Homepage ID %d se slugem %s nebyla nalezena.', $postId, $slug)
+                );
+            }
         }
 
         return $checks;
     }
 
-    /** @return array{0: \ZDW\ReleaseManager\Domain\PostRecord, 1: MediaAsset, 2: MediaAsset} */
-    private function targets(?PostRecord $post, array $videos, ?MediaAsset $poster): array
+    /** @return array{0: array<int, PostRecord>, 1: MediaAsset, 2: MediaAsset} */
+    private function targets(array $posts, array $videos, ?MediaAsset $poster): array
     {
-        if (null === $post || 1 !== count($videos) || !$poster instanceof MediaAsset) {
+        if (count($posts) !== count($this->homepages) || 1 !== count($videos) || !$poster instanceof MediaAsset) {
             throw new RuntimeException('Cíle úvodní migrace nejsou jednoznačné.');
         }
 
-        return [$post, $videos[0], $poster];
+        return [$posts, $videos[0], $poster];
     }
 
-    /** @return array{0: ?PostRecord, 1: list<MediaAsset>, 2: ?MediaAsset} */
+    /** @return array{0: array<int, ?PostRecord>, 1: list<MediaAsset>, 2: ?MediaAsset} */
     private function resolvedTargets(): array
     {
+        $posts = [];
+        foreach (array_keys($this->homepages) as $postId) {
+            $posts[$postId] = $this->posts->find($postId);
+        }
+
         return [
-            $this->posts->find(2),
+            $posts,
             $this->media->findByFilename(self::VIDEO_FILENAME),
             $this->media->find(self::POSTER_ID),
         ];
+    }
+
+    /** @param array<int, PostRecord> $posts */
+    private function allHomepagesMatch(array $posts, MediaAsset $video, MediaAsset $poster): bool
+    {
+        foreach ($posts as $post) {
+            $desired = $this->transformer->desiredPageContent($post->content(), $video, $poster);
+            if (!$this->transformer->equivalent($post->content(), $desired)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function filename(MediaAsset $asset): string

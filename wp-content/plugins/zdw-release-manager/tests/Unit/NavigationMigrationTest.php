@@ -29,7 +29,10 @@ final class NavigationMigrationTest extends TestCase
 
     public function test_apply_rebuilds_navigation_and_is_idempotent(): void
     {
-        $pages = new InMemoryPageStore([new PostRecord(42, 'sponzori', 'content')]);
+        $pages = new InMemoryPageStore([
+            new PostRecord(42, 'sponzori', 'content'),
+            new PostRecord(43, 'partners', 'content'),
+        ]);
         $navigation = new FakeNavigationStore();
         $migration = new NavigationMigration($pages, $navigation);
 
@@ -37,7 +40,7 @@ final class NavigationMigrationTest extends TestCase
         $migration->apply();
 
         self::assertSame(1, $navigation->rebuilds);
-        self::assertSame(42, $navigation->legacySponsorPageId);
+        self::assertSame(['cs' => 42, 'en' => 43], $navigation->legacySponsorPageIds);
         self::assertTrue($navigation->enabled);
         self::assertSame('pass', $migration->verify()[0]->severity());
 
@@ -47,7 +50,10 @@ final class NavigationMigrationTest extends TestCase
 
     public function test_an_unresolvable_blueprint_blocks_before_any_menu_is_rebuilt(): void
     {
-        $pages = new InMemoryPageStore([new PostRecord(42, 'sponzori', 'content')]);
+        $pages = new InMemoryPageStore([
+            new PostRecord(42, 'sponzori', 'content'),
+            new PostRecord(43, 'partners', 'content'),
+        ]);
         $navigation = new FakeNavigationStore();
         $navigation->blueprintsResolvable = false;
         $migration = new NavigationMigration($pages, $navigation);
@@ -66,7 +72,10 @@ final class NavigationMigrationTest extends TestCase
 
     public function test_missing_legacy_parents_block_before_any_menu_is_rebuilt(): void
     {
-        $pages = new InMemoryPageStore([new PostRecord(42, 'sponzori', 'content')]);
+        $pages = new InMemoryPageStore([
+            new PostRecord(42, 'sponzori', 'content'),
+            new PostRecord(43, 'partners', 'content'),
+        ]);
         $navigation = new FakeNavigationStore();
         $navigation->legacyParentsResolvable = false;
         $migration = new NavigationMigration($pages, $navigation);

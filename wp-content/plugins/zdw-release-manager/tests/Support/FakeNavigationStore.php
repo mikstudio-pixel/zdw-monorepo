@@ -13,7 +13,8 @@ final class FakeNavigationStore implements NavigationStore
     public bool $legacyParentsResolvable = true;
     public bool $matching = false;
     public int $rebuilds = 0;
-    public int $legacySponsorPageId = 0;
+    /** @var array<string, int> */
+    public array $legacySponsorPageIds = [];
     public bool $enabled = false;
 
     public function isAvailable(): bool
@@ -36,9 +37,9 @@ final class FakeNavigationStore implements NavigationStore
         ++$this->rebuilds;
     }
 
-    public function ensureLegacySponsorItem(int $sponsorPageId): void
+    public function ensureLegacySponsorItem(array $sponsorPageIds): void
     {
-        $this->legacySponsorPageId = $sponsorPageId;
+        $this->legacySponsorPageIds = $sponsorPageIds;
     }
 
     public function enableTwoTierNavigation(): void
@@ -47,8 +48,8 @@ final class FakeNavigationStore implements NavigationStore
         $this->matching = true;
     }
 
-    public function matchesDesiredNavigation(int $sponsorPageId): bool
+    public function matchesDesiredNavigation(array $sponsorPageIds): bool
     {
-        return $this->enabled && $this->matching && $this->legacySponsorPageId === $sponsorPageId;
+        return $this->enabled && $this->matching && $this->legacySponsorPageIds === $sponsorPageIds;
     }
 }
