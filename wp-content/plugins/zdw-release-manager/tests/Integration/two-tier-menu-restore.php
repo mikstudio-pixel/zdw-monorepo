@@ -22,14 +22,32 @@ try {
         throw new RuntimeException('Failed to create the rollback fixture menu.');
     }
 
+    $blueprint = [
+        [
+            'path' => '/original/',
+            'title' => 'Original parent',
+            'children' => [
+                ['path' => '/original/child/', 'title' => 'Original child'],
+            ],
+        ],
+    ];
+    if (!zdw_two_tier_menu_menu_matches_blueprint((int) $menuId, $blueprint)) {
+        throw new RuntimeException('A complete menu was not recognized as matching its blueprint.');
+    }
+
     $snapshot = zdw_two_tier_menu_snapshot_items((int) $menuId);
     if (2 !== count($snapshot)) {
         throw new RuntimeException('The original menu snapshot is incomplete.');
     }
 
     if (!zdw_two_tier_menu_clear_items((int) $menuId)
-        || !zdw_two_tier_menu_add_url((int) $menuId, 'Partial replacement', home_url('/partial/'))
-        || !zdw_two_tier_menu_restore_items((int) $menuId, $snapshot)) {
+        || !zdw_two_tier_menu_add_url((int) $menuId, 'Original parent', home_url('/original/'))) {
+        throw new RuntimeException('The partial-menu fixture could not be created.');
+    }
+    if (zdw_two_tier_menu_menu_matches_blueprint((int) $menuId, $blueprint)) {
+        throw new RuntimeException('A partial menu was accepted as a complete blueprint installation.');
+    }
+    if (!zdw_two_tier_menu_restore_items((int) $menuId, $snapshot)) {
         throw new RuntimeException('The original menu could not be restored.');
     }
 

@@ -15,6 +15,7 @@ final class WordPressNavigationStore implements NavigationStore
         return function_exists('zdw_two_tier_menu_names')
             && function_exists('zdw_two_tier_menu_blueprints')
             && function_exists('zdw_two_tier_menu_blueprints_resolvable')
+            && function_exists('zdw_two_tier_menu_menu_matches_blueprint')
             && function_exists('zdw_two_tier_menu_install_menus');
     }
 
@@ -79,6 +80,13 @@ final class WordPressNavigationStore implements NavigationStore
             if ('1' !== (string) $stored) {
                 throw new RuntimeException('Víceúrovňovou navigaci se nepodařilo zapnout.');
             }
+        }
+
+        if (defined('ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL')) {
+            delete_option(ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL);
+        }
+        if (defined('ZDW_TWO_TIER_MENU_OPTION_DB_VERSION') && defined('ZDW_TWO_TIER_MENU_DB_VERSION')) {
+            update_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, ZDW_TWO_TIER_MENU_DB_VERSION);
         }
     }
 
@@ -197,79 +205,8 @@ final class WordPressNavigationStore implements NavigationStore
     private function menuMatchesBlueprint(string $menuName, array $blueprint): bool
     {
         $menu = wp_get_nav_menu_object($menuName);
-        if (!$menu) {
-            return false;
-        }
-
-        $actual = array_values((array) wp_get_nav_menu_items((int) $menu->term_id));
-        $expected = $this->flattenBlueprint($blueprint);
-        if (count($actual) !== count($expected)) {
-            return false;
-        }
-
-        $actualIdsByPath = [];
-        foreach ($expected as $index => $item) {
-            $actualItem = $actual[$index];
-            $expectedParentId = '' === $item['parentPath']
-                ? 0
-                : ($actualIdsByPath[$item['parentPath']] ?? -1);
-            if ((string) $actualItem->title !== $item['title']
-                || (int) $actualItem->menu_item_parent !== $expectedParentId
-                || !$this->targetMatches($actualItem, $item['definition'])) {
-                return false;
-            }
-            $actualIdsByPath[$item['path']] = (int) $actualItem->ID;
-        }
-
-        return true;
-    }
-
-    /** @param list<array<string, mixed>> $items
-     *  @return list<array{path: string, parentPath: string, title: string, definition: array<string, mixed>}>
-     */
-    private function flattenBlueprint(array $items, string $parentPath = ''): array
-    {
-        $flat = [];
-        foreach ($items as $index => $item) {
-            $path = '' === $parentPath ? (string) $index : $parentPath . '.' . $index;
-            $flat[] = [
-                'path' => $path,
-                'parentPath' => $parentPath,
-                'title' => (string) $item['title'],
-                'definition' => $item,
-            ];
-            if (!empty($item['children']) && is_array($item['children'])) {
-                $flat = array_merge($flat, $this->flattenBlueprint($item['children'], $path));
-            }
-        }
-
-        return $flat;
-    }
-
-    /** @param object $actual
-     *  @param array<string, mixed> $definition
-     */
-    private function targetMatches(object $actual, array $definition): bool
-    {
-        if (isset($definition['page']) || isset($definition['slug'])) {
-            $pageId = isset($definition['page'])
-                ? (int) $definition['page']
-                : $this->pageIdBySlug((string) $definition['slug']);
-
-            return $pageId > 0
-                && 'post_type' === (string) $actual->type
-                && 'page' === (string) $actual->object
-                && $pageId === (int) $actual->object_id;
-        }
-
-        if (!isset($definition['path'])) {
-            return false;
-        }
-
-        $expectedUrl = home_url((string) $definition['path']);
-
-        return 'custom' === (string) $actual->type
-            && untrailingslashit((string) $actual->url) === untrailingslashit($expectedUrl);
+        return $menu
+            && zdw_two_tier_menu_menu_matches_blueprint((int) $menu->term_id, $blueprint);
     }
 
     private function pageIdBySlug(string $slug): int

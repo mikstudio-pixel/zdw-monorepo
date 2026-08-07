@@ -11,22 +11,28 @@ if (!function_exists('zdw_two_tier_menu_activate')) {
 
 $previousEnabled = get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, false);
 $previousVersion = get_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, false);
+$previousRetryEnable = defined('ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL')
+    ? get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, false)
+    : false;
 
 try {
     update_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0');
+    update_option(ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, '1');
     delete_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION);
     zdw_two_tier_menu_activate();
     if ('1' !== (string) get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0')
-        || ZDW_TWO_TIER_MENU_DB_VERSION !== get_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION)) {
+        || ZDW_TWO_TIER_MENU_DB_VERSION !== get_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION)
+        || false !== get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, false)) {
         throw new RuntimeException('A successful activation did not re-enable navigation after an earlier failure.');
     }
 
     update_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0');
+    delete_option(ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL);
     update_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, 'previous-version');
     zdw_two_tier_menu_upgrade();
-    if ('1' !== (string) get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0')
+    if ('0' !== (string) get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1')
         || ZDW_TWO_TIER_MENU_DB_VERSION !== get_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION)) {
-        throw new RuntimeException('A successful upgrade did not re-enable navigation after an earlier failure.');
+        throw new RuntimeException('A successful upgrade overwrote the administrator\'s Legacy header choice.');
     }
 } finally {
     false === $previousEnabled
@@ -35,6 +41,11 @@ try {
     false === $previousVersion
         ? delete_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION)
         : update_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, $previousVersion);
+    if (defined('ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL')) {
+        false === $previousRetryEnable
+            ? delete_option(ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL)
+            : update_option(ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, $previousRetryEnable);
+    }
 }
 
 echo "Two-tier enable retry integration test passed.\n";
