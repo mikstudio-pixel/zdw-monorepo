@@ -30,7 +30,7 @@ final class DesignCanteenCleanupMigration implements Migration
 
     public function label(): string
     {
-        return 'Česká Design Canteen bez dvou zastaralých bloků';
+        return 'Česká Design Canteen bez zastaralých bloků';
     }
 
     public function preflight(): array
@@ -44,7 +44,7 @@ final class DesignCanteenCleanupMigration implements Migration
 
         return $this->transformer->equivalent($post->content(), $desired)
             ? [PreflightCheck::pass('canteen.cs_ready', 'Česká Design Canteen už neobsahuje zastaralé bloky.')]
-            : [PreflightCheck::warning('canteen.cs_changes', 'Budou odstraněny pouze bloky navigace k místu a programu 2026.')];
+            : [PreflightCheck::warning('canteen.cs_changes', 'Budou odstraněny pouze explicitně označené bloky navigace a programu 2026.')];
     }
 
     public function apply(): void

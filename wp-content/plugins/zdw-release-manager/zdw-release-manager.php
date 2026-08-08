@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ZDW Release Manager
  * Description: Versioned, auditable and idempotent content migrations for Zlin Design Week.
- * Version: 0.6.1
+ * Version: 0.6.2
  * Requires PHP: 8.2
  * Author: Zlin Design Week
  */

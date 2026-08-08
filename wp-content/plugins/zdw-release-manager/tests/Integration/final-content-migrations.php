@@ -13,6 +13,7 @@ use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressPostStore;
 use ZDW\ReleaseManager\Migrations\BestInDesignHeroMigration;
 use ZDW\ReleaseManager\Migrations\BestInDesignHeroMarkupMigration;
 use ZDW\ReleaseManager\Migrations\DesignCanteenCleanupMigration;
+use ZDW\ReleaseManager\Migrations\DesignCanteenProgramCleanupMigration;
 
 $admins = get_users(['role' => 'administrator', 'number' => 1]);
 if ([] === $admins) {
@@ -104,6 +105,30 @@ try {
     }
     if (!str_contains($canteenContent, 'CO KANTÝNA SERVÍROVALA MINULÝ ROK?')) {
         throw new RuntimeException('Czech Design Canteen cleanup removed the retained history section.');
+    }
+
+    wp_update_post(['ID' => 12142, 'post_content' => wp_slash($canteen->post_content)]);
+    $programCleanup = new DesignCanteenProgramCleanupMigration(
+        new DesignCanteenCleanupMigration(
+            $posts,
+            new WordPressDesignCanteenCleanupTransformer()
+        )
+    );
+    if ('warning' !== $programCleanup->preflight()[0]->severity()) {
+        throw new RuntimeException('Czech Design Canteen program cleanup did not plan the fixture change.');
+    }
+    $programCleanup->apply();
+    if ('pass' !== $programCleanup->verify()[0]->severity()) {
+        throw new RuntimeException('Czech Design Canteen program cleanup verification failed.');
+    }
+    $canteenContent = (string) get_post(12142)?->post_content;
+    foreach (['SOBOTA, 9. KVĚTNA', 'NEDĚLE, 10. KVĚTNA'] as $removed) {
+        if (str_contains($canteenContent, $removed)) {
+            throw new RuntimeException(sprintf('Obsolete Czech Design Canteen program block remains: %s', $removed));
+        }
+    }
+    if (!str_contains($canteenContent, 'CO KANTÝNA SERVÍROVALA MINULÝ ROK?')) {
+        throw new RuntimeException('Czech Design Canteen program cleanup removed the retained history section.');
     }
 } finally {
     wp_update_post(['ID' => 193, 'post_content' => wp_slash($hero->post_content)]);

@@ -12,6 +12,8 @@ final class WordPressDesignCanteenCleanupTransformer implements DesignCanteenCle
     private const MARKERS = [
         'KUDY TUDY DO KANTÝNY?',
         'CO TI LETOS NASERVÍRUJEME NA ZLÍNSKÉM ZÁMKU?',
+        'SOBOTA, 9. KVĚTNA',
+        'NEDĚLE, 10. KVĚTNA',
     ];
 
     public function desiredPageContent(string $content): string
@@ -34,9 +36,9 @@ final class WordPressDesignCanteenCleanupTransformer implements DesignCanteenCle
         if (0 === $found) {
             return $content;
         }
-        foreach (self::MARKERS as $marker) {
-            if (1 !== count($matches[$marker] ?? [])) {
-                throw new RuntimeException('Českou Design Canteen nelze bezpečně očistit od právě dvou zastaralých bloků.');
+        foreach ($matches as $markerMatches) {
+            if (1 !== count($markerMatches)) {
+                throw new RuntimeException('Českou Design Canteen nelze bezpečně očistit od zastaralých bloků.');
             }
         }
 

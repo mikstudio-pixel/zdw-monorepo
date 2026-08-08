@@ -27,6 +27,7 @@ use ZDW\ReleaseManager\Migrations\DesiredPostContentMigration;
 use ZDW\ReleaseManager\Migrations\BestInDesignHeroMigration;
 use ZDW\ReleaseManager\Migrations\BestInDesignHeroMarkupMigration;
 use ZDW\ReleaseManager\Migrations\DesignCanteenCleanupMigration;
+use ZDW\ReleaseManager\Migrations\DesignCanteenProgramCleanupMigration;
 use ZDW\ReleaseManager\Migrations\DesignCanteenMigration;
 use ZDW\ReleaseManager\Migrations\HomepageIntroMigration;
 use ZDW\ReleaseManager\Migrations\HomepageBodyMigration;
@@ -78,6 +79,10 @@ final class Plugin
             $postStore,
             $mediaStore,
             new WordPressHeroBackgroundTransformer()
+        );
+        $designCanteenCleanupMigration = new DesignCanteenCleanupMigration(
+            $postStore,
+            new WordPressDesignCanteenCleanupTransformer()
         );
         $registry = new MigrationRegistry([
             new DesiredOptionsMigration(
@@ -136,11 +141,9 @@ final class Plugin
                 new WordPressDesignCanteenContentTransformer()
             ),
             $bestInDesignHeroMigration,
-            new DesignCanteenCleanupMigration(
-                $postStore,
-                new WordPressDesignCanteenCleanupTransformer()
-            ),
+            $designCanteenCleanupMigration,
             new BestInDesignHeroMarkupMigration($bestInDesignHeroMigration),
+            new DesignCanteenProgramCleanupMigration($designCanteenCleanupMigration),
         ]);
         $runner = new MigrationRunner($registry, new OptionStateStore());
         $adminPage = new AdminPage($audit, $collector, $runner);

@@ -2,7 +2,7 @@
 Theme Name: ZDW Theme Child
 Description: Safe local overrides for the ZDW website.
 Template: zdw-theme
-Version: 1.2.2
+Version: 1.2.3
 Author: Zlin Design Week
 */
 
@@ -267,8 +267,12 @@ mark.has-light-color {
 		grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
 	}
 
+	.footer-connect__title {
+		min-height: 2em;
+	}
+
 	.footer-connect__social-links {
-		margin-top: 4.2rem;
+		align-self: start;
 	}
 
 	.footer-legal {
