@@ -7,9 +7,12 @@ require $wordpressRoot . '/wp-load.php';
 require_once dirname(__DIR__, 2) . '/zdw-release-manager.php';
 
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressOptionStore;
+use ZDW\ReleaseManager\Migrations\DesiredOptionsMigration;
 
 $option = 'zdw_release_manager_integration_option';
+$integerOption = 'zdw_release_manager_integration_integer_option';
 delete_option($option);
+delete_option($integerOption);
 
 try {
     $store = new WordPressOptionStore();
@@ -21,8 +24,26 @@ try {
 
     // Writing the same value must remain a successful idempotent operation.
     $store->set($option, 'expected');
+
+    register_setting('general', $integerOption, [
+        'type' => 'integer',
+        'sanitize_callback' => static fn (mixed $value): int => (int) $value,
+    ]);
+
+    $migration = new DesiredOptionsMigration(
+        'integration_scalar_options',
+        'Integration scalar options',
+        $store,
+        [$integerOption => '25']
+    );
+    $migration->apply();
+
+    if ('pass' !== $migration->verify()[0]->severity()) {
+        throw new RuntimeException('Sanitized integer option did not match the string manifest value.');
+    }
 } finally {
     delete_option($option);
+    delete_option($integerOption);
 }
 
 echo "WordPressOptionStore integration test passed.\n";

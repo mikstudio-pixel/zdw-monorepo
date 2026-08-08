@@ -59,4 +59,30 @@ final class DesiredOptionsMigrationTest extends TestCase
         self::assertSame('blocker', $verification[0]->severity());
         self::assertStringContainsString('effect', $verification[0]->message());
     }
+
+    public function test_registered_integer_and_boolean_options_match_string_manifest_values(): void
+    {
+        $store = new InMemoryOptionStore([
+            'intensity' => 25,
+            'opacity' => 30,
+            'plain_title' => 1,
+        ]);
+        $migration = new DesiredOptionsMigration(
+            '20260807_001_interface_settings',
+            'Nastavení rozhraní',
+            $store,
+            [
+                'intensity' => '25',
+                'opacity' => '30',
+                'plain_title' => '1',
+            ]
+        );
+
+        self::assertSame('pass', $migration->preflight()[0]->severity());
+
+        $migration->apply();
+
+        self::assertSame([], $store->writes);
+        self::assertSame('pass', $migration->verify()[0]->severity());
+    }
 }

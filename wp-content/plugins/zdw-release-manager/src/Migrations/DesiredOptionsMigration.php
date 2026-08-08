@@ -95,6 +95,17 @@ final class DesiredOptionsMigration implements Migration
 
     private function valuesMatch(mixed $actual, mixed $expected): bool
     {
-        return $actual === $expected;
+        if ($actual === $expected) {
+            return true;
+        }
+
+        // register_setting() may sanitize integer and boolean options to native
+        // scalar types. Persistent object caches can retain those types between
+        // requests even though the migration manifest uses WordPress' string
+        // representation. Compare scalar values canonically without weakening
+        // array, object or null checks.
+        return is_scalar($actual)
+            && is_scalar($expected)
+            && (string) $actual === (string) $expected;
     }
 }

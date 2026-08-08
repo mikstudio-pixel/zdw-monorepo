@@ -1,7 +1,7 @@
 # ZDW Release Manager
 
 Versioned, auditable and idempotent WordPress content migrations for Zlin
-Design Week. Version 0.5.2 includes environment preflight, a tested migration
+Design Week. Version 0.5.3 includes environment preflight, a tested migration
 runner, and eight idempotent migrations for colors and settings, contact
 content, translated sponsor pages, navigation, and the final homepage.
 
