@@ -56,4 +56,40 @@ final class HomepageBodyMigrationTest extends TestCase
         self::assertSame('blocker', $migration->preflight()[0]->severity());
         self::assertSame('homepage.body_missing', $migration->preflight()[0]->code());
     }
+
+    public function test_preflight_reports_a_transformer_failure(): void
+    {
+        $transformer = new FakeHomepageBodyTransformer();
+        $transformer->throwOnTransform = true;
+        $migration = $this->migration($transformer, 'legacy-body');
+
+        self::assertSame('homepage.body_structure', $migration->preflight()[0]->code());
+    }
+
+    public function test_verify_reports_a_transformer_failure_and_mismatch(): void
+    {
+        $transformer = new FakeHomepageBodyTransformer();
+        $transformer->throwOnTransform = true;
+        self::assertSame('homepage.body_verify', $this->migration($transformer, 'compact:body')->verify()[0]->code());
+
+        $transformer->throwOnTransform = false;
+        $transformer->alwaysMismatch = true;
+        self::assertSame('homepage.body_mismatch', $this->migration($transformer, 'compact:body')->verify()[0]->code());
+    }
+
+    public function test_preflight_reports_an_already_matching_homepage(): void
+    {
+        $migration = $this->migration(new FakeHomepageBodyTransformer(), 'compact:body');
+
+        self::assertSame('homepage.body_ready', $migration->preflight()[0]->code());
+    }
+
+    private function migration(FakeHomepageBodyTransformer $transformer, string $content): HomepageBodyMigration
+    {
+        return new HomepageBodyMigration(
+            new InMemoryPostStore([new PostRecord(2, 'zdw', $content)]),
+            $transformer,
+            [2 => 'zdw']
+        );
+    }
 }

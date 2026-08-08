@@ -140,6 +140,16 @@ final class WordPressNavigationStore implements NavigationStore
         }
 
         foreach (array_slice($sponsorItemIds, 1) as $duplicateItemId) {
+            foreach ($items as $item) {
+                if ($duplicateItemId !== (int) $item->menu_item_parent) {
+                    continue;
+                }
+
+                update_post_meta((int) $item->ID, '_menu_item_menu_item_parent', $sponsorItemId);
+                if ($sponsorItemId !== (int) get_post_meta((int) $item->ID, '_menu_item_menu_item_parent', true)) {
+                    throw new RuntimeException(sprintf('Položku menu ID %d se nepodařilo bezpečně přesunout.', $item->ID));
+                }
+            }
             if (!wp_delete_post($duplicateItemId, true)) {
                 throw new RuntimeException(sprintf('Duplicitní položku menu ID %d se nepodařilo odstranit.', $duplicateItemId));
             }

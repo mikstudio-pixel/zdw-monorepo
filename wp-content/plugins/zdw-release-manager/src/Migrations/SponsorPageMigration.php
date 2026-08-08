@@ -11,7 +11,7 @@ use ZDW\ReleaseManager\Domain\PreflightCheck;
 
 final class SponsorPageMigration implements Migration
 {
-    private const PAGES = [
+    public const PAGES = [
         'cs' => ['title' => 'Sponzoři', 'slug' => 'sponzori'],
         'en' => ['title' => 'Partners', 'slug' => 'partners'],
     ];
@@ -116,7 +116,7 @@ final class SponsorPageMigration implements Migration
             );
         }
 
-        foreach (self::PAGES as $definition) {
+        foreach (self::PAGES as $language => $definition) {
             $pageIds = $this->store->findPageIdsBySlug($definition['slug']);
             if (count($pageIds) > 1) {
                 $checks[] = PreflightCheck::blocker(
@@ -132,6 +132,20 @@ final class SponsorPageMigration implements Migration
                         $pageIds[0]
                     )
                 );
+            } elseif (1 === count($pageIds)) {
+                $actualLanguage = $this->store->language($pageIds[0]);
+                if (null !== $actualLanguage && $language !== $actualLanguage) {
+                    $checks[] = PreflightCheck::blocker(
+                        'sponsors.language_conflict',
+                        sprintf(
+                            'Stránka ID %d se slugem %s patří do jazyka %s; očekává se %s.',
+                            $pageIds[0],
+                            $definition['slug'],
+                            $actualLanguage,
+                            $language
+                        )
+                    );
+                }
             }
         }
 

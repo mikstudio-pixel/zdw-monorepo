@@ -81,4 +81,21 @@ final class SponsorPageMigrationTest extends TestCase
         self::assertSame('sponsors.unpublished_slug', $checks[0]->code());
         self::assertSame([], $store->writes);
     }
+
+    public function test_existing_page_in_another_language_blocks_reassignment(): void
+    {
+        $store = new InMemoryPageStore(
+            [new PostRecord(42, 'sponzori', 'old')],
+            [10 => 'one.svg'],
+            [],
+            [42 => 'en']
+        );
+        $migration = new SponsorPageMigration($store, [10 => 'one.svg'], 'desired');
+
+        $checks = $migration->preflight();
+
+        self::assertSame('blocker', $checks[0]->severity());
+        self::assertSame('sponsors.language_conflict', $checks[0]->code());
+        self::assertSame([], $store->writes);
+    }
 }

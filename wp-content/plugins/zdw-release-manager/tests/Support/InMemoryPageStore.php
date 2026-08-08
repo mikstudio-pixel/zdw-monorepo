@@ -32,8 +32,14 @@ final class InMemoryPageStore implements PageStore
     /** @param list<PostRecord> $pages
      *  @param array<int, string> $attachments
      *  @param array<string, list<int>> $unpublishedSlugOwners
+     *  @param array<int, string> $languages
      */
-    public function __construct(array $pages = [], array $attachments = [], array $unpublishedSlugOwners = [])
+    public function __construct(
+        array $pages = [],
+        array $attachments = [],
+        array $unpublishedSlugOwners = [],
+        array $languages = []
+    )
     {
         foreach ($pages as $page) {
             $this->pages[$page->id()] = $page;
@@ -42,6 +48,7 @@ final class InMemoryPageStore implements PageStore
             $this->attachments[$attachmentId] = $filename;
         }
         $this->unpublishedSlugOwners = $unpublishedSlugOwners;
+        $this->languages = $languages;
     }
 
     public function find(int $postId): ?PostRecord

@@ -16,14 +16,15 @@
 <?php
 $modalContent = zdw_get_modal_content();
 if (!empty($modalContent)) :
+    $closeLabel = function_exists('pll__') ? pll__('close') : __('Close', 'zdw-theme-child');
     ?>
     <div id="newsletter-modal">
         <div class="has-plus-background-color mt-2 newsletter-modal__content">
             <div class="modal-close">
                 <img
                         src="<?php echo get_template_directory_uri() ?>/img/close.svg"
-                        alt="<?php pll_e("close") ?>"
-                        title="<?php pll_e("close") ?>"/>
+                        alt="<?php echo esc_attr($closeLabel) ?>"
+                        title="<?php echo esc_attr($closeLabel) ?>"/>
             </div>
             <div class="newsletter-block">
                 <div class="newsletter-block__title has-light-color">

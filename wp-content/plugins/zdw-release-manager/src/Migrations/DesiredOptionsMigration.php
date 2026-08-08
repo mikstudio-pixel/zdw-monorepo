@@ -10,7 +10,12 @@ use ZDW\ReleaseManager\Domain\PreflightCheck;
 
 final class DesiredOptionsMigration implements Migration
 {
-    /** @param array<string, scalar> $desiredValues */
+    /**
+     * WordPress persists scalar options as strings, so the manifest deliberately
+     * uses strings and can retain strict, type-safe verification.
+     *
+     * @param array<string, string> $desiredValues
+     */
     public function __construct(
         private readonly string $migrationId,
         private readonly string $migrationLabel,

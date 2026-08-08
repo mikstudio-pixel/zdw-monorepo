@@ -81,7 +81,7 @@ final class NavigationMigration implements Migration
         if (2 !== count($pageIds)) {
             $checks[] = PreflightCheck::blocker(
                 'navigation.sponsor_page',
-                'Navigace vyžaduje právě jednu publikovanou stránku pro slugy sponzori a partners.'
+                'Navigace vyžaduje právě jednu publikovanou stránku pro každý slug: sponzori a partners.'
             );
         }
         if (!$this->navigation->isAvailable()) {
@@ -126,7 +126,8 @@ final class NavigationMigration implements Migration
         }
 
         $this->publishedSponsorPageIds = [];
-        foreach (['cs' => 'sponzori', 'en' => 'partners'] as $language => $slug) {
+        foreach (SponsorPageMigration::PAGES as $language => $definition) {
+            $slug = $definition['slug'];
             $pageIds = array_values(array_filter(
                 $this->pages->findPageIdsBySlug($slug),
                 fn (int $pageId): bool => null !== $this->pages->find($pageId)

@@ -8,13 +8,20 @@ use ZDW\ReleaseManager\Contracts\HomepageBodyTransformer;
 
 final class FakeHomepageBodyTransformer implements HomepageBodyTransformer
 {
+    public bool $throwOnTransform = false;
+    public bool $alwaysMismatch = false;
+
     public function desiredPageContent(string $content): string
     {
+        if ($this->throwOnTransform) {
+            throw new \RuntimeException('Invalid homepage body.');
+        }
+
         return str_starts_with($content, 'compact:') ? $content : 'compact:' . $content;
     }
 
     public function equivalent(string $first, string $second): bool
     {
-        return $first === $second;
+        return !$this->alwaysMismatch && $first === $second;
     }
 }

@@ -136,11 +136,17 @@ final class HomepageIntroMigration implements Migration
     /** @return array{0: array<int, PostRecord>, 1: MediaAsset, 2: MediaAsset} */
     private function targets(array $posts, array $videos, ?MediaAsset $poster): array
     {
-        if (count($posts) !== count($this->homepages) || 1 !== count($videos) || !$poster instanceof MediaAsset) {
+        $resolvedPosts = array_filter(
+            $posts,
+            static fn (mixed $post): bool => $post instanceof PostRecord
+        );
+        if (count($resolvedPosts) !== count($this->homepages)
+            || 1 !== count($videos)
+            || !$poster instanceof MediaAsset) {
             throw new RuntimeException('Cíle úvodní migrace nejsou jednoznačné.');
         }
 
-        return [$posts, $videos[0], $poster];
+        return [$resolvedPosts, $videos[0], $poster];
     }
 
     /** @return array{0: array<int, ?PostRecord>, 1: list<MediaAsset>, 2: ?MediaAsset} */

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ZDW Contacts Block
  * Description: Editable, accessible contact cards for Zlin Design Week.
- * Version: 1.1.0
+ * Version: 1.1.1
  * Author: Zlin Design Week
  */
 
@@ -70,7 +70,7 @@ function zdw_contacts_block_render( $attributes ) {
 			$details[] = sprintf(
 				'<a class="zdw-contacts__link" href="mailto:%1$s">%2$s</a>',
 				esc_attr( $contact['email'] ),
-				esc_html( antispambot( $contact['email'] ) )
+				wp_kses( antispambot( $contact['email'] ), array() )
 			);
 		}
 
