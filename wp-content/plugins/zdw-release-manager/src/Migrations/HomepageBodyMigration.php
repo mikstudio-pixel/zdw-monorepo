@@ -13,12 +13,11 @@ use ZDW\ReleaseManager\Domain\PreflightCheck;
 
 final class HomepageBodyMigration implements Migration
 {
-    private const POST_ID = 2;
-    private const POST_SLUG = 'zdw';
-
     public function __construct(
         private readonly PostStore $posts,
-        private readonly HomepageBodyTransformer $transformer
+        private readonly HomepageBodyTransformer $transformer,
+        /** @var array<int, string> */
+        private readonly array $homepages = [2 => 'zdw', 93 => 'zdw-en']
     ) {
     }
 
@@ -29,55 +28,70 @@ final class HomepageBodyMigration implements Migration
 
     public function label(): string
     {
-        return 'Finální skladba české homepage bez starých bloků';
+        return 'Stejná finální skladba české a anglické homepage';
     }
 
     public function preflight(): array
     {
-        $post = $this->posts->find(self::POST_ID);
-        if (null === $post || self::POST_SLUG !== $post->slug()) {
-            return [PreflightCheck::blocker('homepage.body_missing', 'Česká homepage ID 2 se slugem zdw nebyla nalezena.')];
+        $changed = false;
+        foreach ($this->homepages as $postId => $slug) {
+            $post = $this->posts->find($postId);
+            if (null === $post || $slug !== $post->slug()) {
+                return [PreflightCheck::blocker(
+                    'homepage.body_missing',
+                    sprintf('Homepage ID %d se slugem %s nebyla nalezena.', $postId, $slug)
+                )];
+            }
+
+            try {
+                $desired = $this->transformer->desiredPageContent($post->content());
+            } catch (Throwable $error) {
+                return [PreflightCheck::blocker('homepage.body_structure', $error->getMessage())];
+            }
+            $changed = $changed || !$this->transformer->equivalent($post->content(), $desired);
         }
 
-        try {
-            $desired = $this->transformer->desiredPageContent($post->content());
-        } catch (Throwable $error) {
-            return [PreflightCheck::blocker('homepage.body_structure', $error->getMessage())];
-        }
-
-        return $this->transformer->equivalent($post->content(), $desired)
-            ? [PreflightCheck::pass('homepage.body_ready', 'Česká homepage už má finální skladbu bloků.')]
-            : [PreflightCheck::warning('homepage.body_changes', 'Ze české homepage budou odstraněny staré obsahové bloky.')];
+        return $changed
+            ? [PreflightCheck::warning('homepage.body_changes', 'Z obou homepage budou odstraněny staré obsahové bloky.')]
+            : [PreflightCheck::pass('homepage.body_ready', 'Obě homepage už mají stejnou finální skladbu bloků.')];
     }
 
     public function apply(): void
     {
-        $post = $this->posts->find(self::POST_ID);
-        if (null === $post || self::POST_SLUG !== $post->slug()) {
-            throw new RuntimeException('Česká homepage nebyla bezpečně nalezena.');
-        }
+        foreach ($this->homepages as $postId => $slug) {
+            $post = $this->posts->find($postId);
+            if (null === $post || $slug !== $post->slug()) {
+                throw new RuntimeException(sprintf('Homepage ID %d nebyla bezpečně nalezena.', $postId));
+            }
 
-        $desired = $this->transformer->desiredPageContent($post->content());
-        if (!$this->transformer->equivalent($post->content(), $desired)) {
-            $this->posts->updateContent($post->id(), $desired);
+            $desired = $this->transformer->desiredPageContent($post->content());
+            if (!$this->transformer->equivalent($post->content(), $desired)) {
+                $this->posts->updateContent($post->id(), $desired);
+            }
         }
     }
 
     public function verify(): array
     {
-        $post = $this->posts->find(self::POST_ID);
-        if (null === $post || self::POST_SLUG !== $post->slug()) {
-            return [PreflightCheck::blocker('homepage.body_missing', 'Česká homepage nebyla po migraci nalezena.')];
+        foreach ($this->homepages as $postId => $slug) {
+            $post = $this->posts->find($postId);
+            if (null === $post || $slug !== $post->slug()) {
+                return [PreflightCheck::blocker('homepage.body_missing', 'Některá homepage nebyla po migraci nalezena.')];
+            }
+
+            try {
+                $desired = $this->transformer->desiredPageContent($post->content());
+            } catch (Throwable $error) {
+                return [PreflightCheck::blocker('homepage.body_verify', $error->getMessage())];
+            }
+            if (!$this->transformer->equivalent($post->content(), $desired)) {
+                return [PreflightCheck::blocker(
+                    'homepage.body_mismatch',
+                    sprintf('Homepage ID %d neodpovídá finální skladbě bloků.', $postId)
+                )];
+            }
         }
 
-        try {
-            $desired = $this->transformer->desiredPageContent($post->content());
-        } catch (Throwable $error) {
-            return [PreflightCheck::blocker('homepage.body_verify', $error->getMessage())];
-        }
-
-        return $this->transformer->equivalent($post->content(), $desired)
-            ? [PreflightCheck::pass('homepage.body_saved', 'Finální skladba české homepage byla ověřena.')]
-            : [PreflightCheck::blocker('homepage.body_mismatch', 'Česká homepage neodpovídá finální skladbě bloků.')];
+        return [PreflightCheck::pass('homepage.body_saved', 'Finální skladba obou homepage byla ověřena.')];
     }
 }

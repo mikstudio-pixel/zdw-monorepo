@@ -11,6 +11,7 @@ use ZDW\ReleaseManager\Domain\MigrationRegistry;
 use ZDW\ReleaseManager\Infrastructure\WordPress\AdminPage;
 use ZDW\ReleaseManager\Infrastructure\WordPress\OptionStateStore;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressContactContentTransformer;
+use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressDesignCanteenContentTransformer;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressEnvironmentCollector;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressHomepageBodyTransformer;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressIntroContentTransformer;
@@ -21,6 +22,7 @@ use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressPageStore;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressPostStore;
 use ZDW\ReleaseManager\Migrations\DesiredOptionsMigration;
 use ZDW\ReleaseManager\Migrations\DesiredPostContentMigration;
+use ZDW\ReleaseManager\Migrations\DesignCanteenMigration;
 use ZDW\ReleaseManager\Migrations\HomepageIntroMigration;
 use ZDW\ReleaseManager\Migrations\HomepageBodyMigration;
 use ZDW\ReleaseManager\Migrations\InitialContactContent;
@@ -115,7 +117,12 @@ final class Plugin
             ),
             new HomepageBodyMigration(
                 $postStore,
-                new WordPressHomepageBodyTransformer()
+                new WordPressHomepageBodyTransformer(),
+                [2 => 'zdw', 93 => 'zdw-en']
+            ),
+            new DesignCanteenMigration(
+                $postStore,
+                new WordPressDesignCanteenContentTransformer()
             ),
         ]);
         $runner = new MigrationRunner($registry, new OptionStateStore());

@@ -39,6 +39,9 @@ docker compose exec -T wordpress php \
   /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/homepage-body.php
 
 docker compose exec -T wordpress php \
+  /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/design-canteen.php
+
+docker compose exec -T wordpress php \
   /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/media-store.php
 
 docker compose exec -T wordpress php \
@@ -57,6 +60,9 @@ docker compose exec -T wordpress php \
 ## Safety model
 
 - Every migration has a unique, versioned ID.
+- The runner only uses the current WordPress database connection; it has no
+  source-site URL, credentials or remote write transport. The local migration
+  lab uses a separate Compose project and separate named volumes.
 - Applied migrations are skipped on subsequent runs.
 - Blocking preflight checks prevent writes.
 - A migration is marked complete only after post-write verification succeeds.
@@ -67,8 +73,10 @@ The homepage intro migration is intentionally blocked until
 `zdw-bg-trimmed-30-muted.mp4` exists exactly once in the WordPress Media
 Library. It resolves the production attachment ID and URL at runtime and
 replaces only the first intro block on both Czech and English homepages. A
-separate guarded migration removes the obsolete sections from the Czech
-homepage while retaining its showcase and event tiles.
+separate guarded migration gives both localized homepages the same compact
+structure and removes obsolete event cards. Another guarded migration removes
+the outdated 2026 programme from the English Design Canteen while retaining
+its translated evergreen sections.
 
 The content-transformer integration fixture uses revisions `43859` and `40676`
 from the SQL dump configured through `ZDW_SQL_DUMP`. Restore the matching

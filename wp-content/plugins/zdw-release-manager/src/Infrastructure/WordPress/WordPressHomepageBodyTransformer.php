@@ -20,32 +20,18 @@ final class WordPressHomepageBodyTransformer implements HomepageBodyTransformer
             throw new RuntimeException('Homepage nezačíná očekávaným úvodním blokem.');
         }
 
-        $introSpacing = $this->matchingBlocks($meaningful, 'core/group', 'is-style-default');
         $showcases = $this->matchingBlocks($meaningful, 'core/group', 'na-co-se-tesit-section');
-        if (1 !== count($introSpacing) || 1 !== count($showcases)) {
-            throw new RuntimeException('Nelze jednoznačně určit mezery a sekci „Na co se těšit“ na homepage.');
+        if (1 !== count($showcases)) {
+            throw new RuntimeException('Nelze jednoznačně určit lokalizovanou festivalovou sekci homepage.');
         }
 
-        $showcaseIndex = array_search($showcases[0], $meaningful, true);
-        if (!is_int($showcaseIndex)) {
-            throw new RuntimeException('Sekci „Na co se těšit“ se nepodařilo lokalizovat.');
-        }
-
-        $spacers = array_values(array_filter(
-            array_slice($meaningful, 1, $showcaseIndex - 1),
-            static fn (array $block): bool => 'core/spacer' === ($block['blockName'] ?? null)
-        ));
-        $tiles = $meaningful[$showcaseIndex + 1] ?? null;
-        if (1 !== count($spacers) || !is_array($tiles) || 'core/group' !== ($tiles['blockName'] ?? null)) {
-            throw new RuntimeException('Navazující bloky sekce „Na co se těšit“ neodpovídají očekávané struktuře.');
-        }
+        [$introSpacing, $spacer] = $this->canonicalSpacing();
 
         return serialize_blocks([
             $meaningful[0],
-            $introSpacing[0],
-            $spacers[0],
+            $introSpacing,
+            $spacer,
             $showcases[0],
-            $tiles,
         ]);
     }
 
@@ -67,6 +53,30 @@ final class WordPressHomepageBodyTransformer implements HomepageBodyTransformer
                 return $name === ($block['blockName'] ?? null) && in_array($className, $classes, true);
             }
         ));
+    }
+
+    /** @return array{0: array<string, mixed>, 1: array<string, mixed>} */
+    private function canonicalSpacing(): array
+    {
+        $blocks = array_values(array_filter(
+            parse_blocks(<<<'BLOCKS'
+<!-- wp:group {"className":"is-style-default"} -->
+<div class="wp-block-group is-style-default"><!-- wp:spacer {"className":"is-style-medium"} -->
+<div style="height:100px" aria-hidden="true" class="wp-block-spacer is-style-medium"></div>
+<!-- /wp:spacer --></div>
+<!-- /wp:group -->
+
+<!-- wp:spacer -->
+<div style="height:100px" aria-hidden="true" class="wp-block-spacer"></div>
+<!-- /wp:spacer -->
+BLOCKS),
+            static fn (array $block): bool => null !== ($block['blockName'] ?? null)
+        ));
+        if (2 !== count($blocks)) {
+            throw new RuntimeException('Nepodařilo se sestavit sjednocené odsazení homepage.');
+        }
+
+        return [$blocks[0], $blocks[1]];
     }
 
     private function normalize(mixed $value): mixed

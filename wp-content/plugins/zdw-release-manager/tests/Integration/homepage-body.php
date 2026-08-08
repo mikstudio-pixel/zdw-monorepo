@@ -8,28 +8,36 @@ $wordpressRoot = getenv('WP_ROOT') ?: '/var/www/html';
 require $wordpressRoot . '/wp-load.php';
 require_once dirname(__DIR__, 2) . '/zdw-release-manager.php';
 
-$post = get_post(2);
-if (!$post instanceof WP_Post || 'zdw' !== $post->post_name) {
-    throw new RuntimeException('Czech homepage fixture is unavailable.');
-}
-
 $transformer = new WordPressHomepageBodyTransformer();
-$desired = $transformer->desiredPageContent((string) $post->post_content);
-$secondPass = $transformer->desiredPageContent($desired);
-if (!$transformer->equivalent($desired, $secondPass)) {
-    throw new RuntimeException('Homepage body transform is not idempotent.');
-}
+foreach ([2 => 'zdw', 93 => 'zdw-en'] as $postId => $slug) {
+    $post = get_post($postId);
+    if (!$post instanceof WP_Post || $slug !== $post->post_name) {
+        throw new RuntimeException(sprintf('Homepage fixture %d is unavailable.', $postId));
+    }
 
-$blocks = array_values(array_filter(
-    parse_blocks($desired),
-    static fn (array $block): bool => null !== ($block['blockName'] ?? null)
-));
-$names = array_column($blocks, 'blockName');
-if (['zdw/intro-effect', 'core/group', 'core/spacer', 'core/group', 'core/group'] !== $names) {
-    throw new RuntimeException('Homepage body manifest does not contain the expected five top-level blocks.');
-}
-if ('na-co-se-tesit-section' !== ($blocks[3]['attrs']['className'] ?? null)) {
-    throw new RuntimeException('Homepage showcase block is missing from the transformed body.');
+    $desired = $transformer->desiredPageContent((string) $post->post_content);
+    $secondPass = $transformer->desiredPageContent($desired);
+    if (!$transformer->equivalent($desired, $secondPass)) {
+        throw new RuntimeException(sprintf('Homepage body transform %d is not idempotent.', $postId));
+    }
+
+    $blocks = array_values(array_filter(
+        parse_blocks($desired),
+        static fn (array $block): bool => null !== ($block['blockName'] ?? null)
+    ));
+    $names = array_column($blocks, 'blockName');
+    if (['zdw/intro-effect', 'core/group', 'core/spacer', 'core/group'] !== $names) {
+        throw new RuntimeException(sprintf('Homepage %d does not contain the expected four top-level blocks.', $postId));
+    }
+    if ('is-style-default' !== ($blocks[1]['attrs']['className'] ?? null)) {
+        throw new RuntimeException(sprintf('Homepage %d is missing canonical intro spacing.', $postId));
+    }
+    if ('na-co-se-tesit-section' !== ($blocks[3]['attrs']['className'] ?? null)) {
+        throw new RuntimeException(sprintf('Homepage %d is missing its localized showcase.', $postId));
+    }
+    if (str_contains($desired, 'Flash Talks, powered by PechaKucha')) {
+        throw new RuntimeException(sprintf('Homepage %d still contains an obsolete event card.', $postId));
+    }
 }
 
 echo "Homepage body integration test passed.\n";

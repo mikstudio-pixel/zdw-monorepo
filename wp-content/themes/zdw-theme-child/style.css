@@ -2,7 +2,7 @@
 Theme Name: ZDW Theme Child
 Description: Safe local overrides for the ZDW website.
 Template: zdw-theme
-Version: 1.1.0
+Version: 1.2.0
 Author: Zlin Design Week
 */
 
@@ -44,6 +44,7 @@ mark.has-light-color {
 /* Keep the footer flush with the preceding content and use the site's dark mode. */
 .footer.footer.mt-2 {
 	margin-top: 0;
+	padding-top: 0;
 }
 
 .footer.footer.has-dark-background-color,
@@ -114,11 +115,41 @@ mark.has-light-color {
 	color: inherit;
 }
 
+.footer-connect__contact a {
+	text-decoration: none;
+}
+
+.footer-connect__contact a:focus-visible,
+.footer-connect__contact a:hover {
+	color: inherit;
+	text-decoration: underline;
+}
+
+.footer-connect__social .footer-connect__title {
+	max-width: 9ch;
+}
+
 .footer-connect__social-links {
 	align-items: center;
 	display: flex;
 	flex-wrap: wrap;
 	gap: 1.75rem;
+}
+
+.footer-connect__social-links a {
+	display: inline-flex;
+	transition: transform 160ms ease;
+}
+
+.footer-connect__social-links a:hover {
+	color: inherit;
+	transform: translateY(-3px);
+}
+
+.footer-connect__social-links a:focus-visible {
+	color: inherit;
+	outline: 2px solid currentColor;
+	outline-offset: 6px;
 }
 
 .footer-connect__social-icon {
@@ -155,6 +186,8 @@ mark.has-light-color {
 }
 
 .footer-legal {
+	border-top-style: solid;
+	border-top-width: 1px;
 	display: grid;
 	gap: 1.5rem;
 	padding-block: 2rem 3rem;
@@ -168,6 +201,56 @@ mark.has-light-color {
 .footer-legal__meta {
 	display: grid;
 	gap: .5rem;
+}
+
+.footer-legal__support {
+	font-size: .875rem;
+	font-weight: 500;
+	line-height: 1.4;
+	max-width: 34rem;
+}
+
+.footer-legal__about,
+.footer-legal__meta {
+	font-size: .875rem;
+	line-height: 1.5;
+}
+
+.footer-legal__about {
+	max-width: 50rem;
+	opacity: .72;
+}
+
+.footer-legal__admin {
+	opacity: .72;
+}
+
+.footer-legal__links {
+	display: flex;
+	flex-direction: column;
+	gap: .35rem;
+}
+
+.footer-legal__links a {
+	color: inherit;
+	text-decoration-thickness: 1px;
+	text-underline-offset: .2em;
+}
+
+.footer-legal__links a:focus-visible,
+.footer-legal__links a:hover,
+.footer-legal__links a:visited {
+	color: inherit;
+}
+
+.footer-edit-link {
+	padding-bottom: 2rem;
+}
+
+@media (min-width: 680px) {
+	.footer-legal__primary {
+		grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+	}
 }
 
 @media (min-width: 960px) {
@@ -186,6 +269,14 @@ mark.has-light-color {
 
 	.footer-connect__social-links {
 		margin-top: 4.2rem;
+	}
+
+	.footer-legal {
+		grid-template-columns: minmax(0, 2fr) minmax(260px, .8fr);
+	}
+
+	.footer-legal__meta {
+		align-self: start;
 	}
 }
 
