@@ -14,6 +14,8 @@ use ZDW\ReleaseManager\Domain\RunResult;
 
 final class MigrationRunner
 {
+    private const EXECUTION_LOCK_ID = '__zdw_release_manager_execution__';
+
     public function __construct(
         private readonly MigrationRegistry $registry,
         private readonly StateStore $stateStore
@@ -68,54 +70,73 @@ final class MigrationRunner
             return new RunResult(RunResult::SKIPPED, 'Migrace už byla aplikována.');
         }
 
-        try {
-            $preflight = $migration->preflight();
-        } catch (Throwable $error) {
-            return new RunResult(RunResult::FAILED, $error->getMessage());
-        }
-
-        if ($this->hasBlocker($preflight)) {
-            return new RunResult(
-                RunResult::BLOCKED,
-                'Migraci blokuje neúspěšná vstupní kontrola.',
-                $preflight
-            );
-        }
-
-        $claimToken = $this->stateStore->claim($migrationId);
-        if (null === $claimToken) {
+        $executionToken = $this->stateStore->claim(self::EXECUTION_LOCK_ID);
+        if (null === $executionToken) {
             return new RunResult(
                 RunResult::SKIPPED,
-                'Migraci právě provádí jiný požadavek nebo už byla aplikována.'
+                'Migraci právě provádí jiný požadavek; zkuste to znovu po jeho dokončení.'
             );
         }
 
         try {
-            $migration->apply();
-            $verification = $migration->verify();
+            if ($this->stateStore->isApplied($migrationId)) {
+                return new RunResult(RunResult::SKIPPED, 'Migrace už byla aplikována.');
+            }
 
-            if ($this->hasBlocker($verification)) {
+            try {
+                $preflight = $migration->preflight();
+            } catch (Throwable $error) {
+                return new RunResult(RunResult::FAILED, $error->getMessage());
+            }
+
+            if ($this->hasBlocker($preflight)) {
+                return new RunResult(
+                    RunResult::BLOCKED,
+                    'Migraci blokuje neúspěšná vstupní kontrola.',
+                    $preflight
+                );
+            }
+
+            $claimToken = $this->stateStore->claim($migrationId);
+            if (null === $claimToken) {
+                return new RunResult(
+                    RunResult::SKIPPED,
+                    'Migraci právě provádí jiný požadavek nebo už byla aplikována.'
+                );
+            }
+
+            try {
+                $migration->apply();
+                $verification = $migration->verify();
+
+                if ($this->hasBlocker($verification)) {
+                    $this->stateStore->release($migrationId, $claimToken);
+
+                    return new RunResult(
+                        RunResult::FAILED,
+                        'Závěrečné ověření migrace selhalo.',
+                        $verification
+                    );
+                }
+
+                $this->stateStore->markApplied($migrationId, $claimToken);
+            } catch (Throwable $error) {
                 $this->stateStore->release($migrationId, $claimToken);
 
                 return new RunResult(
                     RunResult::FAILED,
-                    'Závěrečné ověření migrace selhalo.',
-                    $verification
+                    $error->getMessage()
                 );
             }
 
-            $this->stateStore->markApplied($migrationId, $claimToken);
-        } catch (Throwable $error) {
-            $this->stateStore->release($migrationId, $claimToken);
-
-            return new RunResult(RunResult::FAILED, $error->getMessage());
+            return new RunResult(
+                RunResult::APPLIED,
+                'Migrace byla úspěšně aplikována.',
+                $verification
+            );
+        } finally {
+            $this->stateStore->release(self::EXECUTION_LOCK_ID, $executionToken);
         }
-
-        return new RunResult(
-            RunResult::APPLIED,
-            'Migrace byla úspěšně aplikována.',
-            $verification
-        );
     }
 
     /** @param list<PreflightCheck> $checks */

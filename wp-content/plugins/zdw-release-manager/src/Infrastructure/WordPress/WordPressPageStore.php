@@ -113,7 +113,7 @@ final class WordPressPageStore implements PageStore
 
         $path = get_attached_file($attachmentId);
 
-        return is_string($path) && '' !== $path ? basename($path) : null;
+        return is_string($path) && '' !== $path && is_file($path) ? basename($path) : null;
     }
 
     private function assertUnfilteredHtmlCapability(): void

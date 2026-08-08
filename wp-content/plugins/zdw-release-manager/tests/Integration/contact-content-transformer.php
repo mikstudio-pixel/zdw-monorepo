@@ -49,6 +49,13 @@ if (false === strpos($syntheticResult, 'Do not replace') || 1 !== substr_count($
     throw new RuntimeException('Press transform replaced an unrelated group.');
 }
 
+$mixedPress = '<!-- wp:zdw/contacts {"contacts":[],"variant":"compact"} /-->'
+    . '<!-- wp:group --><div class="wp-block-group"><!-- wp:acf/contact-person {"name":"acf/contact-person"} /--></div><!-- /wp:group -->';
+$mixedResult = $transformer->pressPage($mixedPress, $eva);
+if (1 !== substr_count($mixedResult, 'wp:zdw/contacts') || str_contains($mixedResult, 'wp:acf/contact-person')) {
+    throw new RuntimeException('Press transform kept a stale legacy contact beside the migrated block.');
+}
+
 $unrelatedAccreditation = '<!-- wp:group --><div class="wp-block-group"><!-- wp:heading --><h2>Akreditace novinářů bude otevřena později</h2><!-- /wp:heading --></div><!-- /wp:group -->';
 $legacyAccreditation = '<!-- wp:group --><div class="wp-block-group"><!-- wp:columns --><div class="wp-block-columns">'
     . '<!-- wp:column --><div class="wp-block-column"><!-- wp:heading {"level":4} --><h4>AKREDITACE</h4><!-- /wp:heading --><!-- wp:buttons --><div class="wp-block-buttons"><!-- wp:button --><div class="wp-block-button"><a class="wp-block-button__link wp-element-button">ZOBRAZIT SOUBORY</a></div><!-- /wp:button --></div><!-- /wp:buttons --></div><!-- /wp:column -->'

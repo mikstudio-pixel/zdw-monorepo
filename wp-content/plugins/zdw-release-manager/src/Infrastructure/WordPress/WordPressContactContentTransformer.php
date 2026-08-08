@@ -14,7 +14,8 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
     {
         $replacement = $this->parsedContactBlock($contacts, 'compact');
         $blocks = parse_blocks($content);
-        $contactIndex = $this->contactTargetIndex($blocks);
+        $contactTarget = $this->contactTarget($blocks);
+        $contactIndex = $contactTarget['replace'];
         $accreditationIndex = $this->accreditationTargetIndex($blocks);
         $updated = [];
         $skipBlankTail = false;
@@ -26,6 +27,10 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
                     array_pop($updated);
                 }
                 $skipBlankTail = true;
+                continue;
+            }
+
+            if (in_array($index, $contactTarget['remove'], true)) {
                 continue;
             }
 
@@ -116,8 +121,10 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
             && '' === trim(wp_strip_all_tags((string) ($block['innerHTML'] ?? '')));
     }
 
-    /** @param list<array<string, mixed>> $blocks */
-    private function contactTargetIndex(array $blocks): int
+    /** @param list<array<string, mixed>> $blocks
+     *  @return array{replace: int, remove: list<int>}
+     */
+    private function contactTarget(array $blocks): array
     {
         $desired = [];
         $legacy = [];
@@ -134,12 +141,15 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
             }
         }
 
-        $matches = [] !== $desired ? $desired : $legacy;
-        if (1 !== count($matches)) {
+        if (count($desired) > 1 || count($legacy) > 1 || ([] === $desired && [] === $legacy)) {
             throw new RuntimeException('Na stránce pro média nebyl nalezen právě jeden původní kontakt.');
         }
 
-        return $matches[0];
+        if ([] !== $desired) {
+            return ['replace' => $desired[0], 'remove' => $legacy];
+        }
+
+        return ['replace' => $legacy[0], 'remove' => []];
     }
 
     /** @param list<array<string, mixed>> $blocks */

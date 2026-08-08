@@ -1,8 +1,8 @@
 # ZDW Release Manager
 
 Versioned, auditable and idempotent WordPress content migrations for Zlin
-Design Week. Version 0.4.0 includes environment preflight, a tested migration
-runner, and seven idempotent migrations for colors and settings, contact
+Design Week. Version 0.5.2 includes environment preflight, a tested migration
+runner, and eight idempotent migrations for colors and settings, contact
 content, translated sponsor pages, navigation, and the final homepage.
 
 ## Development
@@ -65,6 +65,8 @@ docker compose exec -T wordpress php \
   lab uses a separate Compose project and separate named volumes.
 - Applied migrations are skipped on subsequent runs.
 - Blocking preflight checks prevent writes.
+- All migration writes share one execution lease, so migrations that touch the
+  same page cannot run concurrently.
 - A migration is marked complete only after post-write verification succeeds.
 - Every write is protected by the WordPress capability check and a per-migration nonce.
 - Applying a migration reruns the environment audit and refuses to write when it contains a blocker.

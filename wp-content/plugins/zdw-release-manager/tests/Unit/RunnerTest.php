@@ -131,6 +131,21 @@ final class RunnerTest extends TestCase
         self::assertStringContainsString('jiný požadavek', $result->message());
     }
 
+    public function test_an_active_execution_lock_serializes_different_migrations(): void
+    {
+        $migration = new SpyMigration('20260807_002_contacts', 'Kontakty');
+        $store = new InMemoryStateStore();
+        self::assertNotNull($store->claim('__zdw_release_manager_execution__'));
+        $runner = new MigrationRunner(new MigrationRegistry([$migration]), $store);
+
+        $result = $runner->apply($migration->id());
+
+        self::assertSame(RunResult::SKIPPED, $result->status());
+        self::assertSame(0, $migration->preflightCalls);
+        self::assertSame(0, $migration->applyCalls);
+        self::assertStringContainsString('jiný požadavek', $result->message());
+    }
+
     public function test_an_expired_owner_cannot_release_or_complete_a_replacement_claim(): void
     {
         $migrationId = '20260807_001_audit';

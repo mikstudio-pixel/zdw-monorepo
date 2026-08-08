@@ -7,6 +7,7 @@ require $wordpressRoot . '/wp-load.php';
 require_once dirname(__DIR__, 2) . '/zdw-release-manager.php';
 
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressMediaStore;
+use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressPageStore;
 
 $attachmentId = wp_insert_attachment([
     'post_mime_type' => 'video/mp4',
@@ -23,6 +24,11 @@ try {
     $store = new WordPressMediaStore();
     if (null !== $store->find((int) $attachmentId)) {
         throw new RuntimeException('A stale attachment whose upload is missing was accepted as media.');
+    }
+
+    $pageStore = new WordPressPageStore();
+    if (null !== $pageStore->attachmentFilename((int) $attachmentId)) {
+        throw new RuntimeException('A stale attachment whose upload is missing was accepted as a sponsor logo.');
     }
 } finally {
     wp_delete_attachment((int) $attachmentId, true);
