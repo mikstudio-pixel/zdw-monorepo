@@ -9,11 +9,12 @@ use ZDW\ReleaseManager\Contracts\HomepageBodyTransformer;
 final class FakeHomepageBodyTransformer implements HomepageBodyTransformer
 {
     public bool $throwOnTransform = false;
+    public string $throwOnContent = '';
     public bool $alwaysMismatch = false;
 
     public function desiredPageContent(string $content): string
     {
-        if ($this->throwOnTransform) {
+        if ($this->throwOnTransform || ('' !== $this->throwOnContent && str_contains($content, $this->throwOnContent))) {
             throw new \RuntimeException('Invalid homepage body.');
         }
 

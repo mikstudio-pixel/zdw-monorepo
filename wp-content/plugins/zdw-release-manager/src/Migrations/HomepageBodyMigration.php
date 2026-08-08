@@ -58,6 +58,7 @@ final class HomepageBodyMigration implements Migration
 
     public function apply(): void
     {
+        $updates = [];
         foreach ($this->homepages as $postId => $slug) {
             $post = $this->posts->find($postId);
             if (null === $post || $slug !== $post->slug()) {
@@ -66,8 +67,12 @@ final class HomepageBodyMigration implements Migration
 
             $desired = $this->transformer->desiredPageContent($post->content());
             if (!$this->transformer->equivalent($post->content(), $desired)) {
-                $this->posts->updateContent($post->id(), $desired);
+                $updates[$post->id()] = $desired;
             }
+        }
+
+        foreach ($updates as $postId => $desired) {
+            $this->posts->updateContent($postId, $desired);
         }
     }
 

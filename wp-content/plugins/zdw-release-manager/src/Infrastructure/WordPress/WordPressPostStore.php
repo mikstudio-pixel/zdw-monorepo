@@ -14,7 +14,7 @@ final class WordPressPostStore implements PostStore
     public function find(int $postId): ?PostRecord
     {
         $post = get_post($postId);
-        if (!$post instanceof WP_Post) {
+        if (!$post instanceof WP_Post || 'page' !== $post->post_type || 'publish' !== $post->post_status) {
             return null;
         }
 

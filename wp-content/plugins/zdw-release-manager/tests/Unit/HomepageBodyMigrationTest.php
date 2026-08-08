@@ -84,6 +84,25 @@ final class HomepageBodyMigrationTest extends TestCase
         self::assertSame('homepage.body_ready', $migration->preflight()[0]->code());
     }
 
+    public function test_apply_prepares_every_homepage_before_writing_any_content(): void
+    {
+        $posts = new InMemoryPostStore([
+            new PostRecord(2, 'zdw', 'legacy-czech-body'),
+            new PostRecord(93, 'zdw-en', 'legacy-english-body'),
+        ]);
+        $transformer = new FakeHomepageBodyTransformer();
+        $transformer->throwOnContent = 'english';
+        $migration = new HomepageBodyMigration($posts, $transformer);
+
+        try {
+            $migration->apply();
+            self::fail('English transform failure should abort the migration.');
+        } catch (\RuntimeException) {
+            self::assertSame([], $posts->writes);
+            self::assertSame('legacy-czech-body', $posts->find(2)?->content());
+        }
+    }
+
     private function migration(FakeHomepageBodyTransformer $transformer, string $content): HomepageBodyMigration
     {
         return new HomepageBodyMigration(

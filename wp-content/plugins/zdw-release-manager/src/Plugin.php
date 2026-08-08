@@ -12,8 +12,10 @@ use ZDW\ReleaseManager\Infrastructure\WordPress\AdminPage;
 use ZDW\ReleaseManager\Infrastructure\WordPress\OptionStateStore;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressContactContentTransformer;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressDesignCanteenContentTransformer;
+use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressDesignCanteenCleanupTransformer;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressEnvironmentCollector;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressHomepageBodyTransformer;
+use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressHeroBackgroundTransformer;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressIntroContentTransformer;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressMediaStore;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressNavigationStore;
@@ -22,6 +24,8 @@ use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressPageStore;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressPostStore;
 use ZDW\ReleaseManager\Migrations\DesiredOptionsMigration;
 use ZDW\ReleaseManager\Migrations\DesiredPostContentMigration;
+use ZDW\ReleaseManager\Migrations\BestInDesignHeroMigration;
+use ZDW\ReleaseManager\Migrations\DesignCanteenCleanupMigration;
 use ZDW\ReleaseManager\Migrations\DesignCanteenMigration;
 use ZDW\ReleaseManager\Migrations\HomepageIntroMigration;
 use ZDW\ReleaseManager\Migrations\HomepageBodyMigration;
@@ -68,6 +72,7 @@ final class Plugin
         $optionStore = new WordPressOptionStore();
         $postStore = new WordPressPostStore();
         $pageStore = new WordPressPageStore();
+        $mediaStore = new WordPressMediaStore();
         $registry = new MigrationRegistry([
             new DesiredOptionsMigration(
                 '20260808_001_interface_settings',
@@ -111,7 +116,7 @@ final class Plugin
             ),
             new HomepageIntroMigration(
                 $postStore,
-                new WordPressMediaStore(),
+                $mediaStore,
                 new WordPressIntroContentTransformer(),
                 [2 => 'zdw', 93 => 'zdw-en']
             ),
@@ -123,6 +128,15 @@ final class Plugin
             new DesignCanteenMigration(
                 $postStore,
                 new WordPressDesignCanteenContentTransformer()
+            ),
+            new BestInDesignHeroMigration(
+                $postStore,
+                $mediaStore,
+                new WordPressHeroBackgroundTransformer()
+            ),
+            new DesignCanteenCleanupMigration(
+                $postStore,
+                new WordPressDesignCanteenCleanupTransformer()
             ),
         ]);
         $runner = new MigrationRunner($registry, new OptionStateStore());

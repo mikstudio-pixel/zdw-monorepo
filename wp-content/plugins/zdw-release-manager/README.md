@@ -1,9 +1,10 @@
 # ZDW Release Manager
 
 Versioned, auditable and idempotent WordPress content migrations for Zlin
-Design Week. Version 0.5.3 includes environment preflight, a tested migration
-runner, and eight idempotent migrations for colors and settings, contact
-content, translated sponsor pages, navigation, and the final homepage.
+Design Week. Version 0.6.0 includes environment preflight, a tested migration
+runner, and ten idempotent migrations for colors and settings, contact
+content, translated sponsor pages, navigation, final homepages, the Best in
+Design hero, and removal of obsolete Czech Design Canteen sections.
 
 ## Development
 
@@ -25,6 +26,9 @@ docker compose exec -T wordpress php \
 
 docker compose exec -T wordpress php \
   /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/wordpress-option-store.php
+
+docker compose exec -T wordpress php \
+  /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/post-store.php
 
 docker compose exec -T wordpress php \
   /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/contact-content-transformer.php
@@ -51,6 +55,9 @@ docker compose exec -T wordpress php \
   /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/sponsor-block-render.php
 
 docker compose exec -T wordpress php \
+  /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/final-content-migrations.php
+
+docker compose exec -T wordpress php \
   /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/two-tier-upgrade-lock.php
 
 docker compose exec -T wordpress php \
@@ -58,6 +65,9 @@ docker compose exec -T wordpress php \
 
 docker compose exec -T wordpress php \
   /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/two-tier-enable-retry.php
+
+docker compose exec -T wordpress php \
+  /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/two-tier-render-ids.php
 ```
 
 ## Safety model

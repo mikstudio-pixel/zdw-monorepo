@@ -146,10 +146,46 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
         }
 
         if ([] !== $desired) {
+            foreach ($legacy as $legacyIndex) {
+                if (!$this->isDedicatedLegacyContactGroup($blocks[$legacyIndex])) {
+                    throw new RuntimeException('Původní kontaktní skupina obsahuje nesouvisející obsah a nelze ji bezpečně odstranit.');
+                }
+            }
+
             return ['replace' => $desired[0], 'remove' => $legacy];
         }
 
         return ['replace' => $legacy[0], 'remove' => []];
+    }
+
+    /** @param array<string, mixed> $block */
+    private function isDedicatedLegacyContactGroup(array $block): bool
+    {
+        $children = array_values(array_filter(
+            $block['innerBlocks'] ?? [],
+            static fn (mixed $child): bool => is_array($child) && null !== ($child['blockName'] ?? null)
+        ));
+        if ([] === $children) {
+            return false;
+        }
+
+        foreach ($children as $child) {
+            $name = $child['blockName'] ?? null;
+            if ('acf/contact-person' === $name || 'core/spacer' === $name) {
+                continue;
+            }
+            if (in_array($name, ['core/group', 'core/columns', 'core/column'], true)
+                && $this->isDedicatedLegacyContactGroup($child)) {
+                continue;
+            }
+            if ('core/paragraph' === $name && '' === $this->plainText($child)) {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     /** @param list<array<string, mixed>> $blocks */

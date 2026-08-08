@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ZDW Multi-level Header
  * Description: Three-row header, multi-level navigation and homepage programme grid for Zlin Design Week.
- * Version: 0.2.1
+ * Version: 0.2.2
  * Author: Zlin Design Week
  */
 
@@ -936,16 +936,28 @@ function zdw_two_tier_menu_render_nav( $kind, $class ) {
 	$language = zdw_two_tier_menu_language();
 	$names    = zdw_two_tier_menu_names();
 	$kind     = 'bottom' === $kind ? 'bottom' : 'top';
+	$viewport = false !== strpos( $class, 'mobile' ) ? 'mobile' : 'desktop';
+	$instance = $kind . '-' . $viewport . '-' . $language;
+	$item_id_filter = static function ( $menu_id ) use ( $instance ) {
+		return $menu_id ? $menu_id . '-' . $instance : '';
+	};
 
-	wp_nav_menu(
-		array(
-			'menu'        => $names[ $kind ][ $language ],
-			'container'   => false,
-			'menu_class'  => 'zdw-two-tier__menu ' . $class,
-			'depth'       => 2,
-			'fallback_cb' => false,
-		)
-	);
+	add_filter( 'nav_menu_item_id', $item_id_filter, 10, 1 );
+
+	try {
+		wp_nav_menu(
+			array(
+				'menu'        => $names[ $kind ][ $language ],
+				'container'   => false,
+				'menu_id'     => 'zdw-two-tier-' . $instance,
+				'menu_class'  => 'zdw-two-tier__menu ' . $class,
+				'depth'       => 2,
+				'fallback_cb' => false,
+			)
+		);
+	} finally {
+		remove_filter( 'nav_menu_item_id', $item_id_filter, 10 );
+	}
 }
 
 /**
