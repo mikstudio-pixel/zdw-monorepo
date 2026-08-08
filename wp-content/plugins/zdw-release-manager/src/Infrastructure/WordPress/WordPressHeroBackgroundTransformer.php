@@ -28,6 +28,18 @@ final class WordPressHeroBackgroundTransformer implements HeroBackgroundTransfor
         $blocks[$index]['attrs']['backgroundUrl'] = $background->url();
         $blocks[$index]['attrs']['backgroundAlt'] = '';
         $blocks[$index]['attrs']['applyEffect'] = false;
+        $blocks[$index]['innerHTML'] = $this->rewriteSavedMarkup(
+            (string) ($blocks[$index]['innerHTML'] ?? ''),
+            $background->url()
+        );
+        foreach (($blocks[$index]['innerContent'] ?? []) as $contentIndex => $fragment) {
+            if (is_string($fragment)) {
+                $blocks[$index]['innerContent'][$contentIndex] = $this->rewriteSavedMarkup(
+                    $fragment,
+                    $background->url()
+                );
+            }
+        }
 
         return serialize_blocks($blocks);
     }
@@ -44,5 +56,48 @@ final class WordPressHeroBackgroundTransformer implements HeroBackgroundTransfor
         }
 
         return is_string($value) ? html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8') : $value;
+    }
+
+    private function rewriteSavedMarkup(string $markup, string $backgroundUrl): string
+    {
+        $replacement = sprintf('background-image:url(%s)', esc_url($backgroundUrl));
+
+        return (string) preg_replace_callback(
+            '/^(\s*<div\b)([^>]*)(>)/is',
+            static function (array $match) use ($replacement): string {
+                $attributes = (string) preg_replace(
+                    '/\sdata-apply-effect=(["\'])1\1/i',
+                    '',
+                    $match[2]
+                );
+                if (preg_match('/\sstyle=(["\'])(.*?)\1/is', $attributes, $styleMatch, PREG_OFFSET_CAPTURE)) {
+                    $style = $styleMatch[2][0];
+                    if (preg_match('/background-image\s*:\s*url\([^)]*\)/i', $style)) {
+                        $style = (string) preg_replace(
+                            '/background-image\s*:\s*url\([^)]*\)/i',
+                            $replacement,
+                            $style,
+                            1
+                        );
+                    } else {
+                        $style = rtrim($style, "; \t\n\r\0\x0B") . ';' . $replacement;
+                    }
+                    $fullStyle = $styleMatch[0][0];
+                    $newStyle = sprintf(' style=%1$s%2$s%1$s', $styleMatch[1][0], $style);
+                    $attributes = substr_replace(
+                        $attributes,
+                        $newStyle,
+                        $styleMatch[0][1],
+                        strlen($fullStyle)
+                    );
+                } else {
+                    $attributes .= sprintf(' style="%s"', $replacement);
+                }
+
+                return $match[1] . $attributes . $match[3];
+            },
+            $markup,
+            1
+        );
     }
 }

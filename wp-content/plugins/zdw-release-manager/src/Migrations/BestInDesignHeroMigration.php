@@ -18,7 +18,10 @@ final class BestInDesignHeroMigration implements Migration
 {
     private const POST_ID = 193;
     private const POST_SLUG = 'best-in-design';
-    private const FILENAME = 'liza-marchkova-lizamarchkova-13-1-scaled.jpg';
+    private const FILENAMES = [
+        'liza-marchkova-lizamarchkova-13-1-scaled.jpg',
+        'liza-marchkova-lizamarchkova-13-1-scaled-1.jpg',
+    ];
 
     public function __construct(
         private readonly PostStore $posts,
@@ -81,9 +84,12 @@ final class BestInDesignHeroMigration implements Migration
         if (!$post instanceof PostRecord || self::POST_SLUG !== $post->slug()) {
             throw new RuntimeException('Česká stránka Best in Design nebyla bezpečně nalezena.');
         }
-        $assets = $this->media->findByFilename(self::FILENAME);
+        $assets = [];
+        foreach (self::FILENAMES as $filename) {
+            array_push($assets, ...$this->media->findByFilename($filename));
+        }
         if (1 !== count($assets)) {
-            throw new RuntimeException(sprintf('V Médiích musí být právě jeden soubor %s.', self::FILENAME));
+            throw new RuntimeException('V Médiích musí být právě jedna fotografie Best in Design s očekávaným názvem.');
         }
 
         return [$post, $assets[0]];

@@ -11,6 +11,7 @@ use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressHeroBackgroundTransform
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressMediaStore;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressPostStore;
 use ZDW\ReleaseManager\Migrations\BestInDesignHeroMigration;
+use ZDW\ReleaseManager\Migrations\BestInDesignHeroMarkupMigration;
 use ZDW\ReleaseManager\Migrations\DesignCanteenCleanupMigration;
 
 $admins = get_users(['role' => 'administrator', 'number' => 1]);
@@ -56,9 +57,32 @@ try {
     if ('pass' !== $heroMigration->verify()[0]->severity()) {
         throw new RuntimeException('Best in Design hero migration verification failed.');
     }
-    $heroAttrs = parse_blocks((string) get_post(193)?->post_content)[0]['attrs'] ?? [];
+    $savedHeroContent = (string) get_post(193)?->post_content;
+    $savedHeroBlock = parse_blocks($savedHeroContent)[0] ?? [];
+    $heroAttrs = $savedHeroBlock['attrs'] ?? [];
     if ((int) $attachmentId !== ($heroAttrs['backgroundId'] ?? null) || false !== ($heroAttrs['applyEffect'] ?? null)) {
         throw new RuntimeException('Best in Design hero attributes do not match the local source.');
+    }
+    if (!str_contains((string) ($savedHeroBlock['innerHTML'] ?? ''), basename($relativeFile))) {
+        throw new RuntimeException('Best in Design saved markup still references the old background.');
+    }
+    if (str_contains((string) ($savedHeroBlock['innerHTML'] ?? ''), 'data-apply-effect="1"')) {
+        throw new RuntimeException('Best in Design saved markup still enables the old effect.');
+    }
+
+    $corruptBlocks = parse_blocks($hero->post_content);
+    $corruptBlocks[0]['attrs']['backgroundId'] = (int) $attachmentId;
+    $corruptBlocks[0]['attrs']['backgroundUrl'] = (string) wp_get_attachment_url((int) $attachmentId);
+    $corruptBlocks[0]['attrs']['backgroundAlt'] = '';
+    $corruptBlocks[0]['attrs']['applyEffect'] = false;
+    wp_update_post(['ID' => 193, 'post_content' => wp_slash(serialize_blocks($corruptBlocks))]);
+    $markupRepair = new BestInDesignHeroMarkupMigration($heroMigration);
+    if ('warning' !== $markupRepair->preflight()[0]->severity()) {
+        throw new RuntimeException('Best in Design markup repair did not detect stale saved HTML.');
+    }
+    $markupRepair->apply();
+    if ('pass' !== $markupRepair->verify()[0]->severity()) {
+        throw new RuntimeException('Best in Design markup repair verification failed.');
     }
 
     $canteenMigration = new DesignCanteenCleanupMigration(
