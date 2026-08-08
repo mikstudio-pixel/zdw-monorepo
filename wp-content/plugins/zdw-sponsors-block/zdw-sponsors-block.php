@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ZDW Sponsors Block
  * Description: Gutenberg block for editable Zlin Design Week sponsor sections.
- * Version: 1.2.0
+ * Version: 1.2.1
  * Author: Zlin Design Week
  */
 
@@ -109,19 +109,18 @@ function zdw_sponsors_block_render( $attributes ) {
 				continue;
 			}
 
-			$image = wp_get_attachment_image(
-				$attachment_id,
-				'medium',
-				false,
-				array(
-					'class'   => 'zdw-sponsors__image',
-					'loading' => 'lazy',
-				)
-			);
-
-			if ( ! $image ) {
+			$image_source = wp_get_attachment_image_src( $attachment_id, 'full' );
+			if ( ! is_array( $image_source ) || empty( $image_source[0] ) ) {
 				continue;
 			}
+
+			$alt   = trim( wp_strip_all_tags( (string) get_post_meta( $attachment_id, '_wp_attachment_image_alt', true ) ) );
+			$image = sprintf(
+				'<img src="%1$s" %2$s class="zdw-sponsors__image" alt="%3$s" loading="lazy" decoding="async">',
+				esc_url( $image_source[0] ),
+				image_hwstring( (int) $image_source[1], (int) $image_source[2] ),
+				esc_attr( $alt )
+			);
 
 			$url   = zdw_sponsors_block_attachment_field( 'url', $attachment_id );
 			$label = zdw_sponsors_block_attachment_field( 'label', $attachment_id );

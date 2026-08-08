@@ -48,6 +48,9 @@ docker compose exec -T wordpress php \
   /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/contact-block-render.php
 
 docker compose exec -T wordpress php \
+  /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/sponsor-block-render.php
+
+docker compose exec -T wordpress php \
   /var/www/html/wp-content/plugins/zdw-release-manager/tests/Integration/two-tier-upgrade-lock.php
 
 docker compose exec -T wordpress php \
