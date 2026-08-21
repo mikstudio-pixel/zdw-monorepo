@@ -34,6 +34,31 @@ try {
         throw new RuntimeException('Page metadata was omitted from the rollback fingerprint.');
     }
     delete_post_meta((int) $publishedPage, '_wp_page_template');
+    if (function_exists('pll_set_post_language')) {
+        $publishedLanguage = $pageStore->language((int) $publishedPage);
+        $targetLanguage = 'cs' === $publishedLanguage ? 'en' : 'cs';
+        if (!$pageStore->setLanguageIfCurrent((int) $publishedPage, $publishedLanguage, $targetLanguage)
+            || $pageStore->setLanguageIfCurrent((int) $publishedPage, $publishedLanguage, $targetLanguage)) {
+            throw new RuntimeException('Conditional language write did not enforce its locked expectation.');
+        }
+        $draftLanguage = $pageStore->language((int) $draftPage);
+        $draftTargetLanguage = 'cs' === $targetLanguage ? 'en' : 'cs';
+        if (!$pageStore->setLanguageIfCurrent((int) $draftPage, $draftLanguage, $draftTargetLanguage)) {
+            throw new RuntimeException('Conditional language fixture could not assign its second language.');
+        }
+        $translationExpectations = [
+            (int) $publishedPage => $pageStore->translations((int) $publishedPage),
+            (int) $draftPage => $pageStore->translations((int) $draftPage),
+        ];
+        $desiredTranslations = [
+            $targetLanguage => (int) $publishedPage,
+            $draftTargetLanguage => (int) $draftPage,
+        ];
+        if (!$pageStore->setTranslationsIfCurrent($translationExpectations, $desiredTranslations)
+            || $pageStore->setTranslationsIfCurrent([(int) $publishedPage => []], $desiredTranslations)) {
+            throw new RuntimeException('Conditional translation write did not enforce its locked expectations.');
+        }
+    }
     $postUpdatedCalls = 0;
     $postUpdated = static function (int $postId) use ($publishedPage, &$postUpdatedCalls): void {
         if ((int) $publishedPage === $postId) {

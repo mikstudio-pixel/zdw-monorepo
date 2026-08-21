@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ZDW\ReleaseManager\Infrastructure\WordPress;
 
 use RuntimeException;
+use Throwable;
 use WP_Post;
 use ZDW\ReleaseManager\Contracts\PageStore;
 use ZDW\ReleaseManager\Domain\PostRecord;
@@ -144,13 +145,19 @@ final class WordPressPageStore implements PageStore
 
     public function setLanguageIfCurrent(int $postId, ?string $expectedLanguage, ?string $language): bool
     {
-        if ($this->language($postId) !== $expectedLanguage) {
-            return false;
-        }
+        return $this->withPolylangWriteLock([$postId], function () use (
+            $postId,
+            $expectedLanguage,
+            $language
+        ): bool {
+            if ($this->language($postId) !== $expectedLanguage) {
+                return false;
+            }
 
-        $this->setLanguage($postId, $language);
+            $this->setLanguage($postId, $language);
 
-        return $this->language($postId) === $language;
+            return $this->language($postId) === $language;
+        });
     }
 
     public function language(int $postId): ?string
@@ -196,27 +203,89 @@ final class WordPressPageStore implements PageStore
 
     public function setTranslationsIfCurrent(array $expectedByPost, array $translations): bool
     {
-        foreach ($expectedByPost as $postId => $expected) {
-            $current = $this->translations($postId);
-            ksort($current);
-            ksort($expected);
-            if ($current !== $expected) {
-                return false;
+        $postIds = array_values(array_unique(array_merge(
+            array_map('intval', array_keys($expectedByPost)),
+            array_map('intval', array_values($translations))
+        )));
+
+        return $this->withPolylangWriteLock($postIds, function () use (
+            $expectedByPost,
+            $translations
+        ): bool {
+            foreach ($expectedByPost as $postId => $expected) {
+                $current = $this->translations($postId);
+                ksort($current);
+                ksort($expected);
+                if ($current !== $expected) {
+                    return false;
+                }
             }
+
+            $this->setTranslations($translations);
+            $expectedResult = $translations;
+            ksort($expectedResult);
+            foreach ($translations as $postId) {
+                $current = $this->translations($postId);
+                ksort($current);
+                if ($current !== $expectedResult) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
+
+    /** @param list<int> $postIds */
+    private function withPolylangWriteLock(array $postIds, callable $callback): bool
+    {
+        $postIds = array_values(array_unique(array_filter(array_map('intval', $postIds))));
+        if ([] === $postIds) {
+            throw new RuntimeException('Pro podmíněný Polylang zápis chybí stránky.');
         }
 
-        $this->setTranslations($translations);
-        $expectedResult = $translations;
-        ksort($expectedResult);
-        foreach ($translations as $postId) {
-            $current = $this->translations($postId);
-            ksort($current);
-            if ($current !== $expectedResult) {
-                return false;
-            }
+        global $wpdb;
+        $ownsTransaction = 1 !== (int) $wpdb->get_var('SELECT @@in_transaction');
+        if ($ownsTransaction && false === $wpdb->query('START TRANSACTION')) {
+            throw new RuntimeException('Nelze zahájit transakci pro Polylang zápis.');
         }
 
-        return true;
+        try {
+            $placeholders = implode(', ', array_fill(0, count($postIds), '%d'));
+            $relationshipLocks = $wpdb->get_results($wpdb->prepare(
+                "SELECT object_id, term_taxonomy_id
+                FROM {$wpdb->term_relationships}
+                WHERE object_id IN ({$placeholders})
+                ORDER BY object_id, term_taxonomy_id
+                FOR UPDATE",
+                ...$postIds
+            ));
+            $taxonomyLocks = $wpdb->get_results(
+                "SELECT term_taxonomy_id
+                FROM {$wpdb->term_taxonomy}
+                WHERE taxonomy IN ('language', 'post_translations')
+                ORDER BY term_taxonomy_id
+                FOR UPDATE"
+            );
+            if (!is_array($relationshipLocks) || !is_array($taxonomyLocks)) {
+                throw new RuntimeException('Nelze uzamknout Polylang vazby pro podmíněný zápis.');
+            }
+
+            clean_object_term_cache($postIds, 'post');
+            $result = (bool) $callback();
+            if ($ownsTransaction && false === $wpdb->query('COMMIT')) {
+                throw new RuntimeException('Nelze potvrdit podmíněný Polylang zápis.');
+            }
+
+            return $result;
+        } catch (Throwable $error) {
+            if ($ownsTransaction) {
+                $wpdb->query('ROLLBACK');
+            }
+            clean_object_term_cache($postIds, 'post');
+
+            throw $error;
+        }
     }
 
     public function attachmentExists(int $attachmentId): bool
