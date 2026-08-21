@@ -406,8 +406,7 @@ final class WordPressNavigationStore implements NavigationStore
                 $success = $optionSnapshot['value'] === get_option($option, null) && $success;
             } else {
                 delete_option($option);
-                $missing = new \stdClass();
-                $success = $missing === get_option($option, $missing) && $success;
+                $success = !zdw_two_tier_menu_option_exists($option) && $success;
             }
         }
 

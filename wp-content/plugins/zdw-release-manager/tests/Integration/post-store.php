@@ -75,7 +75,7 @@ try {
             throw new RuntimeException('Lifecycle fixture failure.');
         }
     };
-    add_action('edit_post_page', $throwingLifecycle, 10, 1);
+    add_action('wp_after_insert_post', $throwingLifecycle, 10, 1);
     try {
         try {
             $store->updateContentIfCurrent(
@@ -85,12 +85,12 @@ try {
             );
             throw new RuntimeException('A throwing lifecycle hook unexpectedly completed the update.');
         } catch (RuntimeException $error) {
-            if ('Lifecycle fixture failure.' !== $error->getMessage()) {
+            if (!str_contains($error->getMessage(), 'Lifecycle fixture failure.')) {
                 throw $error;
             }
         }
     } finally {
-        remove_action('edit_post_page', $throwingLifecycle, 10);
+        remove_action('wp_after_insert_post', $throwingLifecycle, 10);
     }
     if ('conditional-restore' !== $store->find((int) $publishedPage)?->content()) {
         throw new RuntimeException('A post-write lifecycle failure left migrated content persisted.');

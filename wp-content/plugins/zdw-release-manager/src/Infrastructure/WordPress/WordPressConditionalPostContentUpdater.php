@@ -45,6 +45,7 @@ final class WordPressConditionalPostContentUpdater
             return false;
         }
 
+        $lifecycleStarted = false;
         try {
             clean_post_cache($postId);
             $postAfter = get_post($postId);
@@ -53,9 +54,16 @@ final class WordPressConditionalPostContentUpdater
             }
 
             self::saveRevision($postBefore);
+            $lifecycleStarted = true;
             self::dispatchUpdateLifecycle($postId, $postBefore, $postAfter);
         } catch (Throwable $error) {
-            self::restoreContentAfterFailure($postBefore, $content, $error);
+            self::restoreContentAfterFailure(
+                $postBefore,
+                $postAfter ?? null,
+                $content,
+                $error,
+                $lifecycleStarted
+            );
             throw $error;
         }
 
@@ -64,19 +72,19 @@ final class WordPressConditionalPostContentUpdater
 
     private static function restoreContentAfterFailure(
         WP_Post $postBefore,
+        ?WP_Post $postAfter,
         string $failedContent,
-        Throwable $originalError
+        Throwable $originalError,
+        bool $lifecycleStarted
     ): void {
         global $wpdb;
         $restored = $wpdb->query(
             $wpdb->prepare(
                 "UPDATE {$wpdb->posts}
-                SET post_content = %s, post_modified = %s, post_modified_gmt = %s
+                SET post_content = %s
                 WHERE ID = %d AND post_type = 'page' AND post_status = 'publish'
                     AND CAST(post_content AS BINARY) = CAST(%s AS BINARY)",
                 $postBefore->post_content,
-                $postBefore->post_modified,
-                $postBefore->post_modified_gmt,
                 $postBefore->ID,
                 $failedContent
             )
@@ -88,6 +96,32 @@ final class WordPressConditionalPostContentUpdater
                     '%s Obnova obsahu stránky ID %d po chybě lifecycle selhala.',
                     $originalError->getMessage(),
                     $postBefore->ID
+                ),
+                0,
+                $originalError
+            );
+        }
+        if (!$lifecycleStarted || !$postAfter instanceof WP_Post) {
+            return;
+        }
+
+        $postRestored = get_post((int) $postBefore->ID);
+        if (!$postRestored instanceof WP_Post) {
+            throw new RuntimeException(
+                sprintf('%s Obnovenou stránku ID %d nelze načíst.', $originalError->getMessage(), $postBefore->ID),
+                0,
+                $originalError
+            );
+        }
+        try {
+            self::dispatchUpdateLifecycle((int) $postBefore->ID, $postAfter, $postRestored);
+        } catch (Throwable $compensationError) {
+            throw new RuntimeException(
+                sprintf(
+                    '%s Kompenzační lifecycle stránky ID %d selhal: %s',
+                    $originalError->getMessage(),
+                    $postBefore->ID,
+                    $compensationError->getMessage()
                 ),
                 0,
                 $originalError

@@ -13,10 +13,12 @@ $option = 'zdw_release_manager_integration_option';
 $integerOption = 'zdw_release_manager_integration_integer_option';
 $defaultOption = 'zdw_release_manager_integration_default_option';
 $filteredAddOption = 'zdw_release_manager_integration_filtered_add';
+$concurrentAddOption = 'zdw_release_manager_integration_concurrent_add';
 delete_option($option);
 delete_option($integerOption);
 delete_option($defaultOption);
 delete_option($filteredAddOption);
+delete_option($concurrentAddOption);
 
 try {
     $store = new WordPressOptionStore();
@@ -93,11 +95,26 @@ try {
     } finally {
         remove_filter('sanitize_option_' . $filteredAddOption, $rewrite);
     }
+    $changeAfterAdd = static function (string $name) use ($concurrentAddOption): void {
+        if ($concurrentAddOption === $name) {
+            update_option($name, 'newer-write');
+        }
+    };
+    add_action('add_option_' . $concurrentAddOption, $changeAfterAdd, 10, 1);
+    try {
+        if ($store->setIfCurrent($concurrentAddOption, false, null, 'requested')
+            || 'newer-write' !== $store->get($concurrentAddOption)) {
+            throw new RuntimeException('A newer post-add option write was deleted or accepted as the migration value.');
+        }
+    } finally {
+        remove_action('add_option_' . $concurrentAddOption, $changeAfterAdd, 10);
+    }
 } finally {
     delete_option($option);
     delete_option($integerOption);
     delete_option($defaultOption);
     delete_option($filteredAddOption);
+    delete_option($concurrentAddOption);
 }
 
 echo "WordPressOptionStore integration test passed.\n";

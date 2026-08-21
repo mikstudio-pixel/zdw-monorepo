@@ -46,6 +46,7 @@ final class WordPressOptionStore implements OptionStore
         mixed $value
     ): bool {
         if (!$expectedExists) {
+            $knownFilteredValue = sanitize_option($name, $value);
             if (!add_option($name, $value, '', $this->autoload)) {
                 return false;
             }
@@ -53,6 +54,9 @@ final class WordPressOptionStore implements OptionStore
             $actual = $this->get($name);
             if ($this->valuesMatch($actual, $value)) {
                 return true;
+            }
+            if (!$this->valuesMatch($actual, $knownFilteredValue)) {
+                return false;
             }
             if (!$this->deleteIfCurrent($name, $actual)) {
                 throw new RuntimeException(sprintf(
