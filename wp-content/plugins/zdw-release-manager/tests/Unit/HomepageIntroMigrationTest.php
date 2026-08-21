@@ -67,6 +67,33 @@ final class HomepageIntroMigrationTest extends TestCase
         self::assertSame('pass', $migration->verify()[0]->severity());
     }
 
+    public function test_apply_prepares_every_homepage_before_writing_any_intro(): void
+    {
+        $posts = new InMemoryPostStore([
+            new PostRecord(2, 'zdw', 'homepage-cs'),
+            new PostRecord(93, 'zdw-en', 'homepage-en'),
+        ]);
+        $transformer = new FakeIntroContentTransformer();
+        $transformer->throwOnContent = 'homepage-en';
+        $migration = new HomepageIntroMigration(
+            $posts,
+            new FakeMediaStore(
+                [new MediaAsset(99, 'zdw-bg-trimmed-30-muted.mp4')],
+                new MediaAsset(35610, '16-zdw-tag-jiri-edit-1-2.jpg')
+            ),
+            $transformer,
+            [2 => 'zdw', 93 => 'zdw-en']
+        );
+
+        try {
+            $migration->apply();
+            self::fail('English transform failure should abort the migration.');
+        } catch (\RuntimeException) {
+            self::assertSame([], $posts->writes);
+            self::assertSame('homepage-cs', $posts->find(2)?->content());
+        }
+    }
+
     public function test_reused_poster_id_with_wrong_file_blocks_the_migration(): void
     {
         $posts = new InMemoryPostStore([new PostRecord(2, 'zdw', 'homepage')]);

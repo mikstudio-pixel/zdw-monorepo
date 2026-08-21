@@ -10,9 +10,14 @@ use ZDW\ReleaseManager\Domain\MediaAsset;
 final class FakeIntroContentTransformer implements IntroContentTransformer
 {
     public bool $alwaysMismatch = false;
+    public string $throwOnContent = '';
 
     public function desiredPageContent(string $content, MediaAsset $video, MediaAsset $poster): string
     {
+        if ('' !== $this->throwOnContent && str_contains($content, $this->throwOnContent)) {
+            throw new \RuntimeException('Invalid homepage intro.');
+        }
+
         $suffix = sprintf('|intro:%d:%d', $video->id(), $poster->id());
 
         return str_ends_with($content, $suffix) ? $content : $content . $suffix;

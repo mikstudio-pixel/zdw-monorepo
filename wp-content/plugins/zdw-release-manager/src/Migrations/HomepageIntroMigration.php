@@ -67,11 +67,16 @@ final class HomepageIntroMigration implements Migration
         }
 
         [$posts, $video, $poster] = $this->targets($posts, $videos, $poster);
+        $updates = [];
         foreach ($posts as $post) {
             $desired = $this->transformer->desiredPageContent($post->content(), $video, $poster);
             if (!$this->transformer->equivalent($post->content(), $desired)) {
-                $this->posts->updateContent($post->id(), $desired);
+                $updates[$post->id()] = $desired;
             }
+        }
+
+        foreach ($updates as $postId => $desired) {
+            $this->posts->updateContent($postId, $desired);
         }
     }
 
