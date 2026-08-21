@@ -109,4 +109,25 @@ final class DesiredOptionsMigrationTest extends TestCase
             self::assertSame(['opacity', 'intensity'], $store->deletes);
         }
     }
+
+    public function test_concurrent_option_change_is_not_overwritten(): void
+    {
+        $store = new InMemoryOptionStore(['effect' => 'filter']);
+        $store->replaceBeforeHasAttempts = ['effect' => [2 => 'editor-value']];
+        $migration = new DesiredOptionsMigration(
+            '20260807_001_interface_settings',
+            'Nastavení rozhraní',
+            $store,
+            ['effect' => 'overlay']
+        );
+
+        try {
+            $migration->apply();
+            self::fail('A concurrent option change should abort the migration.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('jiný požadavek', $error->getMessage());
+            self::assertSame('editor-value', $store->get('effect'));
+            self::assertSame([], $store->writes);
+        }
+    }
 }

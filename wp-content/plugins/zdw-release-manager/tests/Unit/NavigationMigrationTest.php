@@ -123,4 +123,25 @@ final class NavigationMigrationTest extends TestCase
         $this->expectExceptionMessage('Obnova navigace nebyla dokončena');
         (new NavigationMigration($pages, $navigation))->apply();
     }
+
+    public function test_sponsor_pages_are_revalidated_after_preflight(): void
+    {
+        $pages = new InMemoryPageStore([
+            new PostRecord(42, 'sponzori', 'content'),
+            new PostRecord(43, 'partners', 'content'),
+        ]);
+        $navigation = new FakeNavigationStore();
+        $migration = new NavigationMigration($pages, $navigation);
+
+        self::assertSame('warning', $migration->preflight()[0]->severity());
+        $pages->deletePage(43);
+
+        self::assertSame('blocker', $migration->verify()[0]->severity());
+        $this->expectException(\RuntimeException::class);
+        try {
+            $migration->apply();
+        } finally {
+            self::assertSame(0, $navigation->rebuilds);
+        }
+    }
 }

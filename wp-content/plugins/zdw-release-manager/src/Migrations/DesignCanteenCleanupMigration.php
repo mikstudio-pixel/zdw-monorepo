@@ -52,7 +52,9 @@ final class DesignCanteenCleanupMigration implements Migration
         $post = $this->target();
         $desired = $this->transformer->desiredPageContent($post->content());
         if (!$this->transformer->equivalent($post->content(), $desired)) {
-            $this->posts->updateContent($post->id(), $desired);
+            if (!$this->posts->updateContentIfCurrent($post->id(), $post->content(), $desired)) {
+                throw new RuntimeException('Obsah české Design Canteen mezitím změnil jiný požadavek.');
+            }
         }
     }
 

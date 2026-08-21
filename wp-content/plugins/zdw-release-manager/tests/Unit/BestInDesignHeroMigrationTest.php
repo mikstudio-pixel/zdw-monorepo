@@ -72,4 +72,34 @@ final class BestInDesignHeroMigrationTest extends TestCase
         self::assertSame('blocker', $check->severity());
         self::assertStringContainsString('právě jedna fotografie', $check->message());
     }
+
+    public function test_concurrent_hero_edit_is_not_overwritten(): void
+    {
+        $posts = new InMemoryPostStore([new PostRecord(193, 'best-in-design', 'hero')]);
+        $posts->replaceContentBeforeConditionalUpdate = [193 => 'editor-hero'];
+        $migration = new BestInDesignHeroMigration(
+            $posts,
+            new FakeMediaStore([
+                new MediaAsset(44256, 'https://example.test/uploads/liza-marchkova-lizamarchkova-13-1-scaled.jpg'),
+            ]),
+            new class implements HeroBackgroundTransformer {
+                public function desiredPageContent(string $content, MediaAsset $background): string
+                {
+                    return $content . '|hero:' . $background->id();
+                }
+
+                public function equivalent(string $first, string $second): bool
+                {
+                    return $first === $second;
+                }
+            }
+        );
+
+        try {
+            $migration->apply();
+            self::fail('A concurrent hero edit should abort the migration.');
+        } catch (\RuntimeException) {
+            self::assertSame('editor-hero', $posts->find(193)?->content());
+        }
+    }
 }

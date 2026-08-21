@@ -66,6 +66,13 @@ final class DesiredOptionsMigration implements Migration
                 }
 
                 $originals[$name] = ['exists' => $this->store->has($name), 'value' => $original];
+                if ($this->store->has($name) !== $originals[$name]['exists']
+                    || !$this->valuesMatch($this->store->get($name), $original)) {
+                    throw new RuntimeException(sprintf(
+                        'Nastavení %s mezitím změnil jiný požadavek.',
+                        $name
+                    ));
+                }
                 $attempted[] = $name;
                 $this->store->set($name, $value);
             }

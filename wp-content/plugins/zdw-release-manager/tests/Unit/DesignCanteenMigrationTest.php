@@ -67,4 +67,46 @@ final class DesignCanteenMigrationTest extends TestCase
         $wrapper->apply();
         self::assertSame('canteen.program_cleanup.saved', $wrapper->verify()[0]->code());
     }
+
+    public function test_concurrent_canteen_edits_are_not_overwritten(): void
+    {
+        $englishPosts = new InMemoryPostStore([
+            new PostRecord(12192, 'design-kantyna-en', 'legacy-program'),
+        ]);
+        $englishPosts->replaceContentBeforeConditionalUpdate = [12192 => 'editor-english'];
+        $english = new DesignCanteenMigration($englishPosts, new FakeDesignCanteenContentTransformer());
+
+        try {
+            $english->apply();
+            self::fail('A concurrent English edit should abort the migration.');
+        } catch (\RuntimeException) {
+            self::assertSame('editor-english', $englishPosts->find(12192)?->content());
+        }
+
+        $czechPosts = new InMemoryPostStore([
+            new PostRecord(12142, 'design-kantyna', 'legacy-program'),
+        ]);
+        $czechPosts->replaceContentBeforeConditionalUpdate = [12142 => 'editor-czech'];
+        $czech = new DesignCanteenCleanupMigration(
+            $czechPosts,
+            new class implements DesignCanteenCleanupTransformer {
+                public function desiredPageContent(string $content): string
+                {
+                    return 'clean:' . $content;
+                }
+
+                public function equivalent(string $first, string $second): bool
+                {
+                    return $first === $second;
+                }
+            }
+        );
+
+        try {
+            $czech->apply();
+            self::fail('A concurrent Czech edit should abort the migration.');
+        } catch (\RuntimeException) {
+            self::assertSame('editor-czech', $czechPosts->find(12142)?->content());
+        }
+    }
 }

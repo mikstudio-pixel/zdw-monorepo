@@ -12,9 +12,6 @@ use ZDW\ReleaseManager\Domain\PreflightCheck;
 
 final class NavigationMigration implements Migration
 {
-    /** @var array<string, int>|null */
-    private ?array $publishedSponsorPageIds = null;
-
     public function __construct(
         private readonly PageStore $pages,
         private readonly NavigationStore $navigation
@@ -119,11 +116,7 @@ final class NavigationMigration implements Migration
     /** @return array<string, int> */
     private function publishedSponsorPageIds(): array
     {
-        if (null !== $this->publishedSponsorPageIds) {
-            return $this->publishedSponsorPageIds;
-        }
-
-        $this->publishedSponsorPageIds = [];
+        $publishedPageIds = [];
         foreach (SponsorPageMigration::PAGES as $language => $definition) {
             $slug = $definition['slug'];
             $pageIds = array_values(array_filter(
@@ -131,10 +124,10 @@ final class NavigationMigration implements Migration
                 fn (int $pageId): bool => null !== $this->pages->find($pageId)
             ));
             if (1 === count($pageIds)) {
-                $this->publishedSponsorPageIds[$language] = $pageIds[0];
+                $publishedPageIds[$language] = $pageIds[0];
             }
         }
 
-        return $this->publishedSponsorPageIds;
+        return $publishedPageIds;
     }
 }

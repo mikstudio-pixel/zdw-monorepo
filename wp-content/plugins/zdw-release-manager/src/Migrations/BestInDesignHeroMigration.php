@@ -59,7 +59,9 @@ final class BestInDesignHeroMigration implements Migration
         [$post, $background] = $this->targets();
         $desired = $this->transformer->desiredPageContent($post->content(), $background);
         if (!$this->transformer->equivalent($post->content(), $desired)) {
-            $this->posts->updateContent($post->id(), $desired);
+            if (!$this->posts->updateContentIfCurrent($post->id(), $post->content(), $desired)) {
+                throw new RuntimeException('Obsah Best in Design mezitím změnil jiný požadavek.');
+            }
         }
     }
 

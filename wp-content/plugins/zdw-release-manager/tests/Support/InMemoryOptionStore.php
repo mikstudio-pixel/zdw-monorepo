@@ -23,6 +23,12 @@ final class InMemoryOptionStore implements OptionStore
     /** @var array<string, int> */
     private array $setAttempts = [];
 
+    /** @var array<string, array<int, mixed>> */
+    public array $replaceBeforeHasAttempts = [];
+
+    /** @var array<string, int> */
+    private array $hasAttempts = [];
+
     /** @param array<string, mixed> $values */
     public function __construct(array $values = [])
     {
@@ -36,6 +42,12 @@ final class InMemoryOptionStore implements OptionStore
 
     public function has(string $name): bool
     {
+        $attempt = ($this->hasAttempts[$name] ?? 0) + 1;
+        $this->hasAttempts[$name] = $attempt;
+        if (array_key_exists($attempt, $this->replaceBeforeHasAttempts[$name] ?? [])) {
+            $this->values[$name] = $this->replaceBeforeHasAttempts[$name][$attempt];
+        }
+
         return array_key_exists($name, $this->values);
     }
 
