@@ -317,4 +317,28 @@ final class SponsorPageMigrationTest extends TestCase
             self::assertNull($store->find(2));
         }
     }
+
+    public function test_translation_failure_restores_existing_group_after_removing_created_page(): void
+    {
+        $store = new InMemoryPageStore(
+            [new PostRecord(42, 'sponzori', 'original-cs')],
+            [10 => 'one.svg'],
+            [],
+            [42 => 'cs'],
+            ['cs' => 42, 'en' => 99]
+        );
+        $store->throwOnTranslationAttempts = [1];
+        $migration = new SponsorPageMigration($store, [10 => 'one.svg'], 'desired');
+
+        try {
+            $migration->apply();
+            self::fail('A mixed translation-group failure should abort the migration.');
+        } catch (\RuntimeException) {
+            self::assertSame('original-cs', $store->find(42)?->content());
+            self::assertNull($store->find(43));
+            self::assertSame([43], $store->deleted);
+            self::assertSame(['cs' => 42, 'en' => 99], $store->translations(42));
+            self::assertNotContains(43, $store->translations(42));
+        }
+    }
 }

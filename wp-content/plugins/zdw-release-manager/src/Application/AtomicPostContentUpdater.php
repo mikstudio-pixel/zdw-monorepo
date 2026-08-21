@@ -30,6 +30,7 @@ final class AtomicPostContentUpdater
             foreach ($updates as $postId => $desired) {
                 $attemptedPostIds[] = $postId;
                 if (!$this->posts->updateContentIfCurrent($postId, $originals[$postId], $desired)) {
+                    array_pop($attemptedPostIds);
                     throw new RuntimeException(sprintf(
                         'Obsah stránky ID %d mezitím změnil jiný požadavek.',
                         $postId

@@ -23,6 +23,9 @@ final class InMemoryOptionStore implements OptionStore
     /** @var array<string, int> */
     private array $setAttempts = [];
 
+    /** @var array<string, mixed> */
+    public array $replaceBeforeConditionalSet = [];
+
     /** @var array<string, array<int, mixed>> */
     public array $replaceBeforeHasAttempts = [];
 
@@ -62,10 +65,48 @@ final class InMemoryOptionStore implements OptionStore
         }
     }
 
+    public function setIfCurrent(
+        string $name,
+        bool $expectedExists,
+        mixed $expectedValue,
+        mixed $value
+    ): bool {
+        if (array_key_exists($name, $this->replaceBeforeConditionalSet)) {
+            $this->values[$name] = $this->replaceBeforeConditionalSet[$name];
+            unset($this->replaceBeforeConditionalSet[$name]);
+        }
+        if (array_key_exists($name, $this->values) !== $expectedExists
+            || ($expectedExists && !$this->valuesMatch($this->values[$name], $expectedValue))) {
+            return false;
+        }
+
+        $this->set($name, $value);
+
+        return true;
+    }
+
     public function delete(string $name): void
     {
         unset($this->values[$name]);
         $this->writes[] = $name;
         $this->deletes[] = $name;
+    }
+
+    public function deleteIfCurrent(string $name, mixed $expectedValue): bool
+    {
+        if (!array_key_exists($name, $this->values)
+            || !$this->valuesMatch($this->values[$name], $expectedValue)) {
+            return false;
+        }
+
+        $this->delete($name);
+
+        return true;
+    }
+
+    private function valuesMatch(mixed $actual, mixed $expected): bool
+    {
+        return $actual === $expected
+            || (is_scalar($actual) && is_scalar($expected) && (string) $actual === (string) $expected);
     }
 }

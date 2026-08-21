@@ -130,4 +130,25 @@ final class DesiredOptionsMigrationTest extends TestCase
             self::assertSame([], $store->writes);
         }
     }
+
+    public function test_change_after_the_read_guard_is_rejected_by_the_atomic_write(): void
+    {
+        $store = new InMemoryOptionStore(['effect' => 'filter']);
+        $store->replaceBeforeConditionalSet = ['effect' => 'editor-value'];
+        $migration = new DesiredOptionsMigration(
+            '20260807_001_interface_settings',
+            'Nastavení rozhraní',
+            $store,
+            ['effect' => 'overlay']
+        );
+
+        try {
+            $migration->apply();
+            self::fail('A concurrent option change should abort the atomic write.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('jiný požadavek', $error->getMessage());
+            self::assertSame('editor-value', $store->get('effect'));
+            self::assertSame([], $store->writes);
+        }
+    }
 }

@@ -153,10 +153,10 @@ final class NavigationMigrationTest extends TestCase
             [],
             [42 => 'cs', 43 => 'en']
         );
-        self::assertSame(
-            'blocker',
-            (new NavigationMigration($unlinked, new FakeNavigationStore()))->preflight()[0]->severity()
-        );
+        $unlinkedCheck = (new NavigationMigration($unlinked, new FakeNavigationStore()))->preflight()[0];
+        self::assertSame('blocker', $unlinkedCheck->severity());
+        self::assertSame('navigation.sponsor_translations', $unlinkedCheck->code());
+        self::assertStringContainsString('překlady', $unlinkedCheck->message());
     }
 
     private function sponsorPages(): InMemoryPageStore

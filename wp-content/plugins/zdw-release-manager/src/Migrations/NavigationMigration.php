@@ -78,6 +78,11 @@ final class NavigationMigration implements Migration
                 'navigation.sponsor_page',
                 'Navigace vyžaduje právě jednu publikovanou stránku pro každý slug: sponzori a partners.'
             );
+        } elseif (!$this->translationsLinked($pageIds)) {
+            $checks[] = PreflightCheck::blocker(
+                'navigation.sponsor_translations',
+                'Stránky sponzori a partners nejsou propojené jako překlady jedné skupiny.'
+            );
         }
         if (!$this->navigation->isAvailable()) {
             $checks[] = PreflightCheck::blocker(
@@ -109,6 +114,9 @@ final class NavigationMigration implements Migration
         if (2 !== count($pageIds)) {
             throw new RuntimeException('Stránky partnerů nelze jednoznačně určit.');
         }
+        if (!$this->translationsLinked($pageIds)) {
+            throw new RuntimeException('Stránky partnerů nejsou propojené jako překlady.');
+        }
 
         return $pageIds;
     }
@@ -128,17 +136,21 @@ final class NavigationMigration implements Migration
             }
         }
 
-        if (2 === count($publishedPageIds)) {
-            foreach ($publishedPageIds as $pageId) {
-                $translations = $this->pages->translations($pageId);
-                foreach ($publishedPageIds as $language => $expectedPageId) {
-                    if (($translations[$language] ?? null) !== $expectedPageId) {
-                        return [];
-                    }
+        return $publishedPageIds;
+    }
+
+    /** @param array<string, int> $pageIds */
+    private function translationsLinked(array $pageIds): bool
+    {
+        foreach ($pageIds as $pageId) {
+            $translations = $this->pages->translations($pageId);
+            foreach ($pageIds as $language => $expectedPageId) {
+                if (($translations[$language] ?? null) !== $expectedPageId) {
+                    return false;
                 }
             }
         }
 
-        return $publishedPageIds;
+        return true;
     }
 }

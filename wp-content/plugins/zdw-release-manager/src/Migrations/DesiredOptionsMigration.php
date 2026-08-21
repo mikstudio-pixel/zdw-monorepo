@@ -74,7 +74,18 @@ final class DesiredOptionsMigration implements Migration
                     ));
                 }
                 $attempted[] = $name;
-                $this->store->set($name, $value);
+                if (!$this->store->setIfCurrent(
+                    $name,
+                    $originals[$name]['exists'],
+                    $original,
+                    $value
+                )) {
+                    array_pop($attempted);
+                    throw new RuntimeException(sprintf(
+                        'Nastavení %s mezitím změnil jiný požadavek.',
+                        $name
+                    ));
+                }
             }
         } catch (Throwable $error) {
             $rollbackFailure = null;
@@ -93,9 +104,23 @@ final class DesiredOptionsMigration implements Migration
                         continue;
                     }
                     if ($originals[$name]['exists']) {
-                        $this->store->set($name, $originals[$name]['value']);
+                        $restored = $this->store->setIfCurrent(
+                            $name,
+                            true,
+                            $this->desiredValues[$name],
+                            $originals[$name]['value']
+                        );
                     } else {
-                        $this->store->delete($name);
+                        $restored = $this->store->deleteIfCurrent(
+                            $name,
+                            $this->desiredValues[$name]
+                        );
+                    }
+                    if (!$restored) {
+                        $rollbackFailure ??= new RuntimeException(sprintf(
+                            'Nastavení %s mezitím změnil jiný požadavek.',
+                            $name
+                        ));
                     }
                 } catch (Throwable $rollbackError) {
                     $rollbackFailure ??= $rollbackError;

@@ -21,6 +21,9 @@ final class InMemoryPageStore implements PageStore
     /** @var array<int, string> */
     private array $pageFingerprints = [];
 
+    /** @var array<int, string> */
+    private array $titles = [];
+
     /** @var array<string, list<int>> */
     private array $unpublishedSlugOwners = [];
 
@@ -105,7 +108,12 @@ final class InMemoryPageStore implements PageStore
     {
         $page = $this->pages[$postId];
         $this->pages[$postId] = new PostRecord($postId, $page->slug(), $content);
-        $this->pageFingerprints[$postId] = $this->fingerprint($page->slug(), $content, 'publish');
+        $this->pageFingerprints[$postId] = $this->fingerprint(
+            $page->slug(),
+            $content,
+            'publish',
+            $this->titles[$postId] ?? ''
+        );
         $this->writes[] = $postId;
     }
 
@@ -143,12 +151,8 @@ final class InMemoryPageStore implements PageStore
     {
         $id = [] === $this->pages ? 1 : max(array_keys($this->pages)) + 1;
         $this->pages[$id] = new PostRecord($id, $slug, $content);
-        $this->pageFingerprints[$id] = hash('sha256', serialize([
-            'title' => $title,
-            'slug' => $slug,
-            'content' => $content,
-            'status' => 'publish',
-        ]));
+        $this->titles[$id] = $title;
+        $this->pageFingerprints[$id] = $this->fingerprint($slug, $content, 'publish', $title);
         $this->writes[] = $id;
 
         return $id;
@@ -158,7 +162,7 @@ final class InMemoryPageStore implements PageStore
     {
         $this->detachTranslation($postId);
         unset($this->pages[$postId], $this->languages[$postId]);
-        unset($this->pageFingerprints[$postId]);
+        unset($this->pageFingerprints[$postId], $this->titles[$postId]);
         $this->deleted[] = $postId;
     }
 
@@ -200,7 +204,12 @@ final class InMemoryPageStore implements PageStore
             if (isset($this->pages[$postId])) {
                 $page = $this->pages[$postId];
                 $this->pages[$postId] = new PostRecord($postId, $page->slug(), $content);
-                $this->pageFingerprints[$postId] = $this->fingerprint($page->slug(), $content, 'publish');
+                $this->pageFingerprints[$postId] = $this->fingerprint(
+                    $page->slug(),
+                    $content,
+                    'publish',
+                    $this->titles[$postId] ?? ''
+                );
             }
         }
         foreach ($this->replaceFingerprintBeforeTranslationAttempts[$this->translationAttempts] ?? [] as $postId => $fingerprint) {
@@ -257,10 +266,10 @@ final class InMemoryPageStore implements PageStore
         }
     }
 
-    private function fingerprint(string $slug, string $content, string $status): string
+    private function fingerprint(string $slug, string $content, string $status, string $title = ''): string
     {
         return hash('sha256', serialize([
-            'title' => '',
+            'title' => $title,
             'slug' => $slug,
             'content' => $content,
             'status' => $status,

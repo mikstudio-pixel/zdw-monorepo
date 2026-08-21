@@ -12,5 +12,14 @@ interface OptionStore
 
     public function set(string $name, mixed $value): void;
 
+    public function setIfCurrent(
+        string $name,
+        bool $expectedExists,
+        mixed $expectedValue,
+        mixed $value
+    ): bool;
+
     public function delete(string $name): void;
+
+    public function deleteIfCurrent(string $name, mixed $expectedValue): bool;
 }

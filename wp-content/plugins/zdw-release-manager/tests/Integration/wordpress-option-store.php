@@ -27,6 +27,21 @@ try {
     // Writing the same value must remain a successful idempotent operation.
     $store->set($option, 'expected');
 
+    if ($store->setIfCurrent($option, true, 'stale', 'conditional')) {
+        throw new RuntimeException('A stale conditional option write unexpectedly succeeded.');
+    }
+    if ('expected' !== $store->get($option)
+        || !$store->setIfCurrent($option, true, 'expected', 'conditional')
+        || 'conditional' !== $store->get($option)) {
+        throw new RuntimeException('Atomic option compare-and-swap failed.');
+    }
+    if ($store->deleteIfCurrent($option, 'stale')
+        || !$store->deleteIfCurrent($option, 'conditional')
+        || $store->has($option)) {
+        throw new RuntimeException('Atomic option deletion failed.');
+    }
+    $store->set($option, 'expected');
+
     register_setting('general', $integerOption, [
         'type' => 'integer',
         'sanitize_callback' => static fn (mixed $value): int => (int) $value,

@@ -30,6 +30,13 @@ final class WordPressDesignCanteenCleanupTransformer implements DesignCanteenCle
         'NEDĚLE, 10. KVĚTNA' => 'core/group(core/heading,core/columns(core/column(core/html),core/column(core/html)),core/spacer)',
     ];
 
+    private const EXPECTED_PAYLOAD_HASHES = [
+        'KUDY TUDY DO KANTÝNY?' => '2c56ff57115fbb9e8212e26f280f8a88137ef023a4353d994230980e86b566bc',
+        'CO TI LETOS NASERVÍRUJEME NA ZLÍNSKÉM ZÁMKU?' => '6803236b684b7e63a7d61b7bbe39ba9d66df1951dcfd3aee3eb562c247d187b6',
+        'SOBOTA, 9. KVĚTNA' => '568942216634ed8b99b5023031b9544855b93f7e49b6df2909386711554a3cb1',
+        'NEDĚLE, 10. KVĚTNA' => 'ab69f1e607f655c82e07e96412ce66feceac4b47903da01fd651f64b55b0a33b',
+    ];
+
     public function desiredPageContent(string $content): string
     {
         $blocks = parse_blocks($content);
@@ -115,7 +122,11 @@ final class WordPressDesignCanteenCleanupTransformer implements DesignCanteenCle
         $marker = $markers[0];
         if (($names !== (self::EXPECTED_CHILD_BLOCKS[$marker] ?? []))
             || [] === $children
-            || (self::EXPECTED_TREES[$marker] ?? null) !== $this->blockTree($block)) {
+            || (self::EXPECTED_TREES[$marker] ?? null) !== $this->blockTree($block)
+            || !hash_equals(
+                self::EXPECTED_PAYLOAD_HASHES[$marker] ?? '',
+                hash('sha256', serialize_block($block))
+            )) {
             return false;
         }
 

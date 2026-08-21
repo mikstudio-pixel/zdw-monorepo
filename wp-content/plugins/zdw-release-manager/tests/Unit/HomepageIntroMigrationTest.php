@@ -121,6 +121,35 @@ final class HomepageIntroMigrationTest extends TestCase
         }
     }
 
+    public function test_false_conditional_write_is_not_misreported_as_a_rollback_failure(): void
+    {
+        $posts = new InMemoryPostStore([
+            new PostRecord(2, 'zdw', 'homepage-cs'),
+            new PostRecord(93, 'zdw-en', 'homepage-en'),
+        ]);
+        $posts->replaceContentBeforeConditionalUpdate = [93 => 'editor-change'];
+        $migration = new HomepageIntroMigration(
+            $posts,
+            new FakeMediaStore(
+                [new MediaAsset(99, 'zdw-bg-trimmed-30-muted.mp4')],
+                new MediaAsset(35610, '16-zdw-tag-jiri-edit-1-2.jpg')
+            ),
+            new FakeIntroContentTransformer(),
+            [2 => 'zdw', 93 => 'zdw-en']
+        );
+
+        try {
+            $migration->apply();
+            self::fail('A concurrent write should abort the migration.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('ID 93 mezitím změnil', $error->getMessage());
+            self::assertStringNotContainsString('Obnovení homepage', $error->getMessage());
+            self::assertSame('homepage-cs', $posts->find(2)?->content());
+            self::assertSame('editor-change', $posts->find(93)?->content());
+            self::assertSame([2, 2], $posts->writes);
+        }
+    }
+
     public function test_apply_rolls_back_the_failing_intro_when_a_hook_throws_after_persistence(): void
     {
         $posts = new InMemoryPostStore([

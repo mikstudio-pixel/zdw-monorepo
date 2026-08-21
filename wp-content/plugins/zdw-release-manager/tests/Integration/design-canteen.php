@@ -262,4 +262,46 @@ if (!$czechMarkupRejected) {
     throw new RuntimeException('Czech Design Canteen cleanup accepted nested tag-only content.');
 }
 
+$editFirstHtml = static function (array &$block) use (&$editFirstHtml): bool {
+    if ('core/html' === ($block['blockName'] ?? null)) {
+        $block['innerHTML'] .= '<p>Edited Czech programme detail</p>';
+        $block['innerContent'][0] .= '<p>Edited Czech programme detail</p>';
+
+        return true;
+    }
+    foreach ($block['innerBlocks'] ?? [] as $index => $child) {
+        if (is_array($child) && $editFirstHtml($block['innerBlocks'][$index])) {
+            return true;
+        }
+    }
+
+    return false;
+};
+$czechEditedBlocks = parse_blocks((string) $czechLegacyRevision->post_content);
+$czechEditedFixtureCreated = false;
+foreach ($czechEditedBlocks as &$block) {
+    if ('core/group' === ($block['blockName'] ?? null)
+        && false !== stripos(serialize_block($block), 'Co ti letos naservírujeme na zlínském zámku?')
+        && $editFirstHtml($block)) {
+        $czechEditedFixtureCreated = true;
+        break;
+    }
+}
+unset($block);
+if (!$czechEditedFixtureCreated) {
+    throw new RuntimeException('Edited Czech legacy leaf fixture could not be created.');
+}
+$czechEditedRejected = false;
+try {
+    $cleanupTransformer->desiredPageContent(serialize_blocks($czechEditedBlocks));
+} catch (RuntimeException $error) {
+    if (!str_contains($error->getMessage(), 'jiný obsah')) {
+        throw $error;
+    }
+    $czechEditedRejected = true;
+}
+if (!$czechEditedRejected) {
+    throw new RuntimeException('Czech Design Canteen cleanup accepted an edited legacy leaf.');
+}
+
 echo "WordPressDesignCanteenContentTransformer integration test passed.\n";

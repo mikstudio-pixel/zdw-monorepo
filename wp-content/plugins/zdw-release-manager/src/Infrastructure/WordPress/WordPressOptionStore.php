@@ -39,6 +39,42 @@ final class WordPressOptionStore implements OptionStore
         throw new RuntimeException(sprintf('Nepodařilo se uložit nastavení %s.', $name));
     }
 
+    public function setIfCurrent(
+        string $name,
+        bool $expectedExists,
+        mixed $expectedValue,
+        mixed $value
+    ): bool {
+        if (!$expectedExists) {
+            if (!add_option($name, $value, '', $this->autoload)) {
+                return false;
+            }
+
+            return true;
+        }
+
+        global $wpdb;
+        $updated = $wpdb->query($wpdb->prepare(
+            "UPDATE {$wpdb->options}
+            SET option_value = %s
+            WHERE option_name = %s
+                AND CAST(option_value AS BINARY) = CAST(%s AS BINARY)",
+            maybe_serialize($value),
+            $name,
+            maybe_serialize($expectedValue)
+        ));
+        if (false === $updated) {
+            throw new RuntimeException(sprintf('Podmíněné uložení nastavení %s selhalo.', $name));
+        }
+        if (1 !== $updated) {
+            return false;
+        }
+
+        $this->clearCaches($name);
+
+        return true;
+    }
+
     public function delete(string $name): void
     {
         if (delete_option($name) || !$this->has($name)) {
@@ -46,6 +82,35 @@ final class WordPressOptionStore implements OptionStore
         }
 
         throw new RuntimeException(sprintf('Nepodařilo se odstranit nastavení %s.', $name));
+    }
+
+    public function deleteIfCurrent(string $name, mixed $expectedValue): bool
+    {
+        global $wpdb;
+        $deleted = $wpdb->query($wpdb->prepare(
+            "DELETE FROM {$wpdb->options}
+            WHERE option_name = %s
+                AND CAST(option_value AS BINARY) = CAST(%s AS BINARY)",
+            $name,
+            maybe_serialize($expectedValue)
+        ));
+        if (false === $deleted) {
+            throw new RuntimeException(sprintf('Podmíněné odstranění nastavení %s selhalo.', $name));
+        }
+        if (1 !== $deleted) {
+            return false;
+        }
+
+        $this->clearCaches($name);
+
+        return true;
+    }
+
+    private function clearCaches(string $name): void
+    {
+        wp_cache_delete($name, 'options');
+        wp_cache_delete('alloptions', 'options');
+        wp_cache_delete('notoptions', 'options');
     }
 
     private function valuesMatch(mixed $actual, mixed $expected): bool
