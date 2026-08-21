@@ -65,6 +65,7 @@ final class InMemoryOptionStore implements OptionStore
         }
     }
 
+    /** @phpstan-impure */
     public function setIfCurrent(
         string $name,
         bool $expectedExists,
@@ -92,6 +93,7 @@ final class InMemoryOptionStore implements OptionStore
         $this->deletes[] = $name;
     }
 
+    /** @phpstan-impure */
     public function deleteIfCurrent(string $name, mixed $expectedValue): bool
     {
         if (!array_key_exists($name, $this->values)

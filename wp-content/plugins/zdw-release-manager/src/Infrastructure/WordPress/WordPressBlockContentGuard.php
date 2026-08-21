@@ -62,8 +62,8 @@ final class WordPressBlockContentGuard
             return true;
         }
 
-        $opening = array_shift($fragments);
-        $closing = array_pop($fragments);
+        $opening = (string) array_shift($fragments);
+        $closing = (string) array_pop($fragments);
         if ([] !== array_filter($fragments, static fn (string $fragment): bool => '' !== trim($fragment))) {
             return true;
         }
@@ -99,6 +99,10 @@ final class WordPressBlockContentGuard
 
     private static function emptyWrapperPattern(string $blockName): ?string
     {
+        if ('core/spacer' === $blockName) {
+            return '~^\s*<div\b(?=[^>]*\bwp-block-spacer\b)[^>]*>\s*</div>\s*$~s';
+        }
+
         return in_array($blockName, ['core/group', 'core/columns', 'core/column', 'core/buttons'], true)
             ? '~^\s*<div\b[^>]*>\s*</div>\s*$~s'
             : null;

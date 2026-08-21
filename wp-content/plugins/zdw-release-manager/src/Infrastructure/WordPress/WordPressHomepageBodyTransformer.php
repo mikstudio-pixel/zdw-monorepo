@@ -70,7 +70,7 @@ final class WordPressHomepageBodyTransformer implements HomepageBodyTransformer
     private function isSpacingBlock(array $block): bool
     {
         if ('core/spacer' === ($block['blockName'] ?? null)) {
-            return true;
+            return !WordPressBlockContentGuard::hasUnexpectedContainerContent($block);
         }
         if ('core/group' !== ($block['blockName'] ?? null)) {
             return false;

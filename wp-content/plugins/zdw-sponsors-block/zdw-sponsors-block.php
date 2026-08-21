@@ -114,11 +114,17 @@ function zdw_sponsors_block_render( $attributes ) {
 				continue;
 			}
 
-			$url   = zdw_sponsors_block_attachment_field( 'url', $attachment_id );
-			$label = zdw_sponsors_block_attachment_field( 'label', $attachment_id );
+			$url_value   = zdw_sponsors_block_attachment_field( 'url', $attachment_id );
+			$label_value = zdw_sponsors_block_attachment_field( 'label', $attachment_id );
+			$url         = is_scalar( $url_value ) ? esc_url_raw( (string) $url_value ) : '';
+			$label       = is_scalar( $label_value ) ? (string) $label_value : '';
 			$alt   = trim( wp_strip_all_tags( (string) get_post_meta( $attachment_id, '_wp_attachment_image_alt', true ) ) );
-			if ( $url && '' === $alt ) {
+			if ( '' !== $url && '' === $alt ) {
 				$alt = trim( wp_strip_all_tags( (string) ( $label ?: get_the_title( $attachment_id ) ) ) );
+			}
+			if ( '' !== $url && '' === $alt ) {
+				$host = wp_parse_url( $url, PHP_URL_HOST );
+				$alt  = is_string( $host ) && '' !== $host ? $host : __( 'Sponsor', 'zdw-sponsors-block' );
 			}
 			$image = sprintf(
 				'<img src="%1$s" %2$s class="zdw-sponsors__image" alt="%3$s" loading="lazy" decoding="async">',
@@ -135,7 +141,7 @@ function zdw_sponsors_block_render( $attributes ) {
 
 			$logo .= $image;
 
-			if ( $url && '' !== $alt ) {
+			if ( '' !== $url ) {
 				$logo = '<a href="' . esc_url( $url ) . '" target="_blank" rel="noopener noreferrer">' . $logo . '</a>';
 			}
 

@@ -77,6 +77,18 @@ foreach ([2 => 'zdw', 93 => 'zdw-en'] as $postId => $slug) {
     if (!$nestedMarkupRejected) {
         throw new RuntimeException(sprintf('Homepage %d accepted tag-only content inside spacing.', $postId));
     }
+
+    $spacerLeafBlocks = parse_blocks($desired);
+    $spacerLeafBlocks[2]['innerHTML'] = str_replace('</div>', '<span>Editorial spacer note</span></div>', $spacerLeafBlocks[2]['innerHTML']);
+    $spacerLeafBlocks[2]['innerContent'][0] = $spacerLeafBlocks[2]['innerHTML'];
+    try {
+        $transformer->desiredPageContent(serialize_blocks($spacerLeafBlocks));
+        throw new RuntimeException(sprintf('Homepage %d accepted editorial markup inside a spacer leaf.', $postId));
+    } catch (RuntimeException $error) {
+        if (str_contains($error->getMessage(), 'accepted editorial markup')) {
+            throw $error;
+        }
+    }
 }
 
 echo "Homepage body integration test passed.\n";

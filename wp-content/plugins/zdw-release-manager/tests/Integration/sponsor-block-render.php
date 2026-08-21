@@ -65,6 +65,27 @@ try {
         || !str_contains($html, 'alt="ZDW sponsor full-size integration fixture"')) {
         throw new RuntimeException('Linked sponsor logo does not have an accessible attachment-title fallback.');
     }
+
+    wp_update_post(['ID' => (int) $attachmentId, 'post_title' => '']);
+    $block = sprintf(
+        '<!-- wp:zdw/sponsors %s /-->',
+        json_encode(
+            ['sections' => ['poradatele' => [(int) $attachmentId]]],
+            JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+        )
+    );
+    $fallbackHtml = do_blocks($block);
+    if (!str_contains($fallbackHtml, '<a href="https://example.com/sponsor"')
+        || !str_contains($fallbackHtml, 'alt="example.com"')) {
+        throw new RuntimeException('A linked sponsor without label or title lost its accessible fallback.');
+    }
+
+    update_post_meta((int) $attachmentId, 'url', ['invalid-array-value']);
+    update_post_meta((int) $attachmentId, 'label', ['invalid-array-value']);
+    $invalidFieldHtml = do_blocks($block);
+    if (!str_contains($invalidFieldHtml, $filename) || str_contains($invalidFieldHtml, 'Array')) {
+        throw new RuntimeException('Non-scalar sponsor fields were not safely normalized.');
+    }
 } finally {
     wp_delete_attachment((int) $attachmentId, true);
     if (is_file($path)) {

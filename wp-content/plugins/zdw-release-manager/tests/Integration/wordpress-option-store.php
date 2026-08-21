@@ -31,6 +31,10 @@ try {
     // Writing the same value must remain a successful idempotent operation.
     $store->set($option, 'expected');
 
+    if (!$store->setIfCurrent($option, true, 'expected', 'expected')) {
+        throw new RuntimeException('An unchanged matching conditional option write was rejected.');
+    }
+
     if ($store->setIfCurrent($option, true, 'stale', 'conditional')) {
         throw new RuntimeException('A stale conditional option write unexpectedly succeeded.');
     }
@@ -43,6 +47,24 @@ try {
         || !$store->deleteIfCurrent($option, 'conditional')
         || $store->has($option)) {
         throw new RuntimeException('Atomic option deletion failed.');
+    }
+    $store->set($option, 'expected');
+
+    $conditionalFilterCalls = 0;
+    $conditionalRewrite = static function (mixed $value) use (&$conditionalFilterCalls): string {
+        ++$conditionalFilterCalls;
+
+        return 'filtered-conditional';
+    };
+    add_filter('pre_update_option_' . $option, $conditionalRewrite);
+    try {
+        if (!$store->setIfCurrent($option, true, 'expected', 'atomic-value')
+            || 'atomic-value' !== $store->get($option)
+            || 0 !== $conditionalFilterCalls) {
+            throw new RuntimeException('The documented atomic conditional write contract changed.');
+        }
+    } finally {
+        remove_filter('pre_update_option_' . $option, $conditionalRewrite);
     }
     $store->set($option, 'expected');
 

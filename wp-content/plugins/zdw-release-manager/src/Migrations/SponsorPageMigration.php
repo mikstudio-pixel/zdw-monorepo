@@ -114,8 +114,10 @@ final class SponsorPageMigration implements Migration
             }
 
             $translationsAttempted = true;
+            $recordedTranslations = $translations;
+            ksort($recordedTranslations);
             foreach (array_keys($created) as $pageId) {
-                $created[$pageId]['translations'][] = $translations;
+                $created[$pageId]['translations'][] = $recordedTranslations;
             }
             $this->store->setTranslations($translations);
             if (!$this->pagesMatch()) {

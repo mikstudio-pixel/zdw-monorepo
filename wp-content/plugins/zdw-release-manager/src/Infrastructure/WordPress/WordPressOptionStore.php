@@ -39,6 +39,12 @@ final class WordPressOptionStore implements OptionStore
         throw new RuntimeException(sprintf('Nepodařilo se uložit nastavení %s.', $name));
     }
 
+    /**
+     * Atomic migration CAS. Existing rows intentionally bypass Options API
+     * hooks because those hooks cannot be combined with the database predicate.
+     *
+     * @phpstan-impure
+     */
     public function setIfCurrent(
         string $name,
         bool $expectedExists,
@@ -66,6 +72,10 @@ final class WordPressOptionStore implements OptionStore
             }
 
             return false;
+        }
+
+        if ((string) maybe_serialize($expectedValue) === (string) maybe_serialize($value)) {
+            return $this->storedValueMatches($name, $expectedValue);
         }
 
         global $wpdb;
@@ -99,6 +109,7 @@ final class WordPressOptionStore implements OptionStore
         throw new RuntimeException(sprintf('Nepodařilo se odstranit nastavení %s.', $name));
     }
 
+    /** @phpstan-impure */
     public function deleteIfCurrent(string $name, mixed $expectedValue): bool
     {
         global $wpdb;
@@ -126,6 +137,21 @@ final class WordPressOptionStore implements OptionStore
         wp_cache_delete($name, 'options');
         wp_cache_delete('alloptions', 'options');
         wp_cache_delete('notoptions', 'options');
+    }
+
+    private function storedValueMatches(string $name, mixed $expectedValue): bool
+    {
+        global $wpdb;
+        $optionId = $wpdb->get_var($wpdb->prepare(
+            "SELECT option_id FROM {$wpdb->options}
+            WHERE option_name = %s
+                AND CAST(option_value AS BINARY) = CAST(%s AS BINARY)
+            LIMIT 1",
+            $name,
+            maybe_serialize($expectedValue)
+        ));
+
+        return null !== $optionId;
     }
 
     private function valuesMatch(mixed $actual, mixed $expected): bool
