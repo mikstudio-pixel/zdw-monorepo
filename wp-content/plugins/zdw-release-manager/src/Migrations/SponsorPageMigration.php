@@ -217,7 +217,24 @@ final class SponsorPageMigration implements Migration
     private function rollback(array $created, array $originals, bool $translationsAttempted): ?Throwable
     {
         $failure = null;
+        $phaseFailure = $this->rollbackCreatedPages($created);
+        $failure ??= $phaseFailure;
+        $phaseFailure = $this->rollbackContent($originals);
+        $failure ??= $phaseFailure;
+        if ($translationsAttempted) {
+            $phaseFailure = $this->rollbackTranslations($originals);
+            $failure ??= $phaseFailure;
+        }
+        $phaseFailure = $this->rollbackLanguages($originals);
+        $failure ??= $phaseFailure;
 
+        return $failure;
+    }
+
+    /** @param list<int> $created */
+    private function rollbackCreatedPages(array $created): ?Throwable
+    {
+        $failure = null;
         foreach (array_reverse($created) as $pageId) {
             try {
                 $this->store->deletePage($pageId);
@@ -226,6 +243,13 @@ final class SponsorPageMigration implements Migration
             }
         }
 
+        return $failure;
+    }
+
+    /** @param array<int, array{content: string, language: ?string, translations: array<string, int>, targetLanguage: string}> $originals */
+    private function rollbackContent(array $originals): ?Throwable
+    {
+        $failure = null;
         foreach ($originals as $pageId => $original) {
             try {
                 $page = $this->store->find($pageId);
@@ -238,30 +262,45 @@ final class SponsorPageMigration implements Migration
                 } elseif (!in_array($page->content(), [$this->desiredContent, $original['content']], true)) {
                     throw new RuntimeException(sprintf('Stránka ID %d byla během obnovy mezitím upravena.', $pageId));
                 }
-
             } catch (Throwable $error) {
                 $failure ??= $error;
             }
         }
 
-        if ($translationsAttempted) {
-            $translationGroups = [];
-            foreach ($originals as $pageId => $original) {
-                $group = [] === $original['translations']
-                    ? [$original['targetLanguage'] => $pageId]
-                    : $original['translations'];
-                ksort($group);
-                $translationGroups[serialize($group)] = $group;
+        return $failure;
+    }
+
+    /** @param array<int, array{content: string, language: ?string, translations: array<string, int>, targetLanguage: string}> $originals */
+    private function rollbackTranslations(array $originals): ?Throwable
+    {
+        $translationGroups = [];
+        foreach ($originals as $pageId => $original) {
+            if (null === $original['language']) {
+                continue;
             }
-            foreach ($translationGroups as $group) {
-                try {
-                    $this->store->setTranslations($group);
-                } catch (Throwable $error) {
-                    $failure ??= $error;
-                }
+            $group = [] === $original['translations']
+                ? [$original['language'] => $pageId]
+                : $original['translations'];
+            ksort($group);
+            $translationGroups[serialize($group)] = $group;
+        }
+
+        $failure = null;
+        foreach ($translationGroups as $group) {
+            try {
+                $this->store->setTranslations($group);
+            } catch (Throwable $error) {
+                $failure ??= $error;
             }
         }
 
+        return $failure;
+    }
+
+    /** @param array<int, array{content: string, language: ?string, translations: array<string, int>, targetLanguage: string}> $originals */
+    private function rollbackLanguages(array $originals): ?Throwable
+    {
+        $failure = null;
         foreach ($originals as $pageId => $original) {
             try {
                 $currentLanguage = $this->store->language($pageId);

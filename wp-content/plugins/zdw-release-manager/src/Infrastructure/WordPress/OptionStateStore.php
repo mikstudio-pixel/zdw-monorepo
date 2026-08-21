@@ -76,6 +76,33 @@ final class OptionStateStore implements StateStore
         $this->deleteOwnedClaim($migrationId, $claimToken);
     }
 
+    public function renew(string $migrationId, string $claimToken): bool
+    {
+        $claim = $this->ownedClaim($migrationId, $claimToken);
+        if (null === $claim) {
+            return false;
+        }
+
+        $renewed = $claim;
+        $renewed['claimed_at'] = max(time(), (int) $claim['claimed_at'] + 1);
+        $optionName = $this->claimOptionName($migrationId);
+
+        global $wpdb;
+        $updated = $wpdb->query($wpdb->prepare(
+            "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s",
+            maybe_serialize($renewed),
+            $optionName,
+            maybe_serialize($claim)
+        ));
+        if (1 !== $updated) {
+            return false;
+        }
+
+        wp_cache_delete($optionName, 'options');
+
+        return true;
+    }
+
     public function markApplied(string $migrationId, string $claimToken): void
     {
         $claim = $this->ownedClaim($migrationId, $claimToken);

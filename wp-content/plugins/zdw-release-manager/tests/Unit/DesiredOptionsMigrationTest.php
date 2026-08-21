@@ -106,6 +106,7 @@ final class DesiredOptionsMigrationTest extends TestCase
             self::assertFalse($store->has('intensity'));
             self::assertFalse($store->has('opacity'));
             self::assertSame(['effect', 'intensity', 'opacity', 'opacity', 'intensity', 'effect'], $store->writes);
+            self::assertSame(['opacity', 'intensity'], $store->deletes);
         }
     }
 }

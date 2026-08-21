@@ -133,7 +133,7 @@ final class SponsorPageMigrationTest extends TestCase
             [10 => 'one.svg'],
             [],
             [42 => 'cs', 43 => 'en'],
-            ['cs' => 42]
+            ['cs' => 42, 'en' => 99]
         );
         $store->throwOnTranslationAttempts = [1];
         $migration = new SponsorPageMigration($store, [10 => 'one.svg'], 'desired');
@@ -144,11 +144,11 @@ final class SponsorPageMigrationTest extends TestCase
         } catch (\RuntimeException) {
             self::assertSame('original-cs', $store->find(42)?->content());
             self::assertSame('original-en', $store->find(43)?->content());
-            self::assertSame(['cs' => 42], $store->translations(42));
+            self::assertSame(['cs' => 42, 'en' => 99], $store->translations(42));
             self::assertSame(['en' => 43], $store->translations(43));
             self::assertSame([
                 ['cs' => 42, 'en' => 43],
-                ['cs' => 42],
+                ['cs' => 42, 'en' => 99],
                 ['en' => 43],
             ], $store->translationWrites);
         }
@@ -228,6 +228,34 @@ final class SponsorPageMigrationTest extends TestCase
             self::assertStringContainsString('Propojení překladů', $error->getMessage());
             self::assertSame('original-cs', $store->find(42)?->content());
             self::assertSame('original-en', $store->find(43)?->content());
+        }
+    }
+
+    public function test_translation_failure_restores_a_page_without_a_language(): void
+    {
+        $store = new InMemoryPageStore(
+            [
+                new PostRecord(42, 'sponzori', 'original-cs'),
+                new PostRecord(43, 'partners', 'original-en'),
+            ],
+            [10 => 'one.svg'],
+            [],
+            [43 => 'en']
+        );
+        $store->throwOnTranslationAttempts = [1];
+        $migration = new SponsorPageMigration($store, [10 => 'one.svg'], 'desired');
+
+        try {
+            $migration->apply();
+            self::fail('A translation write failure should abort the migration.');
+        } catch (\RuntimeException) {
+            self::assertNull($store->language(42));
+            self::assertSame([], $store->translations(42));
+            self::assertSame(['en' => 43], $store->translations(43));
+            self::assertSame([
+                ['cs' => 42, 'en' => 43],
+                ['en' => 43],
+            ], $store->translationWrites);
         }
     }
 }

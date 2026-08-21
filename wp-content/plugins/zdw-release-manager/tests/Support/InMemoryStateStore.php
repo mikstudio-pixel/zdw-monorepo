@@ -48,6 +48,11 @@ final class InMemoryStateStore implements StateStore
         }
     }
 
+    public function renew(string $migrationId, string $claimToken): bool
+    {
+        return ($this->claims[$migrationId] ?? null) === $claimToken;
+    }
+
     public function markApplied(string $migrationId, string $claimToken): void
     {
         if (($this->claims[$migrationId] ?? null) !== $claimToken) {

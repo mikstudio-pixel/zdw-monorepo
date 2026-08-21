@@ -14,6 +14,9 @@ final class InMemoryOptionStore implements OptionStore
     /** @var list<string> */
     public array $writes = [];
 
+    /** @var list<string> */
+    public array $deletes = [];
+
     /** @var array<string, list<int>> */
     public array $throwOnSetAttempts = [];
 
@@ -51,5 +54,6 @@ final class InMemoryOptionStore implements OptionStore
     {
         unset($this->values[$name]);
         $this->writes[] = $name;
+        $this->deletes[] = $name;
     }
 }

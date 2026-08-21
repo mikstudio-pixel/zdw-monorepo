@@ -12,6 +12,12 @@ final class WordPressHomepageBodyTransformer implements HomepageBodyTransformer
     public function desiredPageContent(string $content): string
     {
         $blocks = parse_blocks($content);
+        foreach ($blocks as $block) {
+            if (null === ($block['blockName'] ?? null)
+                && '' !== trim((string) ($block['innerHTML'] ?? ''))) {
+                throw new RuntimeException('Homepage obsahuje raw obsah, který nelze bezpečně odstranit.');
+            }
+        }
         $meaningful = array_values(array_filter(
             $blocks,
             static fn (array $block): bool => null !== ($block['blockName'] ?? null)
@@ -23,6 +29,11 @@ final class WordPressHomepageBodyTransformer implements HomepageBodyTransformer
         $showcases = $this->matchingBlocks($meaningful, 'core/group', 'na-co-se-tesit-section');
         if (1 !== count($showcases)) {
             throw new RuntimeException('Nelze jednoznačně určit lokalizovanou festivalovou sekci homepage.');
+        }
+        foreach (array_slice($meaningful, 1) as $block) {
+            if ($block !== $showcases[0] && !$this->isSpacingBlock($block)) {
+                throw new RuntimeException('Homepage obsahuje další redakční blok, který nelze bezpečně odstranit.');
+            }
         }
 
         [$introSpacing, $spacer] = $this->canonicalSpacing();
@@ -53,6 +64,32 @@ final class WordPressHomepageBodyTransformer implements HomepageBodyTransformer
                 return $name === ($block['blockName'] ?? null) && in_array($className, $classes, true);
             }
         ));
+    }
+
+    /** @param array<string, mixed> $block */
+    private function isSpacingBlock(array $block): bool
+    {
+        if ('core/spacer' === ($block['blockName'] ?? null)) {
+            return true;
+        }
+        if ('core/group' !== ($block['blockName'] ?? null)) {
+            return false;
+        }
+
+        $classes = preg_split('/\s+/', (string) ($block['attrs']['className'] ?? '')) ?: [];
+        if (!in_array('is-style-default', $classes, true)) {
+            return false;
+        }
+
+        $children = array_values(array_filter(
+            $block['innerBlocks'] ?? [],
+            static fn (array $child): bool => null !== ($child['blockName'] ?? null)
+        ));
+
+        return [] !== $children && [] === array_filter(
+            $children,
+            static fn (array $child): bool => 'core/spacer' !== ($child['blockName'] ?? null)
+        );
     }
 
     /** @return array{0: array<string, mixed>, 1: array<string, mixed>} */

@@ -96,6 +96,9 @@ final class MigrationRunner
                     $preflight
                 );
             }
+            if (!$this->stateStore->renew(self::EXECUTION_LOCK_ID, $executionToken)) {
+                return new RunResult(RunResult::FAILED, 'Migrace ztratila vlastnictví globálního zámku.');
+            }
 
             $claimToken = $this->stateStore->claim($migrationId);
             if (null === $claimToken) {
@@ -106,8 +109,11 @@ final class MigrationRunner
             }
 
             try {
+                $this->assertClaimsRenewed($migrationId, $claimToken, $executionToken);
                 $migration->apply();
+                $this->assertClaimsRenewed($migrationId, $claimToken, $executionToken);
                 $verification = $migration->verify();
+                $this->assertClaimsRenewed($migrationId, $claimToken, $executionToken);
 
                 if ($this->hasBlocker($verification)) {
                     $this->stateStore->release($migrationId, $claimToken);
@@ -149,5 +155,16 @@ final class MigrationRunner
         }
 
         return false;
+    }
+
+    private function assertClaimsRenewed(
+        string $migrationId,
+        string $claimToken,
+        string $executionToken
+    ): void {
+        if (!$this->stateStore->renew(self::EXECUTION_LOCK_ID, $executionToken)
+            || !$this->stateStore->renew($migrationId, $claimToken)) {
+            throw new \RuntimeException('Migrace ztratila vlastnictví zámku; další změny byly zastaveny.');
+        }
     }
 }

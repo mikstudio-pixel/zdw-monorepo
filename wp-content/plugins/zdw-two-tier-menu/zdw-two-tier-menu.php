@@ -674,6 +674,10 @@ function zdw_two_tier_menu_install_menus( $replace = false ) {
 		};
 
 		return zdw_two_tier_menu_install_menus_unlocked( $replace, true, $heartbeat );
+	} catch ( Throwable $error ) {
+		zdw_two_tier_menu_record_install_failure_unlocked();
+
+		return false;
 	} finally {
 		zdw_two_tier_menu_release_state_lock( $state_lock_token );
 		zdw_two_tier_menu_release_install_lock( $lock_token );
@@ -1074,7 +1078,8 @@ function zdw_two_tier_menu_is_active() {
 		return false;
 	}
 
-	return '1' === (string) get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1' );
+	return ZDW_TWO_TIER_MENU_DB_VERSION === get_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION )
+		&& '1' === (string) get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0' );
 }
 
 /**
@@ -1372,8 +1377,8 @@ function zdw_two_tier_menu_filter_showcase_blocks( $block_content, $block ) {
 		return $block_content;
 	}
 
-	$class_name = (string) ( $block['attrs']['className'] ?? '' );
-	if ( false !== strpos( $class_name, 'na-co-se-tesit-section' ) ) {
+	$classes = preg_split( '/\s+/', (string) ( $block['attrs']['className'] ?? '' ) ) ?: array();
+	if ( in_array( 'na-co-se-tesit-section', $classes, true ) ) {
 		return zdw_two_tier_menu_render_showcase();
 	}
 

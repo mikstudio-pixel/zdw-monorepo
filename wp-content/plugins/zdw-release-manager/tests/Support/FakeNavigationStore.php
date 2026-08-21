@@ -17,6 +17,7 @@ final class FakeNavigationStore implements NavigationStore
     public array $legacySponsorPageIds = [];
     public bool $enabled = false;
     public bool $throwDuringAtomicAfterLegacy = false;
+    public bool $throwDuringRollback = false;
 
     public function isAvailable(): bool
     {
@@ -47,6 +48,13 @@ final class FakeNavigationStore implements NavigationStore
             }
             $this->enableTwoTierNavigation();
         } catch (\Throwable $error) {
+            if ($this->throwDuringRollback) {
+                throw new \RuntimeException(
+                    $error->getMessage() . ' Obnova navigace nebyla dokončena.',
+                    0,
+                    $error
+                );
+            }
             $this->legacySponsorPageIds = $originalLegacySponsorPageIds;
             $this->enabled = $originalEnabled;
             $this->matching = $originalMatching;

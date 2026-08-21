@@ -56,13 +56,17 @@ if (!$nestedFixtureCreated) {
     throw new RuntimeException('Design Canteen retained-section fixture could not be created.');
 }
 $nestedRawContent = serialize_blocks($nestedBlocks);
+$nestedRawRejected = false;
 try {
     $transformer->desiredPageContent($nestedRawContent);
-    throw new RuntimeException('Design Canteen transform accepted raw content inside the retained section.');
 } catch (RuntimeException $error) {
     if (!str_contains($error->getMessage(), 'raw obsah')) {
         throw $error;
     }
+    $nestedRawRejected = true;
+}
+if (!$nestedRawRejected) {
+    throw new RuntimeException('Design Canteen transform accepted raw content inside the retained section.');
 }
 
 echo "WordPressDesignCanteenContentTransformer integration test passed.\n";

@@ -38,6 +38,21 @@ foreach ([2 => 'zdw', 93 => 'zdw-en'] as $postId => $slug) {
     if (str_contains($desired, 'Flash Talks, powered by PechaKucha')) {
         throw new RuntimeException(sprintf('Homepage %d still contains an obsolete event card.', $postId));
     }
+
+    foreach ([
+        $desired . "\n<!-- wp:paragraph --><p>Editorial marker</p><!-- /wp:paragraph -->",
+        '<aside>Raw editorial marker</aside>' . $desired,
+    ] as $unsafeContent) {
+        $rejected = false;
+        try {
+            $transformer->desiredPageContent($unsafeContent);
+        } catch (RuntimeException) {
+            $rejected = true;
+        }
+        if (!$rejected) {
+            throw new RuntimeException(sprintf('Homepage %d transform accepted unrelated editorial content.', $postId));
+        }
+    }
 }
 
 echo "Homepage body integration test passed.\n";

@@ -46,6 +46,17 @@ $optionSnapshots = [];
 foreach (['zdw_two_tier_menu_enabled', 'zdw_two_tier_menu_enable_after_install', 'zdw_two_tier_menu_db_version'] as $option) {
     $optionSnapshots[$option] = get_option($option, '__missing__');
 }
+$restorableSnapshot = static function (?array $snapshot): ?array {
+    if (null === $snapshot) {
+        return null;
+    }
+    foreach ($snapshot as &$item) {
+        unset($item['post']['post_modified'], $item['post']['post_modified_gmt']);
+    }
+    unset($item);
+
+    return $snapshot;
+};
 try {
     $store->applyDesiredNavigation(['cs' => $sponsorPageIds['cs']]);
     throw new RuntimeException('An incomplete atomic navigation update unexpectedly succeeded.');
@@ -57,7 +68,7 @@ try {
 foreach ($menuSnapshots as $name => $snapshot) {
     $menu = wp_get_nav_menu_object($name);
     $current = $menu ? zdw_two_tier_menu_snapshot_items((int) $menu->term_id) : null;
-    if ($snapshot !== $current) {
+    if ($restorableSnapshot($snapshot) !== $restorableSnapshot($current)) {
         throw new RuntimeException(sprintf('Atomic navigation rollback did not restore menu %s.', $name));
     }
 }

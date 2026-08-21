@@ -29,6 +29,7 @@ final class WordPressDesignCanteenContentTransformer implements DesignCanteenCon
 
         $index = array_key_first($candidates);
         $section = $candidates[$index];
+        $this->assertNoRawBlocks($section['innerBlocks'] ?? []);
         $innerBlocks = $this->meaningful($section['innerBlocks'] ?? []);
         $columnsIndex = $this->matchingIndex($innerBlocks, 'core/columns', 'is-style-with-vertical-lines');
         $accordionIndex = $this->matchingIndex($innerBlocks, 'esab/accordion');
@@ -64,6 +65,17 @@ final class WordPressDesignCanteenContentTransformer implements DesignCanteenCon
             $blocks,
             static fn (array $block): bool => null !== ($block['blockName'] ?? null)
         ));
+    }
+
+    /** @param list<array<string, mixed>> $blocks */
+    private function assertNoRawBlocks(array $blocks): void
+    {
+        foreach ($blocks as $block) {
+            if (null === ($block['blockName'] ?? null)
+                && '' !== trim((string) ($block['innerHTML'] ?? ''))) {
+                throw new RuntimeException('Sekce Design Canteen obsahuje raw obsah, který nelze bezpečně odstranit.');
+            }
+        }
     }
 
     /** @param list<array<string, mixed>> $blocks */

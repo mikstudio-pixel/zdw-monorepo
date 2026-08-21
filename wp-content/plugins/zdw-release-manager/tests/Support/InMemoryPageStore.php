@@ -134,6 +134,7 @@ final class InMemoryPageStore implements PageStore
         $this->languageAttempts[$postId] = $attempt;
         $this->languagePostId = $postId;
         if (null === $language) {
+            $this->detachTranslation($postId);
             unset($this->languages[$postId]);
         } else {
             $this->languages[$postId] = $language;

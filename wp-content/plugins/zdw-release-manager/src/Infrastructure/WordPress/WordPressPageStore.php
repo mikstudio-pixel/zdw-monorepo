@@ -48,7 +48,7 @@ final class WordPressPageStore implements PageStore
                 "UPDATE {$wpdb->posts}
                 SET post_content = %s, post_modified = %s, post_modified_gmt = %s
                 WHERE ID = %d AND post_type = 'page' AND post_status = 'publish'
-                    AND BINARY post_content = BINARY %s",
+                    AND CAST(post_content AS BINARY) = CAST(%s AS BINARY)",
                 $content,
                 current_time('mysql'),
                 current_time('mysql', true),
@@ -110,9 +110,11 @@ final class WordPressPageStore implements PageStore
     public function setLanguage(int $postId, ?string $language): void
     {
         if (null === $language) {
-            $result = wp_set_object_terms($postId, [], 'language');
-            if (is_wp_error($result)) {
-                throw new RuntimeException($result->get_error_message());
+            foreach (['post_translations', 'language'] as $taxonomy) {
+                $result = wp_set_object_terms($postId, [], $taxonomy);
+                if (is_wp_error($result)) {
+                    throw new RuntimeException($result->get_error_message());
+                }
             }
 
             return;

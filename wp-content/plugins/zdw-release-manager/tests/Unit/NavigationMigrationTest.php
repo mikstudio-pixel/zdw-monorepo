@@ -109,4 +109,18 @@ final class NavigationMigrationTest extends TestCase
             self::assertFalse($navigation->matching);
         }
     }
+
+    public function test_failed_navigation_rollback_surfaces_the_recovery_failure(): void
+    {
+        $pages = new InMemoryPageStore([
+            new PostRecord(42, 'sponzori', 'content'),
+            new PostRecord(43, 'partners', 'content'),
+        ]);
+        $navigation = new FakeNavigationStore();
+        $navigation->throwDuringAtomicAfterLegacy = true;
+        $navigation->throwDuringRollback = true;
+
+        $this->expectExceptionMessage('Obnova navigace nebyla dokončena');
+        (new NavigationMigration($pages, $navigation))->apply();
+    }
 }

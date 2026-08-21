@@ -64,4 +64,25 @@ try {
     }
     delete_option(ZDW_TWO_TIER_MENU_OPTION_STATE_LOCK);
 }
+
+$previousEnabled = get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, false);
+$previousVersion = get_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, false);
+try {
+    update_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1');
+    delete_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION);
+    if (zdw_two_tier_menu_is_active()) {
+        throw new RuntimeException('Navigation did not fail closed while installation was incomplete.');
+    }
+    update_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, ZDW_TWO_TIER_MENU_DB_VERSION);
+    if (!zdw_two_tier_menu_is_active()) {
+        throw new RuntimeException('Completed enabled navigation was not activated.');
+    }
+} finally {
+    false === $previousEnabled
+        ? delete_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED)
+        : update_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, $previousEnabled);
+    false === $previousVersion
+        ? delete_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION)
+        : update_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, $previousVersion);
+}
 echo "Two-tier upgrade lock integration test passed.\n";

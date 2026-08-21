@@ -40,17 +40,21 @@ if (false === strpos($literalResult, 'https://example.test/uploads/$1-video.mp4'
     throw new RuntimeException('Intro replacement interpreted replacement-string metacharacters.');
 }
 
+$duplicateRejected = false;
 try {
     $transformer->desiredPageContent(
         $homepages[0]->content() . $homepages[0]->content(),
         $videos[0],
         $poster
     );
-    throw new RuntimeException('Intro replacement accepted duplicate intro blocks.');
 } catch (RuntimeException $error) {
     if (!str_contains($error->getMessage(), 'právě jeden úvodní blok')) {
         throw $error;
     }
+    $duplicateRejected = true;
+}
+if (!$duplicateRejected) {
+    throw new RuntimeException('Intro replacement accepted duplicate intro blocks.');
 }
 
 echo "Homepage intro integration test passed.\n";

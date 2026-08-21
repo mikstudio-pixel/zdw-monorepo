@@ -163,6 +163,23 @@ final class RunnerTest extends TestCase
         $store->markApplied($migrationId, $firstToken);
     }
 
+    public function test_lost_migration_claim_aborts_before_verification(): void
+    {
+        $migration = new SpyMigration('20260807_001_audit', 'Audit');
+        $store = new InMemoryStateStore();
+        $migration->afterApply = static function () use ($store, $migration): void {
+            $store->replaceClaimForTest($migration->id());
+        };
+        $runner = new MigrationRunner(new MigrationRegistry([$migration]), $store);
+
+        $result = $runner->apply($migration->id());
+
+        self::assertSame(RunResult::FAILED, $result->status());
+        self::assertStringContainsString('ztratila vlastnictví', $result->message());
+        self::assertSame(0, $migration->verifyCalls);
+        self::assertFalse($store->isApplied($migration->id()));
+    }
+
     public function test_unknown_migration_id_is_reported_without_throwing(): void
     {
         $runner = new MigrationRunner(new MigrationRegistry(), new InMemoryStateStore());

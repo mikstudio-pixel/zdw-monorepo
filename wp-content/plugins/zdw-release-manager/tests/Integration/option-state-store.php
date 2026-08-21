@@ -26,6 +26,9 @@ $firstToken = $store->claim($migrationId);
 if (!is_string($firstToken) || null !== $store->claim($migrationId)) {
     throw new RuntimeException('Only one request may claim a migration.');
 }
+if (!$store->renew($migrationId, $firstToken) || $store->renew($migrationId, 'different-owner')) {
+    throw new RuntimeException('Only the current claim owner may renew a migration lease.');
+}
 $store->release($migrationId, $firstToken);
 $secondToken = $store->claim($migrationId);
 if (!is_string($secondToken)) {

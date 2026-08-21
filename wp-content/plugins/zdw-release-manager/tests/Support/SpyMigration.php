@@ -14,6 +14,7 @@ final class SpyMigration implements Migration
     public int $applyCalls = 0;
     public int $verifyCalls = 0;
     public bool $throwOnApply = false;
+    public ?\Closure $afterApply = null;
 
     /** @param list<PreflightCheck> $preflightChecks
      *  @param list<PreflightCheck> $verificationChecks
@@ -49,6 +50,9 @@ final class SpyMigration implements Migration
 
         if ($this->throwOnApply) {
             throw new RuntimeException('Simulated apply failure.');
+        }
+        if (null !== $this->afterApply) {
+            ($this->afterApply)();
         }
     }
 

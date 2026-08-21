@@ -56,7 +56,7 @@ final class WordPressPostStore implements PostStore
                 "UPDATE {$wpdb->posts}
                 SET post_content = %s, post_modified = %s, post_modified_gmt = %s
                 WHERE ID = %d AND post_type = 'page' AND post_status = 'publish'
-                    AND BINARY post_content = BINARY %s",
+                    AND CAST(post_content AS BINARY) = CAST(%s AS BINARY)",
                 $content,
                 current_time('mysql'),
                 current_time('mysql', true),

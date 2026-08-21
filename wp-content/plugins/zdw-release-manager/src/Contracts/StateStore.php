@@ -16,6 +16,9 @@ interface StateStore
      */
     public function claim(string $migrationId): ?string;
 
+    /** Renew only the lease identified by the supplied ownership token. */
+    public function renew(string $migrationId, string $claimToken): bool;
+
     public function release(string $migrationId, string $claimToken): void;
 
     /** Complete only the lease identified by the supplied ownership token. */
