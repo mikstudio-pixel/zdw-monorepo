@@ -657,7 +657,14 @@ function zdw_two_tier_menu_install_menus( $replace = false ) {
 	}
 
 	try {
-		return zdw_two_tier_menu_install_menus_unlocked( $replace, true );
+		$heartbeat = static function () use ( $lock_token, $state_lock_token ) {
+			if ( ! zdw_two_tier_menu_renew_install_lock( $lock_token )
+				|| ! zdw_two_tier_menu_renew_state_lock( $state_lock_token ) ) {
+				throw new RuntimeException( 'Navigation lock ownership was lost during menu installation.' );
+			}
+		};
+
+		return zdw_two_tier_menu_install_menus_unlocked( $replace, true, $heartbeat );
 	} finally {
 		zdw_two_tier_menu_release_state_lock( $state_lock_token );
 		zdw_two_tier_menu_release_install_lock( $lock_token );
