@@ -43,4 +43,39 @@ final class WordPressPostStore implements PostStore
             throw new RuntimeException(sprintf('WordPress neaktualizoval stránku ID %d.', $postId));
         }
     }
+
+    public function updateContentIfCurrent(int $postId, string $expectedContent, string $content): bool
+    {
+        if (!current_user_can('unfiltered_html') || !current_user_can('edit_post', $postId)) {
+            throw new RuntimeException(sprintf('Aktuální účet nemůže bezpečně obnovit stránku ID %d.', $postId));
+        }
+
+        global $wpdb;
+        $updated = $wpdb->update(
+            $wpdb->posts,
+            [
+                'post_content' => $content,
+                'post_modified' => current_time('mysql'),
+                'post_modified_gmt' => current_time('mysql', true),
+            ],
+            [
+                'ID' => $postId,
+                'post_type' => 'page',
+                'post_status' => 'publish',
+                'post_content' => $expectedContent,
+            ],
+            ['%s', '%s', '%s'],
+            ['%d', '%s', '%s', '%s']
+        );
+        if (false === $updated) {
+            throw new RuntimeException(sprintf('Podmíněná obnova stránky ID %d selhala.', $postId));
+        }
+        if (1 === $updated) {
+            clean_post_cache($postId);
+
+            return true;
+        }
+
+        return false;
+    }
 }

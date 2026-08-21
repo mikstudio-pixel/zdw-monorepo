@@ -52,7 +52,17 @@ final class AtomicPostContentUpdater
                 }
 
                 try {
-                    $this->posts->updateContent($postId, $originals[$postId]);
+                    if (!$this->posts->updateContentIfCurrent(
+                        $postId,
+                        $updates[$postId],
+                        $originals[$postId]
+                    )) {
+                        $rollbackFailure ??= [
+                            $postId,
+                            new RuntimeException('Obsah stránky mezitím změnil jiný požadavek.'),
+                        ];
+                        continue;
+                    }
                 } catch (Throwable $rollbackError) {
                     try {
                         $restored = $this->posts->find($postId);

@@ -55,28 +55,22 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
     public function replaceFirstContact(string $content, array $contacts): string
     {
         $replacement = $this->contactBlock($contacts, 'compact');
-        $patterns = [
-            '/<!--\s+wp:zdw\/contacts\s+.*?\/-->/s',
-            '/<!--\s+wp:acf\/contact-person\s+.*?\/-->/s',
-        ];
-
-        foreach ($patterns as $pattern) {
-            $updated = preg_replace_callback(
-                $pattern,
-                static fn (): string => $replacement,
-                $content,
-                1,
-                $count
-            );
-            if (null === $updated) {
-                throw new RuntimeException('Regulární výraz pro kontaktní blok selhal.');
-            }
-            if (1 === $count) {
-                return $updated;
-            }
+        $pattern = '/<!--\s+wp:(?:zdw\/contacts|acf\/contact-person)\s+.*?\/-->/s';
+        if (1 !== preg_match_all($pattern, $content)) {
+            throw new RuntimeException('Na stránce nebyl nalezen právě jeden kontaktní blok.');
+        }
+        $updated = preg_replace_callback(
+            $pattern,
+            static fn (): string => $replacement,
+            $content,
+            1,
+            $count
+        );
+        if (null === $updated || 1 !== $count) {
+            throw new RuntimeException('Regulární výraz pro kontaktní blok selhal.');
         }
 
-        throw new RuntimeException('Na stránce nebyl nalezen kontaktní blok.');
+        return $updated;
     }
 
     public function equivalent(string $first, string $second): bool

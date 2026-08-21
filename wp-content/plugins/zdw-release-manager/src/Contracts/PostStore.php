@@ -11,4 +11,6 @@ interface PostStore
     public function find(int $postId): ?PostRecord;
 
     public function updateContent(int $postId, string $content): void;
+
+    public function updateContentIfCurrent(int $postId, string $expectedContent, string $content): bool;
 }

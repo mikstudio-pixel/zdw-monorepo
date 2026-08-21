@@ -8,11 +8,17 @@ require_once dirname(__DIR__, 2) . '/zdw-release-manager.php';
 
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressPostStore;
 
+$administratorIds = get_users(['role' => 'administrator', 'number' => 1, 'fields' => 'ID']);
+if ([] === $administratorIds) {
+    throw new RuntimeException('An administrator fixture is required for the conditional update test.');
+}
 $publishedPage = wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Published fixture']);
 $draftPage = wp_insert_post(['post_type' => 'page', 'post_status' => 'draft', 'post_title' => 'Draft fixture']);
 $publishedPost = wp_insert_post(['post_type' => 'post', 'post_status' => 'publish', 'post_title' => 'Post fixture']);
+$previousUserId = get_current_user_id();
 
 try {
+    wp_set_current_user((int) $administratorIds[0]);
     $store = new WordPressPostStore();
     if (null === $store->find((int) $publishedPage)) {
         throw new RuntimeException('Published page was not accepted.');
@@ -20,7 +26,15 @@ try {
     if (null !== $store->find((int) $draftPage) || null !== $store->find((int) $publishedPost)) {
         throw new RuntimeException('Draft page or non-page migration target was accepted.');
     }
+    if (!$store->updateContentIfCurrent((int) $publishedPage, '', 'conditional-restore')) {
+        throw new RuntimeException('A matching conditional content update was rejected.');
+    }
+    if ($store->updateContentIfCurrent((int) $publishedPage, '', 'stale-overwrite')
+        || 'conditional-restore' !== $store->find((int) $publishedPage)?->content()) {
+        throw new RuntimeException('A stale conditional content update overwrote newer content.');
+    }
 } finally {
+    wp_set_current_user($previousUserId);
     wp_delete_post((int) $publishedPage, true);
     wp_delete_post((int) $draftPage, true);
     wp_delete_post((int) $publishedPost, true);

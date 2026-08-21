@@ -23,8 +23,10 @@ final class WordPressNavigationStore implements NavigationStore
             && function_exists('zdw_two_tier_menu_snapshot_items')
             && function_exists('zdw_two_tier_menu_restore_items')
             && function_exists('zdw_two_tier_menu_acquire_install_lock')
+            && function_exists('zdw_two_tier_menu_renew_install_lock')
             && function_exists('zdw_two_tier_menu_release_install_lock')
             && function_exists('zdw_two_tier_menu_acquire_state_lock')
+            && function_exists('zdw_two_tier_menu_renew_state_lock')
             && function_exists('zdw_two_tier_menu_release_state_lock')
             && function_exists('zdw_two_tier_menu_record_install_failure_unlocked')
             && defined('ZDW_TWO_TIER_MENU_DB_VERSION');
@@ -83,7 +85,9 @@ final class WordPressNavigationStore implements NavigationStore
             if (!zdw_two_tier_menu_install_menus_unlocked(true, true)) {
                 throw new RuntimeException('Cíle víceúrovňové navigace nelze bezpečně sestavit.');
             }
+            $this->assertNavigationLocks($installLock, $stateLock);
             $this->ensureLegacySponsorItem($sponsorPageIds);
+            $this->assertNavigationLocks($installLock, $stateLock);
             update_option('zdw_two_tier_menu_enabled', '1');
             delete_option('zdw_two_tier_menu_enable_after_install');
             update_option('zdw_two_tier_menu_db_version', ZDW_TWO_TIER_MENU_DB_VERSION);
@@ -91,13 +95,21 @@ final class WordPressNavigationStore implements NavigationStore
                 throw new RuntimeException('Víceúrovňovou navigaci se nepodařilo bezpečně zapnout.');
             }
         } catch (Throwable $error) {
-            if (null !== $snapshot && !$this->restoreNavigationSnapshot($snapshot)) {
-                zdw_two_tier_menu_record_install_failure_unlocked();
-                throw new RuntimeException(
-                    sprintf('%s Obnova původní navigace selhala; hlavička zůstala bezpečně v legacy režimu.', $error->getMessage()),
-                    0,
-                    $error
-                );
+            if (null !== $snapshot) {
+                try {
+                    $this->assertNavigationLocks($installLock, $stateLock);
+                    if (!$this->restoreNavigationSnapshot($snapshot, $installLock, $stateLock)) {
+                        $this->assertNavigationLocks($installLock, $stateLock);
+                        zdw_two_tier_menu_record_install_failure_unlocked();
+                        throw new RuntimeException('Obnova původní navigace selhala; hlavička zůstala bezpečně v legacy režimu.');
+                    }
+                } catch (Throwable $rollbackError) {
+                    throw new RuntimeException(
+                        sprintf('%s Obnova navigace nebyla dokončena: %s', $error->getMessage(), $rollbackError->getMessage()),
+                        0,
+                        $error
+                    );
+                }
             }
 
             throw $error;
@@ -337,10 +349,11 @@ final class WordPressNavigationStore implements NavigationStore
     }
 
     /** @param array{menus: array<string, array{id: ?int, items: array<int, array<string, mixed>>}>, options: array<string, array{exists: bool, value: mixed}>} $snapshot */
-    private function restoreNavigationSnapshot(array $snapshot): bool
+    private function restoreNavigationSnapshot(array $snapshot, string $installLock, string $stateLock): bool
     {
         $success = true;
         foreach ($snapshot['menus'] as $name => $menuSnapshot) {
+            $this->assertNavigationLocks($installLock, $stateLock);
             $current = wp_get_nav_menu_object($name);
             if (null === $menuSnapshot['id']) {
                 if ($current) {
@@ -360,7 +373,9 @@ final class WordPressNavigationStore implements NavigationStore
         if (!$success) {
             return false;
         }
+        $this->assertNavigationLocks($installLock, $stateLock);
         foreach ($snapshot['options'] as $option => $optionSnapshot) {
+            $this->assertNavigationLocks($installLock, $stateLock);
             if ($optionSnapshot['exists']) {
                 update_option($option, $optionSnapshot['value']);
                 $success = $optionSnapshot['value'] === get_option($option, null) && $success;
@@ -372,6 +387,14 @@ final class WordPressNavigationStore implements NavigationStore
         }
 
         return $success;
+    }
+
+    private function assertNavigationLocks(string $installLock, string $stateLock): void
+    {
+        if (!zdw_two_tier_menu_renew_install_lock($installLock)
+            || !zdw_two_tier_menu_renew_state_lock($stateLock)) {
+            throw new RuntimeException('Zámek navigace vypršel; novější stav nebude přepsán.');
+        }
     }
 
     /** @return list<array{language: string, menu: string, parentSlug: string, title: string}> */

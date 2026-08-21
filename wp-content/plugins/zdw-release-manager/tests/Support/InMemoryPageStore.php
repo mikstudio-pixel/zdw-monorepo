@@ -89,6 +89,17 @@ final class InMemoryPageStore implements PageStore
         $this->writes[] = $postId;
     }
 
+    public function updateContentIfCurrent(int $postId, string $expectedContent, string $content): bool
+    {
+        if (($this->pages[$postId] ?? null)?->content() !== $expectedContent) {
+            return false;
+        }
+
+        $this->updateContent($postId, $content);
+
+        return true;
+    }
+
     public function findPageIdsBySlug(string $slug): array
     {
         $published = array_values(array_map(

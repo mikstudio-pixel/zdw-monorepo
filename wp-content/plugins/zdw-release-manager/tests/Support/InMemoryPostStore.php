@@ -34,6 +34,9 @@ final class InMemoryPostStore implements PostStore
     /** @var array<int, int> */
     private array $findAttempts = [];
 
+    /** @var array<int, string> */
+    public array $replaceContentBeforeConditionalUpdate = [];
+
     /** @param list<PostRecord> $posts */
     public function __construct(array $posts = [])
     {
@@ -79,5 +82,25 @@ final class InMemoryPostStore implements PostStore
             $this->throwAfterUpdateId = null;
             throw new RuntimeException(sprintf('Post ID %d failed after update.', $postId));
         }
+    }
+
+    public function updateContentIfCurrent(int $postId, string $expectedContent, string $content): bool
+    {
+        if (isset($this->replaceContentBeforeConditionalUpdate[$postId], $this->posts[$postId])) {
+            $post = $this->posts[$postId];
+            $this->posts[$postId] = new PostRecord(
+                $post->id(),
+                $post->slug(),
+                $this->replaceContentBeforeConditionalUpdate[$postId]
+            );
+            unset($this->replaceContentBeforeConditionalUpdate[$postId]);
+        }
+        if (($this->posts[$postId] ?? null)?->content() !== $expectedContent) {
+            return false;
+        }
+
+        $this->updateContent($postId, $content);
+
+        return true;
     }
 }

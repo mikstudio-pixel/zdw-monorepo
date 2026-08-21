@@ -43,4 +43,25 @@ try {
 } finally {
     delete_option(ZDW_TWO_TIER_MENU_OPTION_UPGRADE_LOCK);
 }
+
+delete_option(ZDW_TWO_TIER_MENU_OPTION_STATE_LOCK);
+try {
+    $stateToken = zdw_two_tier_menu_acquire_state_lock();
+    if (!is_string($stateToken)) {
+        throw new RuntimeException('The state lock fixture could not be acquired.');
+    }
+    update_option(ZDW_TWO_TIER_MENU_OPTION_STATE_LOCK, [
+        'token' => $stateToken,
+        'claimed_at' => time() - ZDW_TWO_TIER_MENU_STATE_LOCK_TTL + 1,
+    ], false);
+    if (!zdw_two_tier_menu_renew_state_lock($stateToken)
+        || zdw_two_tier_menu_renew_state_lock('different-owner')) {
+        throw new RuntimeException('Only the current state-lock owner may renew its claim.');
+    }
+} finally {
+    if (isset($stateToken) && is_string($stateToken)) {
+        zdw_two_tier_menu_release_state_lock($stateToken);
+    }
+    delete_option(ZDW_TWO_TIER_MENU_OPTION_STATE_LOCK);
+}
 echo "Two-tier upgrade lock integration test passed.\n";

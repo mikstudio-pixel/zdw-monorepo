@@ -186,4 +186,15 @@ if ('$1 Backslash' !== ($literalAttrs['name'] ?? null) || 'C:\\Editorial' !== ($
     throw new RuntimeException('Contact replacement interpreted replacement-string metacharacters.');
 }
 
+$duplicateContactTypes = '<!-- wp:acf/contact-person {"name":"acf/contact-person"} /-->'
+    . '<!-- wp:zdw/contacts {"contacts":[],"variant":"compact"} /-->';
+try {
+    $transformer->replaceFirstContact($duplicateContactTypes, $anna);
+    throw new RuntimeException('Accessibility transform accepted two competing contact blocks.');
+} catch (RuntimeException $error) {
+    if (!str_contains($error->getMessage(), 'právě jeden')) {
+        throw $error;
+    }
+}
+
 echo "WordPressContactContentTransformer integration test passed.\n";

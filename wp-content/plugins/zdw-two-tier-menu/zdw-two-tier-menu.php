@@ -791,6 +791,43 @@ function zdw_two_tier_menu_release_owned_lock( $option_name, $token ) {
 }
 
 /**
+ * Renew an owned option lock without taking over a newer owner's claim.
+ *
+ * @param string $option_name Lock option name.
+ * @param string $token Opaque ownership token.
+ * @return bool Whether the caller still owns and renewed the lock.
+ */
+function zdw_two_tier_menu_renew_owned_lock( $option_name, $token ) {
+	$claim = get_option( $option_name, false );
+	if ( ! is_array( $claim ) || ! hash_equals( (string) ( $claim['token'] ?? '' ), (string) $token ) ) {
+		return false;
+	}
+
+	$renewed               = $claim;
+	$renewed['claimed_at'] = time();
+	if ( $renewed === $claim ) {
+		return true;
+	}
+
+	global $wpdb;
+	$updated = $wpdb->query(
+		$wpdb->prepare(
+			"UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s",
+			maybe_serialize( $renewed ),
+			$option_name,
+			maybe_serialize( $claim )
+		)
+	);
+	if ( 1 !== $updated ) {
+		return false;
+	}
+
+	wp_cache_delete( $option_name, 'options' );
+
+	return true;
+}
+
+/**
  * Acquire the automatic data-upgrade lock.
  *
  * @return string|null
@@ -832,6 +869,11 @@ function zdw_two_tier_menu_release_install_lock( $token ) {
 	zdw_two_tier_menu_release_owned_lock( ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK, $token );
 }
 
+/** Renew the menu discovery/mutation lock. */
+function zdw_two_tier_menu_renew_install_lock( $token ) {
+	return zdw_two_tier_menu_renew_owned_lock( ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK, $token );
+}
+
 /**
  * Acquire the short-lived header-state lock.
  *
@@ -863,6 +905,11 @@ function zdw_two_tier_menu_acquire_state_lock( $wait = false ) {
  */
 function zdw_two_tier_menu_release_state_lock( $token ) {
 	zdw_two_tier_menu_release_owned_lock( ZDW_TWO_TIER_MENU_OPTION_STATE_LOCK, $token );
+}
+
+/** Renew the header-state lock. */
+function zdw_two_tier_menu_renew_state_lock( $token ) {
+	return zdw_two_tier_menu_renew_owned_lock( ZDW_TWO_TIER_MENU_OPTION_STATE_LOCK, $token );
 }
 
 /**
