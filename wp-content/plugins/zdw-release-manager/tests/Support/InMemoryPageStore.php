@@ -43,6 +43,9 @@ final class InMemoryPageStore implements PageStore
 
     private int $translationAttempts = 0;
 
+    /** @var list<array<string, int>> */
+    public array $translationWrites = [];
+
     /** @param list<PostRecord> $pages
      *  @param array<int, string> $attachments
      *  @param array<string, list<int>> $unpublishedSlugOwners
@@ -134,6 +137,7 @@ final class InMemoryPageStore implements PageStore
     {
         ++$this->translationAttempts;
         $this->translations = $translations;
+        $this->translationWrites[] = $translations;
         if (in_array($this->translationAttempts, $this->throwOnTranslationAttempts, true)) {
             throw new \RuntimeException('Translation write failed.');
         }

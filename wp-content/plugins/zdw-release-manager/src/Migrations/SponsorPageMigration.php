@@ -56,6 +56,7 @@ final class SponsorPageMigration implements Migration
         $translations = [];
         $created = [];
         $originals = [];
+        $translationsAttempted = false;
 
         try {
             foreach (self::PAGES as $language => $definition) {
@@ -90,9 +91,10 @@ final class SponsorPageMigration implements Migration
                 $translations[$language] = $pageId;
             }
 
+            $translationsAttempted = true;
             $this->store->setTranslations($translations);
         } catch (Throwable $error) {
-            $rollbackFailure = $this->rollback($created, $originals);
+            $rollbackFailure = $this->rollback($created, $originals, $translationsAttempted);
             if (null !== $rollbackFailure) {
                 throw new RuntimeException(
                     sprintf('%s Obnova stránek selhala: %s', $error->getMessage(), $rollbackFailure->getMessage()),
@@ -198,7 +200,7 @@ final class SponsorPageMigration implements Migration
     /** @param list<int> $created
      *  @param array<int, array{content: string, language: ?string, translations: array<string, int>, targetLanguage: string}> $originals
      */
-    private function rollback(array $created, array $originals): ?Throwable
+    private function rollback(array $created, array $originals, bool $translationsAttempted): ?Throwable
     {
         $failure = null;
 
@@ -223,6 +225,31 @@ final class SponsorPageMigration implements Migration
                     throw new RuntimeException(sprintf('Stránka ID %d byla během obnovy mezitím upravena.', $pageId));
                 }
 
+            } catch (Throwable $error) {
+                $failure ??= $error;
+            }
+        }
+
+        if ($translationsAttempted) {
+            $translationGroups = [];
+            foreach ($originals as $pageId => $original) {
+                $group = [] === $original['translations']
+                    ? [$original['targetLanguage'] => $pageId]
+                    : $original['translations'];
+                ksort($group);
+                $translationGroups[serialize($group)] = $group;
+            }
+            foreach ($translationGroups as $group) {
+                try {
+                    $this->store->setTranslations($group);
+                } catch (Throwable $error) {
+                    $failure ??= $error;
+                }
+            }
+        }
+
+        foreach ($originals as $pageId => $original) {
+            try {
                 $currentLanguage = $this->store->language($pageId);
                 if ($currentLanguage === $original['targetLanguage']
                     && $currentLanguage !== $original['language']) {
@@ -230,23 +257,6 @@ final class SponsorPageMigration implements Migration
                 } elseif (!in_array($currentLanguage, [$original['targetLanguage'], $original['language']], true)) {
                     throw new RuntimeException(sprintf('Jazyk stránky ID %d byl během obnovy mezitím upraven.', $pageId));
                 }
-            } catch (Throwable $error) {
-                $failure ??= $error;
-            }
-        }
-
-        $translationGroups = [];
-        foreach ($originals as $original) {
-            if ([] === $original['translations']) {
-                continue;
-            }
-            $group = $original['translations'];
-            ksort($group);
-            $translationGroups[serialize($group)] = $group;
-        }
-        foreach ($translationGroups as $group) {
-            try {
-                $this->store->setTranslations($group);
             } catch (Throwable $error) {
                 $failure ??= $error;
             }

@@ -144,7 +144,41 @@ final class SponsorPageMigrationTest extends TestCase
         } catch (\RuntimeException) {
             self::assertSame('original-cs', $store->find(42)?->content());
             self::assertSame('original-en', $store->find(43)?->content());
-            self::assertSame(['cs' => 42], $store->translationGroup());
+            self::assertSame(['en' => 43], $store->translationGroup());
+            self::assertSame([
+                ['cs' => 42, 'en' => 43],
+                ['cs' => 42],
+                ['en' => 43],
+            ], $store->translationWrites);
+        }
+    }
+
+    public function test_translation_failure_restores_previously_unlinked_pages(): void
+    {
+        $store = new InMemoryPageStore(
+            [
+                new PostRecord(42, 'sponzori', 'original-cs'),
+                new PostRecord(43, 'partners', 'original-en'),
+            ],
+            [10 => 'one.svg'],
+            [],
+            [42 => 'cs', 43 => 'en']
+        );
+        $store->throwOnTranslationAttempts = [1];
+        $migration = new SponsorPageMigration($store, [10 => 'one.svg'], 'desired');
+
+        try {
+            $migration->apply();
+            self::fail('A translation write failure should abort the migration.');
+        } catch (\RuntimeException) {
+            self::assertSame('original-cs', $store->find(42)?->content());
+            self::assertSame('original-en', $store->find(43)?->content());
+            self::assertSame(['en' => 43], $store->translationGroup());
+            self::assertSame([
+                ['cs' => 42, 'en' => 43],
+                ['cs' => 42],
+                ['en' => 43],
+            ], $store->translationWrites);
         }
     }
 }
