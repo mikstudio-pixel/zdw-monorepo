@@ -33,6 +33,10 @@ try {
         || 'conditional-restore' !== $store->find((int) $publishedPage)?->content()) {
         throw new RuntimeException('A stale conditional content update overwrote newer content.');
     }
+    if ($store->updateContentIfCurrent((int) $publishedPage, 'CONDITIONAL-RESTORE', 'case-overwrite')
+        || 'conditional-restore' !== $store->find((int) $publishedPage)?->content()) {
+        throw new RuntimeException('A case-only stale conditional update overwrote newer content.');
+    }
 } finally {
     wp_set_current_user($previousUserId);
     wp_delete_post((int) $publishedPage, true);

@@ -235,9 +235,13 @@ function zdw_two_tier_menu_blueprints_resolvable() {
  * @param int                  $menu_id Menu term ID.
  * @param array<string, mixed> $item Menu item blueprint.
  * @param int                  $parent_id Parent menu item ID.
+ * @param callable|null        $heartbeat Optional lock-renewal callback.
  * @return bool Whether the complete item subtree was inserted.
  */
-function zdw_two_tier_menu_insert_blueprint_item( $menu_id, $item, $parent_id = 0 ) {
+function zdw_two_tier_menu_insert_blueprint_item( $menu_id, $item, $parent_id = 0, $heartbeat = null ) {
+	if ( is_callable( $heartbeat ) ) {
+		$heartbeat();
+	}
 	if ( isset( $item['page'] ) || isset( $item['slug'] ) ) {
 		$page_id = isset( $item['page'] ) ? (int) $item['page'] : 0;
 		if ( ! $page_id ) {
@@ -260,7 +264,7 @@ function zdw_two_tier_menu_insert_blueprint_item( $menu_id, $item, $parent_id = 
 	}
 
 	foreach ( $item['children'] as $child ) {
-		if ( ! zdw_two_tier_menu_insert_blueprint_item( $menu_id, $child, $item_id ) ) {
+		if ( ! zdw_two_tier_menu_insert_blueprint_item( $menu_id, $child, $item_id, $heartbeat ) ) {
 			return false;
 		}
 	}
@@ -272,11 +276,15 @@ function zdw_two_tier_menu_insert_blueprint_item( $menu_id, $item, $parent_id = 
  * Capture enough data to reconstruct a menu and its hierarchy.
  *
  * @param int $menu_id Menu term ID.
+ * @param callable|null $heartbeat Optional lock-renewal callback.
  * @return array<int, array<string, mixed>>
  */
-function zdw_two_tier_menu_snapshot_items( $menu_id ) {
+function zdw_two_tier_menu_snapshot_items( $menu_id, $heartbeat = null ) {
 	$snapshot = array();
 	foreach ( (array) wp_get_nav_menu_items( $menu_id ) as $item ) {
+		if ( is_callable( $heartbeat ) ) {
+			$heartbeat();
+		}
 		$post = get_post( $item->ID, ARRAY_A );
 		if ( ! is_array( $post ) ) {
 			continue;
@@ -308,11 +316,15 @@ function zdw_two_tier_menu_snapshot_items( $menu_id ) {
  * Remove every item from one menu.
  *
  * @param int $menu_id Menu term ID.
+ * @param callable|null $heartbeat Optional lock-renewal callback.
  * @return bool
  */
-function zdw_two_tier_menu_clear_items( $menu_id ) {
+function zdw_two_tier_menu_clear_items( $menu_id, $heartbeat = null ) {
 	$success = true;
 	foreach ( (array) wp_get_nav_menu_items( $menu_id ) as $item ) {
+		if ( is_callable( $heartbeat ) ) {
+			$heartbeat();
+		}
 		if ( ! wp_delete_post( $item->ID, true ) ) {
 			$success = false;
 		}
@@ -326,9 +338,10 @@ function zdw_two_tier_menu_clear_items( $menu_id ) {
  *
  * @param int                             $menu_id Menu term ID.
  * @param array<int, array<string, mixed>> $snapshot Original items.
+ * @param callable|null                         $heartbeat Optional lock-renewal callback.
  * @return bool
  */
-function zdw_two_tier_menu_restore_items( $menu_id, $snapshot ) {
+function zdw_two_tier_menu_restore_items( $menu_id, $snapshot, $heartbeat = null ) {
 	$original_ids = array_fill_keys(
 		array_map(
 			static function ( $item ) {
@@ -340,12 +353,18 @@ function zdw_two_tier_menu_restore_items( $menu_id, $snapshot ) {
 	);
 	$success      = true;
 	foreach ( (array) wp_get_nav_menu_items( $menu_id ) as $current ) {
+		if ( is_callable( $heartbeat ) ) {
+			$heartbeat();
+		}
 		if ( ! isset( $original_ids[ (int) $current->ID ] ) && ! wp_delete_post( $current->ID, true ) ) {
 			$success = false;
 		}
 	}
 
 	foreach ( $snapshot as $item ) {
+		if ( is_callable( $heartbeat ) ) {
+			$heartbeat();
+		}
 		if ( empty( $item['original_id'] ) || empty( $item['post'] ) || ! is_array( $item['post'] ) ) {
 			return false;
 		}
@@ -484,18 +503,22 @@ function zdw_two_tier_menu_menu_matches_blueprint( $menu_id, $blueprint ) {
  * @param array<int, array<string, mixed>> $affected Modified menus.
  * @param array<int, int>                  $created_menu_ids Menus created by the failed installation.
  * @param bool                             $state_locked Whether the caller owns the header-state lock.
+ * @param callable|null                    $heartbeat Optional lock-renewal callback.
  * @return bool Whether every snapshot was restored and every new menu removed.
  */
-function zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids = array(), $state_locked = false ) {
+function zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids = array(), $state_locked = false, $heartbeat = null ) {
 	$created_lookup = array_fill_keys( array_map( 'intval', $created_menu_ids ), true );
 	$success        = true;
 	foreach ( $affected as $menu ) {
 		if ( ! isset( $created_lookup[ (int) $menu['id'] ] )
-			&& ! zdw_two_tier_menu_restore_items( $menu['id'], $menu['snapshot'] ) ) {
+			&& ! zdw_two_tier_menu_restore_items( $menu['id'], $menu['snapshot'], $heartbeat ) ) {
 			$success = false;
 		}
 	}
 	foreach ( $created_menu_ids as $menu_id ) {
+		if ( is_callable( $heartbeat ) ) {
+			$heartbeat();
+		}
 		$deleted = wp_delete_nav_menu( (int) $menu_id );
 		if ( is_wp_error( $deleted ) || ! $deleted ) {
 			$success = false;
@@ -518,9 +541,10 @@ function zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids = arra
  *
  * @param bool $replace Whether existing items should be replaced.
  * @param bool $state_locked Whether the caller owns the header-state lock.
+ * @param callable|null $heartbeat Optional lock-renewal callback.
  * @return bool Whether all four menus were installed completely.
  */
-function zdw_two_tier_menu_install_menus_unlocked( $replace = false, $state_locked = false ) {
+function zdw_two_tier_menu_install_menus_unlocked( $replace = false, $state_locked = false, $heartbeat = null ) {
 	$names      = zdw_two_tier_menu_names();
 	$blueprints = zdw_two_tier_menu_blueprints();
 	if ( ! zdw_two_tier_menu_blueprints_resolvable() ) {
@@ -531,13 +555,16 @@ function zdw_two_tier_menu_install_menus_unlocked( $replace = false, $state_lock
 	$created_menu_ids = array();
 	foreach ( $names as $row => $languages ) {
 		foreach ( $languages as $language => $name ) {
+			if ( is_callable( $heartbeat ) ) {
+				$heartbeat();
+			}
 			$menu = wp_get_nav_menu_object( $name );
 			if ( $menu ) {
 				$menu_id = (int) $menu->term_id;
 			} else {
 				$created = wp_create_nav_menu( $name );
 				if ( is_wp_error( $created ) || ! $created ) {
-					zdw_two_tier_menu_rollback_install( array(), $created_menu_ids, $state_locked );
+					zdw_two_tier_menu_rollback_install( array(), $created_menu_ids, $state_locked, $heartbeat );
 
 					return false;
 				}
@@ -547,7 +574,7 @@ function zdw_two_tier_menu_install_menus_unlocked( $replace = false, $state_lock
 			$menus[] = array(
 				'id'        => $menu_id,
 				'blueprint' => $blueprints[ $row ][ $language ],
-				'snapshot'  => zdw_two_tier_menu_snapshot_items( $menu_id ),
+				'snapshot'  => zdw_two_tier_menu_snapshot_items( $menu_id, $heartbeat ),
 			);
 		}
 	}
@@ -555,9 +582,12 @@ function zdw_two_tier_menu_install_menus_unlocked( $replace = false, $state_lock
 	if ( ! $replace ) {
 		$affected = array();
 		foreach ( $menus as $menu ) {
+			if ( is_callable( $heartbeat ) ) {
+				$heartbeat();
+			}
 			if ( ! empty( $menu['snapshot'] ) ) {
 				if ( ! zdw_two_tier_menu_menu_matches_blueprint( $menu['id'], $menu['blueprint'] ) ) {
-					zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids, $state_locked );
+					zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids, $state_locked, $heartbeat );
 
 					return false;
 				}
@@ -565,14 +595,14 @@ function zdw_two_tier_menu_install_menus_unlocked( $replace = false, $state_lock
 			}
 			$affected[] = $menu;
 			foreach ( $menu['blueprint'] as $item ) {
-				if ( ! zdw_two_tier_menu_insert_blueprint_item( $menu['id'], $item ) ) {
-					zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids, $state_locked );
+				if ( ! zdw_two_tier_menu_insert_blueprint_item( $menu['id'], $item, 0, $heartbeat ) ) {
+					zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids, $state_locked, $heartbeat );
 
 					return false;
 				}
 			}
 			if ( ! zdw_two_tier_menu_menu_matches_blueprint( $menu['id'], $menu['blueprint'] ) ) {
-				zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids, $state_locked );
+				zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids, $state_locked, $heartbeat );
 
 				return false;
 			}
@@ -583,11 +613,14 @@ function zdw_two_tier_menu_install_menus_unlocked( $replace = false, $state_lock
 
 	$affected = array();
 	foreach ( $menus as $menu ) {
+		if ( is_callable( $heartbeat ) ) {
+			$heartbeat();
+		}
 		$affected[] = $menu;
-		$success    = zdw_two_tier_menu_clear_items( $menu['id'] );
+		$success    = zdw_two_tier_menu_clear_items( $menu['id'], $heartbeat );
 		if ( $success ) {
 			foreach ( $menu['blueprint'] as $item ) {
-				if ( ! zdw_two_tier_menu_insert_blueprint_item( $menu['id'], $item ) ) {
+				if ( ! zdw_two_tier_menu_insert_blueprint_item( $menu['id'], $item, 0, $heartbeat ) ) {
 					$success = false;
 					break;
 				}
@@ -596,7 +629,7 @@ function zdw_two_tier_menu_install_menus_unlocked( $replace = false, $state_lock
 		}
 
 		if ( ! $success ) {
-			zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids, $state_locked );
+			zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids, $state_locked, $heartbeat );
 
 			return false;
 		}

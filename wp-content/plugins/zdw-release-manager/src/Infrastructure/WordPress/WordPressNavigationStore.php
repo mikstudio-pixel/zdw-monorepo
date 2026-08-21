@@ -81,8 +81,11 @@ final class WordPressNavigationStore implements NavigationStore
 
         $snapshot = null;
         try {
-            $snapshot = $this->navigationSnapshot();
-            if (!zdw_two_tier_menu_install_menus_unlocked(true, true)) {
+            $heartbeat = function () use ($installLock, $stateLock): void {
+                $this->assertNavigationLocks($installLock, $stateLock);
+            };
+            $snapshot = $this->navigationSnapshot($heartbeat);
+            if (!zdw_two_tier_menu_install_menus_unlocked(true, true, $heartbeat)) {
                 throw new RuntimeException('Cíle víceúrovňové navigace nelze bezpečně sestavit.');
             }
             $this->assertNavigationLocks($installLock, $stateLock);
@@ -312,7 +315,7 @@ final class WordPressNavigationStore implements NavigationStore
     }
 
     /** @return array{menus: array<string, array{id: ?int, items: array<int, array<string, mixed>>}>, options: array<string, array{exists: bool, value: mixed}>} */
-    private function navigationSnapshot(): array
+    private function navigationSnapshot(callable $heartbeat): array
     {
         $names = [];
         foreach (zdw_two_tier_menu_names() as $languages) {
@@ -326,11 +329,12 @@ final class WordPressNavigationStore implements NavigationStore
 
         $menus = [];
         foreach (array_unique($names) as $name) {
+            $heartbeat();
             $menu = wp_get_nav_menu_object($name);
             $menuId = $menu ? (int) $menu->term_id : null;
             $menus[$name] = [
                 'id' => $menuId,
-                'items' => null === $menuId ? [] : zdw_two_tier_menu_snapshot_items($menuId),
+                'items' => null === $menuId ? [] : zdw_two_tier_menu_snapshot_items($menuId, $heartbeat),
             ];
         }
 
@@ -367,7 +371,14 @@ final class WordPressNavigationStore implements NavigationStore
                 $success = false;
                 continue;
             }
-            $success = zdw_two_tier_menu_restore_items($menuSnapshot['id'], $menuSnapshot['items']) && $success;
+            $heartbeat = function () use ($installLock, $stateLock): void {
+                $this->assertNavigationLocks($installLock, $stateLock);
+            };
+            $success = zdw_two_tier_menu_restore_items(
+                $menuSnapshot['id'],
+                $menuSnapshot['items'],
+                $heartbeat
+            ) && $success;
         }
 
         if (!$success) {

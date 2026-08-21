@@ -51,21 +51,18 @@ final class WordPressPostStore implements PostStore
         }
 
         global $wpdb;
-        $updated = $wpdb->update(
-            $wpdb->posts,
-            [
-                'post_content' => $content,
-                'post_modified' => current_time('mysql'),
-                'post_modified_gmt' => current_time('mysql', true),
-            ],
-            [
-                'ID' => $postId,
-                'post_type' => 'page',
-                'post_status' => 'publish',
-                'post_content' => $expectedContent,
-            ],
-            ['%s', '%s', '%s'],
-            ['%d', '%s', '%s', '%s']
+        $updated = $wpdb->query(
+            $wpdb->prepare(
+                "UPDATE {$wpdb->posts}
+                SET post_content = %s, post_modified = %s, post_modified_gmt = %s
+                WHERE ID = %d AND post_type = 'page' AND post_status = 'publish'
+                    AND BINARY post_content = BINARY %s",
+                $content,
+                current_time('mysql'),
+                current_time('mysql', true),
+                $postId,
+                $expectedContent
+            )
         );
         if (false === $updated) {
             throw new RuntimeException(sprintf('Podmíněná obnova stránky ID %d selhala.', $postId));
