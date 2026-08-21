@@ -29,6 +29,44 @@ if (!$store->matchesDesiredNavigation($sponsorPageIds)) {
     throw new RuntimeException('Navigation does not match its blueprint.');
 }
 
+$menuSnapshots = [];
+$menuNames = ['Header Menu', 'Header Menu EN'];
+foreach (zdw_two_tier_menu_names() as $languages) {
+    foreach ($languages as $name) {
+        $menuNames[] = (string) $name;
+    }
+}
+foreach (array_unique($menuNames) as $name) {
+    $menu = wp_get_nav_menu_object($name);
+    $menuSnapshots[$name] = $menu
+        ? zdw_two_tier_menu_snapshot_items((int) $menu->term_id)
+        : null;
+}
+$optionSnapshots = [];
+foreach (['zdw_two_tier_menu_enabled', 'zdw_two_tier_menu_enable_after_install', 'zdw_two_tier_menu_db_version'] as $option) {
+    $optionSnapshots[$option] = get_option($option, '__missing__');
+}
+try {
+    $store->applyDesiredNavigation(['cs' => $sponsorPageIds['cs']]);
+    throw new RuntimeException('An incomplete atomic navigation update unexpectedly succeeded.');
+} catch (RuntimeException $error) {
+    if (!str_contains($error->getMessage(), 'jazyk en')) {
+        throw $error;
+    }
+}
+foreach ($menuSnapshots as $name => $snapshot) {
+    $menu = wp_get_nav_menu_object($name);
+    $current = $menu ? zdw_two_tier_menu_snapshot_items((int) $menu->term_id) : null;
+    if ($snapshot !== $current) {
+        throw new RuntimeException(sprintf('Atomic navigation rollback did not restore menu %s.', $name));
+    }
+}
+foreach ($optionSnapshots as $option => $snapshot) {
+    if ($snapshot !== get_option($option, '__missing__')) {
+        throw new RuntimeException(sprintf('Atomic navigation rollback did not restore option %s.', $option));
+    }
+}
+
 $installLock = zdw_two_tier_menu_acquire_install_lock();
 if (!is_string($installLock)) {
     throw new RuntimeException('The navigation contention fixture could not acquire the install lock.');

@@ -11,9 +11,14 @@ interface PageStore extends PostStore
 
     public function createPage(string $title, string $slug, string $content): int;
 
-    public function setLanguage(int $postId, string $language): void;
+    public function deletePage(int $postId): void;
+
+    public function setLanguage(int $postId, ?string $language): void;
 
     public function language(int $postId): ?string;
+
+    /** @return array<string, int> */
+    public function translations(int $postId): array;
 
     /** @param array<string, int> $translations */
     public function setTranslations(array $translations): void;

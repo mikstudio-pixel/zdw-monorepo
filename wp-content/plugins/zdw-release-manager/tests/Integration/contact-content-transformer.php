@@ -70,6 +70,19 @@ try {
     }
 }
 
+$unsafeInitialPress = '<!-- wp:group --><div class="wp-block-group">'
+    . '<!-- wp:paragraph --><p>Unrelated initial sibling</p><!-- /wp:paragraph -->'
+    . '<!-- wp:acf/contact-person {"name":"acf/contact-person"} /-->'
+    . '</div><!-- /wp:group -->';
+try {
+    $transformer->pressPage($unsafeInitialPress, $eva);
+    throw new RuntimeException('Initial contact transform accepted a legacy group with unrelated siblings.');
+} catch (RuntimeException $error) {
+    if (!str_contains($error->getMessage(), 'nesouvisející obsah')) {
+        throw $error;
+    }
+}
+
 $rawMixedPress = '<!-- wp:zdw/contacts {"contacts":[],"variant":"compact"} /-->'
     . '<!-- wp:group --><div class="wp-block-group">Raw editorial note'
     . '<!-- wp:acf/contact-person {"name":"acf/contact-person"} /-->'
@@ -114,6 +127,26 @@ $rawAccreditation = substr($legacyAccreditation, 0, -strlen($groupClosing))
 $rawAccreditationResult = $transformer->pressPage($syntheticPress . $rawAccreditation, $eva);
 if (!str_contains($rawAccreditationResult, 'Retained raw accreditation note')) {
     throw new RuntimeException('Accreditation cleanup removed unrelated raw content.');
+}
+
+$nestedAccreditation = str_replace(
+    '</div><!-- /wp:buttons --></div><!-- /wp:column -->',
+    '</div><!-- /wp:buttons --><!-- wp:paragraph --><p>Retained nested accreditation note</p><!-- /wp:paragraph --></div><!-- /wp:column -->',
+    $legacyAccreditation
+);
+$nestedAccreditationResult = $transformer->pressPage($syntheticPress . $nestedAccreditation, $eva);
+if (!str_contains($nestedAccreditationResult, 'Retained nested accreditation note')) {
+    throw new RuntimeException('Accreditation cleanup removed an unrelated nested block.');
+}
+
+$nestedRawAccreditation = str_replace(
+    '</div><!-- /wp:buttons --></div><!-- /wp:column -->',
+    '</div><!-- /wp:buttons -->Retained nested raw accreditation note</div><!-- /wp:column -->',
+    $legacyAccreditation
+);
+$nestedRawResult = $transformer->pressPage($syntheticPress . $nestedRawAccreditation, $eva);
+if (!str_contains($nestedRawResult, 'Retained nested raw accreditation note')) {
+    throw new RuntimeException('Accreditation cleanup removed unrelated nested raw content.');
 }
 
 $safePress = $syntheticPress . $unrelatedAccreditation . $legacyAccreditation;

@@ -14,6 +14,9 @@ final class WordPressIntroContentTransformer implements IntroContentTransformer
     {
         $replacement = $this->introBlock($video, $poster);
         $pattern = '/<!--\s+wp:zdw\/intro-effect\s+.*?-->.*?<!--\s+\/wp:zdw\/intro-effect\s+-->/s';
+        if (1 !== preg_match_all($pattern, $content)) {
+            throw new RuntimeException('Na homepage nebyl nalezen právě jeden úvodní blok.');
+        }
         $updated = preg_replace_callback(
             $pattern,
             static fn (): string => $replacement,

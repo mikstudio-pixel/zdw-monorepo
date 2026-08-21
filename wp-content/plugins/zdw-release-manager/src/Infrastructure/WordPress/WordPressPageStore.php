@@ -67,8 +67,24 @@ final class WordPressPageStore implements PageStore
         return (int) $result;
     }
 
-    public function setLanguage(int $postId, string $language): void
+    public function deletePage(int $postId): void
     {
+        if (!current_user_can('delete_post', $postId) || false === wp_delete_post($postId, true)) {
+            throw new RuntimeException(sprintf('Nelze odstranit nově vytvořenou stránku ID %d.', $postId));
+        }
+    }
+
+    public function setLanguage(int $postId, ?string $language): void
+    {
+        if (null === $language) {
+            $result = wp_set_object_terms($postId, [], 'language');
+            if (is_wp_error($result)) {
+                throw new RuntimeException($result->get_error_message());
+            }
+
+            return;
+        }
+
         if (!function_exists('pll_set_post_language')) {
             throw new RuntimeException('Polylang API není dostupné.');
         }
@@ -85,6 +101,27 @@ final class WordPressPageStore implements PageStore
         $language = pll_get_post_language($postId, 'slug');
 
         return is_string($language) && '' !== $language ? $language : null;
+    }
+
+    public function translations(int $postId): array
+    {
+        if (!function_exists('pll_get_post_translations')) {
+            return [];
+        }
+
+        $translations = pll_get_post_translations($postId);
+        if (!is_array($translations)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($translations as $language => $translationId) {
+            if (is_string($language) && is_numeric($translationId)) {
+                $normalized[$language] = (int) $translationId;
+            }
+        }
+
+        return $normalized;
     }
 
     public function setTranslations(array $translations): void

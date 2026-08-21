@@ -155,12 +155,20 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
             return ['replace' => $desired[0], 'remove' => $legacy];
         }
 
+        if (!$this->isDedicatedLegacyContactGroup($blocks[$legacy[0]])) {
+            throw new RuntimeException('Původní kontaktní skupina obsahuje nesouvisející obsah a nelze ji bezpečně odstranit.');
+        }
+
         return ['replace' => $legacy[0], 'remove' => []];
     }
 
     /** @param array<string, mixed> $block */
     private function isDedicatedLegacyContactGroup(array $block): bool
     {
+        if ($this->isLegacyAccreditationBlock($block)) {
+            return true;
+        }
+
         if ($this->containsRawText($block)) {
             return false;
         }
@@ -232,6 +240,41 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
                 && 'core/column' === ($innerBlock['blockName'] ?? null)
         ));
         if (3 !== count($columns)) {
+            return false;
+        }
+
+        $contentChildren = static fn (array $column): array => array_values(array_filter(
+            $column['innerBlocks'] ?? [],
+            static fn (mixed $child): bool => is_array($child)
+                && 'core/spacer' !== ($child['blockName'] ?? null)
+        ));
+        $firstChildren = $contentChildren($columns[0]);
+        $firstNames = array_map(
+            static fn (array $child): string => (string) ($child['blockName'] ?? ''),
+            $firstChildren
+        );
+        $emptyColumnNames = static fn (array $column): array => array_map(
+            static fn (array $child): string => (string) ($child['blockName'] ?? ''),
+            $contentChildren($column)
+        );
+        if (['core/heading', 'core/buttons'] !== $firstNames
+            || ['core/heading'] !== $emptyColumnNames($columns[1])
+            || ['core/heading'] !== $emptyColumnNames($columns[2])
+            || $this->containsRawText($columns[0])
+            || $this->containsRawText($columns[1])
+            || $this->containsRawText($columns[2])) {
+            return false;
+        }
+
+        $buttons = $firstChildren[1];
+        $buttonNames = array_map(
+            static fn (array $child): string => (string) ($child['blockName'] ?? ''),
+            array_values(array_filter($buttons['innerBlocks'] ?? [], 'is_array'))
+        );
+        if (!in_array($buttonNames, [
+            ['core/button'],
+            ['core/button', 'acf/contact-person'],
+        ], true) || $this->containsRawText($buttons)) {
             return false;
         }
 

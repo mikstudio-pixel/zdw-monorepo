@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ZDW\ReleaseManager\Migrations;
 
 use RuntimeException;
+use ZDW\ReleaseManager\Application\AtomicPostContentUpdater;
 use ZDW\ReleaseManager\Contracts\Migration;
 use ZDW\ReleaseManager\Contracts\PostStore;
 use ZDW\ReleaseManager\Domain\PreflightCheck;
@@ -55,12 +56,17 @@ final class DesiredPostContentMigration implements Migration
             throw new RuntimeException('Nelze bezpečně určit cílové stránky migrace.');
         }
 
+        $updates = [];
+        $originals = [];
         foreach ($this->desiredPosts as $postId => $desired) {
             $post = $this->store->find($postId);
             if (null !== $post && $post->content() !== $desired['content']) {
-                $this->store->updateContent($postId, $desired['content']);
+                $updates[$postId] = $desired['content'];
+                $originals[$postId] = $post->content();
             }
         }
+
+        (new AtomicPostContentUpdater($this->store))->apply($updates, $originals, 'Obnovení obsahu stránky');
     }
 
     public function verify(): array

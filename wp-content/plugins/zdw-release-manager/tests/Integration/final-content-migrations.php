@@ -164,6 +164,22 @@ BLOCKS;
             throw $error;
         }
     }
+
+    $rawLegacyGroup = <<<'BLOCKS'
+<!-- wp:group --><div class="wp-block-group">Retained raw Canteen note
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Co ti letos naservírujeme na zlínském zámku?</h3><!-- /wp:heading -->
+<!-- wp:columns --><div class="wp-block-columns"></div><!-- /wp:columns -->
+<!-- wp:columns --><div class="wp-block-columns"></div><!-- /wp:columns -->
+</div><!-- /wp:group -->
+BLOCKS;
+    try {
+        (new WordPressDesignCanteenCleanupTransformer())->desiredPageContent($rawLegacyGroup);
+        throw new RuntimeException('Czech Design Canteen cleanup accepted raw content in a legacy group.');
+    } catch (RuntimeException $error) {
+        if (!str_contains($error->getMessage(), 'jiný obsah')) {
+            throw $error;
+        }
+    }
 } finally {
     foreach ([193 => $hero->post_content, 12142 => $canteen->post_content] as $restoreId => $restoreContent) {
         $restored = wp_update_post(['ID' => $restoreId, 'post_content' => wp_slash($restoreContent)], true);

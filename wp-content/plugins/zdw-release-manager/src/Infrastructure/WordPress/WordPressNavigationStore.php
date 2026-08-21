@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ZDW\ReleaseManager\Infrastructure\WordPress;
 
 use RuntimeException;
+use Throwable;
 use WP_Post;
 use ZDW\ReleaseManager\Contracts\NavigationStore;
 
@@ -17,7 +18,16 @@ final class WordPressNavigationStore implements NavigationStore
             && function_exists('zdw_two_tier_menu_blueprints_resolvable')
             && function_exists('zdw_two_tier_menu_menu_matches_blueprint')
             && function_exists('zdw_two_tier_menu_enable_completed_install')
-            && function_exists('zdw_two_tier_menu_install_menus');
+            && function_exists('zdw_two_tier_menu_install_menus')
+            && function_exists('zdw_two_tier_menu_install_menus_unlocked')
+            && function_exists('zdw_two_tier_menu_snapshot_items')
+            && function_exists('zdw_two_tier_menu_restore_items')
+            && function_exists('zdw_two_tier_menu_acquire_install_lock')
+            && function_exists('zdw_two_tier_menu_release_install_lock')
+            && function_exists('zdw_two_tier_menu_acquire_state_lock')
+            && function_exists('zdw_two_tier_menu_release_state_lock')
+            && function_exists('zdw_two_tier_menu_record_install_failure_unlocked')
+            && defined('ZDW_TWO_TIER_MENU_DB_VERSION');
     }
 
     public function blueprintsResolvable(): bool
@@ -49,6 +59,52 @@ final class WordPressNavigationStore implements NavigationStore
         }
 
         return true;
+    }
+
+    public function applyDesiredNavigation(array $sponsorPageIds): void
+    {
+        if (!$this->isAvailable()) {
+            throw new RuntimeException('API pluginu ZDW Multi-level Header není dostupné.');
+        }
+
+        $installLock = zdw_two_tier_menu_acquire_install_lock();
+        if (!is_string($installLock)) {
+            throw new RuntimeException('Instalaci menu právě provádí jiný požadavek; zkuste migraci znovu.');
+        }
+        $stateLock = zdw_two_tier_menu_acquire_state_lock(true);
+        if (!is_string($stateLock)) {
+            zdw_two_tier_menu_release_install_lock($installLock);
+            throw new RuntimeException('Navigaci právě upravuje jiný požadavek; zkuste migraci znovu.');
+        }
+
+        $snapshot = null;
+        try {
+            $snapshot = $this->navigationSnapshot();
+            if (!zdw_two_tier_menu_install_menus_unlocked(true, true)) {
+                throw new RuntimeException('Cíle víceúrovňové navigace nelze bezpečně sestavit.');
+            }
+            $this->ensureLegacySponsorItem($sponsorPageIds);
+            update_option('zdw_two_tier_menu_enabled', '1');
+            delete_option('zdw_two_tier_menu_enable_after_install');
+            update_option('zdw_two_tier_menu_db_version', ZDW_TWO_TIER_MENU_DB_VERSION);
+            if ('1' !== (string) get_option('zdw_two_tier_menu_enabled', '0')) {
+                throw new RuntimeException('Víceúrovňovou navigaci se nepodařilo bezpečně zapnout.');
+            }
+        } catch (Throwable $error) {
+            if (null !== $snapshot && !$this->restoreNavigationSnapshot($snapshot)) {
+                zdw_two_tier_menu_record_install_failure_unlocked();
+                throw new RuntimeException(
+                    sprintf('%s Obnova původní navigace selhala; hlavička zůstala bezpečně v legacy režimu.', $error->getMessage()),
+                    0,
+                    $error
+                );
+            }
+
+            throw $error;
+        } finally {
+            zdw_two_tier_menu_release_state_lock($stateLock);
+            zdw_two_tier_menu_release_install_lock($installLock);
+        }
     }
 
     public function rebuildTwoTierMenus(): void
@@ -241,6 +297,81 @@ final class WordPressNavigationStore implements NavigationStore
         $page = get_page_by_path($slug, OBJECT, 'page');
 
         return $page instanceof WP_Post ? (int) $page->ID : 0;
+    }
+
+    /** @return array{menus: array<string, array{id: ?int, items: array<int, array<string, mixed>>}>, options: array<string, array{exists: bool, value: mixed}>} */
+    private function navigationSnapshot(): array
+    {
+        $names = [];
+        foreach (zdw_two_tier_menu_names() as $languages) {
+            foreach ($languages as $name) {
+                $names[] = (string) $name;
+            }
+        }
+        foreach ($this->legacyMenus() as $definition) {
+            $names[] = $definition['menu'];
+        }
+
+        $menus = [];
+        foreach (array_unique($names) as $name) {
+            $menu = wp_get_nav_menu_object($name);
+            $menuId = $menu ? (int) $menu->term_id : null;
+            $menus[$name] = [
+                'id' => $menuId,
+                'items' => null === $menuId ? [] : zdw_two_tier_menu_snapshot_items($menuId),
+            ];
+        }
+
+        $missing = new \stdClass();
+        $options = [];
+        foreach ([
+            'zdw_two_tier_menu_enabled',
+            'zdw_two_tier_menu_enable_after_install',
+            'zdw_two_tier_menu_db_version',
+        ] as $option) {
+            $value = get_option($option, $missing);
+            $options[$option] = ['exists' => $missing !== $value, 'value' => $value];
+        }
+
+        return ['menus' => $menus, 'options' => $options];
+    }
+
+    /** @param array{menus: array<string, array{id: ?int, items: array<int, array<string, mixed>>}>, options: array<string, array{exists: bool, value: mixed}>} $snapshot */
+    private function restoreNavigationSnapshot(array $snapshot): bool
+    {
+        $success = true;
+        foreach ($snapshot['menus'] as $name => $menuSnapshot) {
+            $current = wp_get_nav_menu_object($name);
+            if (null === $menuSnapshot['id']) {
+                if ($current) {
+                    $deleted = wp_delete_nav_menu((int) $current->term_id);
+                    $success = !is_wp_error($deleted) && (bool) $deleted && $success;
+                }
+                continue;
+            }
+
+            if (!$current || (int) $current->term_id !== $menuSnapshot['id']) {
+                $success = false;
+                continue;
+            }
+            $success = zdw_two_tier_menu_restore_items($menuSnapshot['id'], $menuSnapshot['items']) && $success;
+        }
+
+        if (!$success) {
+            return false;
+        }
+        foreach ($snapshot['options'] as $option => $optionSnapshot) {
+            if ($optionSnapshot['exists']) {
+                update_option($option, $optionSnapshot['value']);
+                $success = $optionSnapshot['value'] === get_option($option, null) && $success;
+            } else {
+                delete_option($option);
+                $missing = new \stdClass();
+                $success = $missing === get_option($option, $missing) && $success;
+            }
+        }
+
+        return $success;
     }
 
     /** @return list<array{language: string, menu: string, parentSlug: string, title: string}> */

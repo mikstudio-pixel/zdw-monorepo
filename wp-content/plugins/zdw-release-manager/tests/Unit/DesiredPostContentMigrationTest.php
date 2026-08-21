@@ -58,6 +58,25 @@ final class DesiredPostContentMigrationTest extends TestCase
         }
     }
 
+    public function test_apply_rolls_back_an_earlier_page_when_a_later_write_fails(): void
+    {
+        $store = new InMemoryPostStore([
+            new PostRecord(17, 'kontakty', 'old-czech'),
+            new PostRecord(179, 'contacts', 'old-english'),
+        ]);
+        $store->throwOnUpdateId = 179;
+        $migration = $this->migration($store);
+
+        try {
+            $migration->apply();
+            self::fail('Later primary-contact write failure should abort the migration.');
+        } catch (RuntimeException) {
+            self::assertSame('old-czech', $store->find(17)?->content());
+            self::assertSame('old-english', $store->find(179)?->content());
+            self::assertSame([17, 17], $store->writes);
+        }
+    }
+
     private function migration(InMemoryPostStore $store): DesiredPostContentMigration
     {
         return new DesiredPostContentMigration(

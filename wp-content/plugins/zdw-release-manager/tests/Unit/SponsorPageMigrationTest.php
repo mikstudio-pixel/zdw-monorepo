@@ -98,4 +98,53 @@ final class SponsorPageMigrationTest extends TestCase
         self::assertSame('sponsors.language_conflict', $checks[0]->code());
         self::assertSame([], $store->writes);
     }
+
+    public function test_later_language_failure_restores_existing_pages_and_removes_created_page(): void
+    {
+        $store = new InMemoryPageStore(
+            [new PostRecord(42, 'sponzori', 'original')],
+            [10 => 'one.svg'],
+            [],
+            [42 => 'cs']
+        );
+        $store->throwOnLanguageAttempts = [43 => [1]];
+        $migration = new SponsorPageMigration($store, [10 => 'one.svg'], 'desired');
+
+        try {
+            $migration->apply();
+            self::fail('A later language failure should abort the migration.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('ID 43', $error->getMessage());
+            self::assertSame('original', $store->find(42)?->content());
+            self::assertSame('cs', $store->language(42));
+            self::assertSame([], $store->findPageIdsBySlug('partners'));
+            self::assertSame([43], $store->deleted);
+            self::assertSame([], $store->translationGroup());
+        }
+    }
+
+    public function test_translation_failure_restores_content_and_original_translation_groups(): void
+    {
+        $store = new InMemoryPageStore(
+            [
+                new PostRecord(42, 'sponzori', 'original-cs'),
+                new PostRecord(43, 'partners', 'original-en'),
+            ],
+            [10 => 'one.svg'],
+            [],
+            [42 => 'cs', 43 => 'en'],
+            ['cs' => 42]
+        );
+        $store->throwOnTranslationAttempts = [1];
+        $migration = new SponsorPageMigration($store, [10 => 'one.svg'], 'desired');
+
+        try {
+            $migration->apply();
+            self::fail('A translation write failure should abort the migration.');
+        } catch (\RuntimeException) {
+            self::assertSame('original-cs', $store->find(42)?->content());
+            self::assertSame('original-en', $store->find(43)?->content());
+            self::assertSame(['cs' => 42], $store->translationGroup());
+        }
+    }
 }

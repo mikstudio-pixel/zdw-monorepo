@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ZDW\ReleaseManager\Migrations;
 
 use RuntimeException;
+use Throwable;
 use ZDW\ReleaseManager\Contracts\Migration;
 use ZDW\ReleaseManager\Contracts\PageStore;
 use ZDW\ReleaseManager\Domain\PreflightCheck;
@@ -53,32 +54,55 @@ final class SponsorPageMigration implements Migration
         }
 
         $translations = [];
-        foreach (self::PAGES as $language => $definition) {
-            $pageIds = $this->store->findPageIdsBySlug($definition['slug']);
-            if ([] === $pageIds) {
-                $pageId = $this->store->createPage(
-                    $definition['title'],
-                    $definition['slug'],
-                    $this->desiredContent
+        $created = [];
+        $originals = [];
+
+        try {
+            foreach (self::PAGES as $language => $definition) {
+                $pageIds = $this->store->findPageIdsBySlug($definition['slug']);
+                if ([] === $pageIds) {
+                    $pageId = $this->store->createPage(
+                        $definition['title'],
+                        $definition['slug'],
+                        $this->desiredContent
+                    );
+                    $created[] = $pageId;
+                } else {
+                    $pageId = $pageIds[0];
+                    $page = $this->store->find($pageId);
+                    if (null === $page) {
+                        throw new RuntimeException(sprintf('Stránku %s se nepodařilo načíst.', $definition['title']));
+                    }
+                    $originals[$pageId] = [
+                        'content' => $page->content(),
+                        'language' => $this->store->language($pageId),
+                        'translations' => $this->store->translations($pageId),
+                        'targetLanguage' => $language,
+                    ];
+                    if ($page->content() !== $this->desiredContent) {
+                        $this->store->updateContent($pageId, $this->desiredContent);
+                    }
+                }
+
+                if ($language !== $this->store->language($pageId)) {
+                    $this->store->setLanguage($pageId, $language);
+                }
+                $translations[$language] = $pageId;
+            }
+
+            $this->store->setTranslations($translations);
+        } catch (Throwable $error) {
+            $rollbackFailure = $this->rollback($created, $originals);
+            if (null !== $rollbackFailure) {
+                throw new RuntimeException(
+                    sprintf('%s Obnova stránek selhala: %s', $error->getMessage(), $rollbackFailure->getMessage()),
+                    0,
+                    $error
                 );
-            } else {
-                $pageId = $pageIds[0];
-                $page = $this->store->find($pageId);
-                if (null === $page) {
-                    throw new RuntimeException(sprintf('Stránku %s se nepodařilo načíst.', $definition['title']));
-                }
-                if ($page->content() !== $this->desiredContent) {
-                    $this->store->updateContent($pageId, $this->desiredContent);
-                }
             }
 
-            if ($language !== $this->store->language($pageId)) {
-                $this->store->setLanguage($pageId, $language);
-            }
-            $translations[$language] = $pageId;
+            throw $error;
         }
-
-        $this->store->setTranslations($translations);
     }
 
     public function verify(): array
@@ -169,5 +193,65 @@ final class SponsorPageMigration implements Migration
         }
 
         return true;
+    }
+
+    /** @param list<int> $created
+     *  @param array<int, array{content: string, language: ?string, translations: array<string, int>, targetLanguage: string}> $originals
+     */
+    private function rollback(array $created, array $originals): ?Throwable
+    {
+        $failure = null;
+
+        foreach (array_reverse($created) as $pageId) {
+            try {
+                $this->store->deletePage($pageId);
+            } catch (Throwable $error) {
+                $failure ??= $error;
+            }
+        }
+
+        foreach ($originals as $pageId => $original) {
+            try {
+                $page = $this->store->find($pageId);
+                if (null === $page) {
+                    throw new RuntimeException(sprintf('Stránku ID %d nelze při obnově načíst.', $pageId));
+                }
+                if ($page->content() === $this->desiredContent
+                    && $page->content() !== $original['content']) {
+                    $this->store->updateContent($pageId, $original['content']);
+                } elseif (!in_array($page->content(), [$this->desiredContent, $original['content']], true)) {
+                    throw new RuntimeException(sprintf('Stránka ID %d byla během obnovy mezitím upravena.', $pageId));
+                }
+
+                $currentLanguage = $this->store->language($pageId);
+                if ($currentLanguage === $original['targetLanguage']
+                    && $currentLanguage !== $original['language']) {
+                    $this->store->setLanguage($pageId, $original['language']);
+                } elseif (!in_array($currentLanguage, [$original['targetLanguage'], $original['language']], true)) {
+                    throw new RuntimeException(sprintf('Jazyk stránky ID %d byl během obnovy mezitím upraven.', $pageId));
+                }
+            } catch (Throwable $error) {
+                $failure ??= $error;
+            }
+        }
+
+        $translationGroups = [];
+        foreach ($originals as $original) {
+            if ([] === $original['translations']) {
+                continue;
+            }
+            $group = $original['translations'];
+            ksort($group);
+            $translationGroups[serialize($group)] = $group;
+        }
+        foreach ($translationGroups as $group) {
+            try {
+                $this->store->setTranslations($group);
+            } catch (Throwable $error) {
+                $failure ??= $error;
+            }
+        }
+
+        return $failure;
     }
 }

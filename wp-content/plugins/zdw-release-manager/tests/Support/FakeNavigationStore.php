@@ -16,6 +16,7 @@ final class FakeNavigationStore implements NavigationStore
     /** @var array<string, int> */
     public array $legacySponsorPageIds = [];
     public bool $enabled = false;
+    public bool $throwDuringAtomicAfterLegacy = false;
 
     public function isAvailable(): bool
     {
@@ -30,6 +31,27 @@ final class FakeNavigationStore implements NavigationStore
     public function legacyParentsResolvable(): bool
     {
         return $this->legacyParentsResolvable;
+    }
+
+    public function applyDesiredNavigation(array $sponsorPageIds): void
+    {
+        $originalLegacySponsorPageIds = $this->legacySponsorPageIds;
+        $originalEnabled = $this->enabled;
+        $originalMatching = $this->matching;
+
+        try {
+            $this->rebuildTwoTierMenus();
+            $this->ensureLegacySponsorItem($sponsorPageIds);
+            if ($this->throwDuringAtomicAfterLegacy) {
+                throw new \RuntimeException('Navigation activation failed.');
+            }
+            $this->enableTwoTierNavigation();
+        } catch (\Throwable $error) {
+            $this->legacySponsorPageIds = $originalLegacySponsorPageIds;
+            $this->enabled = $originalEnabled;
+            $this->matching = $originalMatching;
+            throw $error;
+        }
     }
 
     public function rebuildTwoTierMenus(): void

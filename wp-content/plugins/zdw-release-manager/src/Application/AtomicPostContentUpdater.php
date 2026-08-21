@@ -36,10 +36,18 @@ final class AtomicPostContentUpdater
             foreach (array_reverse($attemptedPostIds) as $postId) {
                 try {
                     $current = $this->posts->find($postId);
-                } catch (Throwable) {
-                    $current = null;
+                } catch (Throwable $readError) {
+                    $rollbackFailure ??= [$postId, $readError];
+                    continue;
                 }
                 if ($current instanceof PostRecord && $originals[$postId] === $current->content()) {
+                    continue;
+                }
+                if ($current instanceof PostRecord && $updates[$postId] !== $current->content()) {
+                    $rollbackFailure ??= [
+                        $postId,
+                        new RuntimeException('Obsah stránky mezitím změnil jiný požadavek.'),
+                    ];
                     continue;
                 }
 

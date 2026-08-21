@@ -56,9 +56,7 @@ final class NavigationMigration implements Migration
             return;
         }
 
-        $this->navigation->rebuildTwoTierMenus();
-        $this->navigation->ensureLegacySponsorItem($sponsorPageIds);
-        $this->navigation->enableTwoTierNavigation();
+        $this->navigation->applyDesiredNavigation($sponsorPageIds);
     }
 
     public function verify(): array

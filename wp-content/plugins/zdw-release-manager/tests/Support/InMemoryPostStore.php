@@ -25,6 +25,9 @@ final class InMemoryPostStore implements PostStore
     /** @var array<int, list<int>> */
     public array $throwOnFindAttempts = [];
 
+    /** @var array<int, array<int, string>> */
+    public array $replaceContentOnFindAttempts = [];
+
     /** @var array<int, int> */
     private array $updateAttempts = [];
 
@@ -46,6 +49,14 @@ final class InMemoryPostStore implements PostStore
         $this->findAttempts[$postId] = $attempt;
         if (in_array($attempt, $this->throwOnFindAttempts[$postId] ?? [], true)) {
             throw new RuntimeException(sprintf('Post ID %d lookup failed.', $postId));
+        }
+        if (isset($this->replaceContentOnFindAttempts[$postId][$attempt], $this->posts[$postId])) {
+            $post = $this->posts[$postId];
+            $this->posts[$postId] = new PostRecord(
+                $post->id(),
+                $post->slug(),
+                $this->replaceContentOnFindAttempts[$postId][$attempt]
+            );
         }
 
         return $this->posts[$postId] ?? null;

@@ -12,6 +12,9 @@ interface NavigationStore
 
     public function legacyParentsResolvable(): bool;
 
+    /** @param array<string, int> $sponsorPageIds */
+    public function applyDesiredNavigation(array $sponsorPageIds): void;
+
     public function rebuildTwoTierMenus(): void;
 
     /** @param array<string, int> $sponsorPageIds */

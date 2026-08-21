@@ -141,7 +141,8 @@ final class HomepageIntroMigrationTest extends TestCase
         try {
             $migration->apply();
             self::fail('A post-save hook failure should abort the migration.');
-        } catch (\RuntimeException) {
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('ID 93', $error->getMessage());
             self::assertSame('homepage-cs', $posts->find(2)?->content());
             self::assertSame('homepage-en', $posts->find(93)?->content());
             self::assertSame([2, 93, 93, 2], $posts->writes);
@@ -200,8 +201,37 @@ final class HomepageIntroMigrationTest extends TestCase
             self::fail('A post-save hook failure should abort the migration.');
         } catch (\RuntimeException) {
             self::assertSame('homepage-cs', $posts->find(2)?->content());
-            self::assertSame('homepage-en', $posts->find(93)?->content());
-            self::assertSame([2, 93, 93, 2], $posts->writes);
+            self::assertSame('homepage-en|intro:99:35610', $posts->find(93)?->content());
+            self::assertSame([2, 93, 2], $posts->writes);
+        }
+    }
+
+    public function test_apply_preserves_a_concurrent_edit_during_rollback(): void
+    {
+        $posts = new InMemoryPostStore([
+            new PostRecord(2, 'zdw', 'homepage-cs'),
+            new PostRecord(93, 'zdw-en', 'homepage-en'),
+        ]);
+        $posts->throwAfterUpdateId = 93;
+        $posts->replaceContentOnFindAttempts = [93 => [2 => 'editor-change']];
+        $migration = new HomepageIntroMigration(
+            $posts,
+            new FakeMediaStore(
+                [new MediaAsset(99, 'zdw-bg-trimmed-30-muted.mp4')],
+                new MediaAsset(35610, '16-zdw-tag-jiri-edit-1-2.jpg')
+            ),
+            new FakeIntroContentTransformer(),
+            [2 => 'zdw', 93 => 'zdw-en']
+        );
+
+        try {
+            $migration->apply();
+            self::fail('A concurrent rollback edit should be reported.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('ID 93', $error->getMessage());
+            self::assertSame('homepage-cs', $posts->find(2)?->content());
+            self::assertSame('editor-change', $posts->find(93)?->content());
+            self::assertSame([2, 93, 2], $posts->writes);
         }
     }
 

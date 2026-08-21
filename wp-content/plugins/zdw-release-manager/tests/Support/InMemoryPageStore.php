@@ -29,16 +29,32 @@ final class InMemoryPageStore implements PageStore
 
     public ?int $languagePostId = null;
 
+    /** @var array<int, list<int>> */
+    public array $throwOnLanguageAttempts = [];
+
+    /** @var array<int, int> */
+    private array $languageAttempts = [];
+
+    /** @var list<int> */
+    public array $deleted = [];
+
+    /** @var list<int> */
+    public array $throwOnTranslationAttempts = [];
+
+    private int $translationAttempts = 0;
+
     /** @param list<PostRecord> $pages
      *  @param array<int, string> $attachments
      *  @param array<string, list<int>> $unpublishedSlugOwners
      *  @param array<int, string> $languages
+     *  @param array<string, int> $translations
      */
     public function __construct(
         array $pages = [],
         array $attachments = [],
         array $unpublishedSlugOwners = [],
-        array $languages = []
+        array $languages = [],
+        array $translations = []
     )
     {
         foreach ($pages as $page) {
@@ -49,6 +65,7 @@ final class InMemoryPageStore implements PageStore
         }
         $this->unpublishedSlugOwners = $unpublishedSlugOwners;
         $this->languages = $languages;
+        $this->translations = $translations;
     }
 
     public function find(int $postId): ?PostRecord
@@ -82,10 +99,25 @@ final class InMemoryPageStore implements PageStore
         return $id;
     }
 
-    public function setLanguage(int $postId, string $language): void
+    public function deletePage(int $postId): void
     {
+        unset($this->pages[$postId], $this->languages[$postId]);
+        $this->deleted[] = $postId;
+    }
+
+    public function setLanguage(int $postId, ?string $language): void
+    {
+        $attempt = ($this->languageAttempts[$postId] ?? 0) + 1;
+        $this->languageAttempts[$postId] = $attempt;
         $this->languagePostId = $postId;
-        $this->languages[$postId] = $language;
+        if (null === $language) {
+            unset($this->languages[$postId]);
+        } else {
+            $this->languages[$postId] = $language;
+        }
+        if (in_array($attempt, $this->throwOnLanguageAttempts[$postId] ?? [], true)) {
+            throw new \RuntimeException(sprintf('Language write failed for ID %d.', $postId));
+        }
     }
 
     public function language(int $postId): ?string
@@ -93,9 +125,18 @@ final class InMemoryPageStore implements PageStore
         return $this->languages[$postId] ?? null;
     }
 
+    public function translations(int $postId): array
+    {
+        return in_array($postId, $this->translations, true) ? $this->translations : [];
+    }
+
     public function setTranslations(array $translations): void
     {
+        ++$this->translationAttempts;
         $this->translations = $translations;
+        if (in_array($this->translationAttempts, $this->throwOnTranslationAttempts, true)) {
+            throw new \RuntimeException('Translation write failed.');
+        }
     }
 
     /** @return array<string, int> */

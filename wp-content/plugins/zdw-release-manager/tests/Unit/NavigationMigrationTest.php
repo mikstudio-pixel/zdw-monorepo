@@ -89,4 +89,24 @@ final class NavigationMigrationTest extends TestCase
             self::assertSame(0, $navigation->rebuilds);
         }
     }
+
+    public function test_later_navigation_failure_restores_the_previous_visible_state(): void
+    {
+        $pages = new InMemoryPageStore([
+            new PostRecord(42, 'sponzori', 'content'),
+            new PostRecord(43, 'partners', 'content'),
+        ]);
+        $navigation = new FakeNavigationStore();
+        $navigation->throwDuringAtomicAfterLegacy = true;
+        $migration = new NavigationMigration($pages, $navigation);
+
+        try {
+            $migration->apply();
+            self::fail('A later navigation failure should abort the migration.');
+        } catch (\RuntimeException) {
+            self::assertSame([], $navigation->legacySponsorPageIds);
+            self::assertFalse($navigation->enabled);
+            self::assertFalse($navigation->matching);
+        }
+    }
 }
