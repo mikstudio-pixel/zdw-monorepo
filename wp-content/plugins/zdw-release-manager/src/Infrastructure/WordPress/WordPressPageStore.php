@@ -12,6 +12,11 @@ use ZDW\ReleaseManager\Domain\PostRecord;
 
 final class WordPressPageStore implements PageStore
 {
+    /** Set $callerOwnsTransaction only when every conditional Polylang write runs inside a caller transaction. */
+    public function __construct(private readonly bool $callerOwnsTransaction = false)
+    {
+    }
+
     public function find(int $postId): ?PostRecord
     {
         $post = get_post($postId);
@@ -245,7 +250,7 @@ final class WordPressPageStore implements PageStore
         }
 
         global $wpdb;
-        $ownsTransaction = 1 !== (int) $wpdb->get_var('SELECT @@in_transaction');
+        $ownsTransaction = !$this->callerOwnsTransaction;
         static $savepointSequence = 0;
         $savepoint = sprintf('zdw_polylang_%d', ++$savepointSequence);
         if ($ownsTransaction) {
@@ -259,20 +264,36 @@ final class WordPressPageStore implements PageStore
         try {
             $placeholders = implode(', ', array_fill(0, count($postIds), '%d'));
             $relationshipLocks = $wpdb->get_results($wpdb->prepare(
-                "SELECT object_id, term_taxonomy_id
-                FROM {$wpdb->term_relationships}
-                WHERE object_id IN ({$placeholders})
-                ORDER BY object_id, term_taxonomy_id
+                "SELECT relationships.object_id, relationships.term_taxonomy_id
+                FROM {$wpdb->term_relationships} AS relationships
+                INNER JOIN {$wpdb->term_taxonomy} AS taxonomy
+                    ON taxonomy.term_taxonomy_id = relationships.term_taxonomy_id
+                WHERE relationships.object_id IN ({$placeholders})
+                    AND taxonomy.taxonomy IN ('language', 'post_translations')
+                ORDER BY relationships.object_id, relationships.term_taxonomy_id
                 FOR UPDATE",
                 ...$postIds
             ));
-            $taxonomyLocks = $wpdb->get_results(
+            $termTaxonomyIds = array_values(array_unique(array_filter(array_map(
+                static fn (object $relationship): int => isset($relationship->term_taxonomy_id)
+                    ? (int) $relationship->term_taxonomy_id
+                    : 0,
+                $relationshipLocks
+            ))));
+            $taxonomyPredicate = "taxonomy = 'language'";
+            if ([] !== $termTaxonomyIds) {
+                $taxonomyPlaceholders = implode(', ', array_fill(0, count($termTaxonomyIds), '%d'));
+                $taxonomyPredicate .= " OR term_taxonomy_id IN ({$taxonomyPlaceholders})";
+            }
+            $taxonomyQuery =
                 "SELECT term_taxonomy_id, term_id, taxonomy
                 FROM {$wpdb->term_taxonomy}
-                WHERE taxonomy IN ('language', 'post_translations')
+                WHERE {$taxonomyPredicate}
                 ORDER BY term_taxonomy_id
-                FOR UPDATE"
-            );
+                FOR UPDATE";
+            $taxonomyLocks = $wpdb->get_results([] === $termTaxonomyIds
+                ? $taxonomyQuery
+                : $wpdb->prepare($taxonomyQuery, ...$termTaxonomyIds));
             if (!is_array($relationshipLocks) || !is_array($taxonomyLocks)) {
                 throw new RuntimeException('Nelze uzamknout Polylang vazby pro podmíněný zápis.');
             }

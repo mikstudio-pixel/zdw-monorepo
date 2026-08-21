@@ -293,6 +293,7 @@ final class SponsorPageMigrationTest extends TestCase
             (new SponsorPageMigration($store, [10 => 'one.svg'], 'desired'))->apply();
             self::fail('A concurrent translation change should abort the migration.');
         } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Propojení překladů', $error->getMessage());
             self::assertStringContainsString('Překladové vazby', $error->getMessage());
             self::assertSame(['cs' => 42, 'en' => 99], $store->translations(42));
             self::assertSame('original-cs', $store->find(42)?->content());
@@ -312,13 +313,16 @@ final class SponsorPageMigrationTest extends TestCase
             [42 => 'cs', 43 => 'en'],
             ['cs' => 42, 'en' => 43]
         );
-        $store->replaceTranslationsBeforeReadAttempts = [3 => ['cs' => 42, 'en' => 99]];
+        $store->replaceTranslationsBeforeReadAttempts = [
+            42 => [3 => ['cs' => 42, 'en' => 99]],
+        ];
 
         try {
             (new SponsorPageMigration($store, [10 => 'one.svg'], 'desired'))->apply();
             self::fail('A concurrent translation change should abort the migration.');
         } catch (\RuntimeException $error) {
-            self::assertStringContainsString('mezitím', $error->getMessage());
+            self::assertStringContainsString('Propojení překladů', $error->getMessage());
+            self::assertStringContainsString('Překladové vazby', $error->getMessage());
             self::assertSame(['cs' => 42, 'en' => 99], $store->translations(42));
             self::assertSame('original-cs', $store->find(42)?->content());
             self::assertSame('original-en', $store->find(43)?->content());

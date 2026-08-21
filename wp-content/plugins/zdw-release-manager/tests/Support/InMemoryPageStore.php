@@ -75,10 +75,11 @@ final class InMemoryPageStore implements PageStore
     /** @var array<string, int>|null */
     public ?array $replaceTranslationsBeforeConditionalSet = null;
 
-    /** @var array<int, array<string, int>> */
+    /** @var array<int, array<int, array<string, int>>> */
     public array $replaceTranslationsBeforeReadAttempts = [];
 
-    private int $translationReadAttempts = 0;
+    /** @var array<int, int> */
+    private array $translationReadAttempts = [];
 
     /** @param list<PostRecord> $pages
      *  @param array<int, string> $attachments
@@ -228,10 +229,11 @@ final class InMemoryPageStore implements PageStore
 
     public function translations(int $postId): array
     {
-        ++$this->translationReadAttempts;
-        if (isset($this->replaceTranslationsBeforeReadAttempts[$this->translationReadAttempts])) {
+        $attempt = ($this->translationReadAttempts[$postId] ?? 0) + 1;
+        $this->translationReadAttempts[$postId] = $attempt;
+        if (isset($this->replaceTranslationsBeforeReadAttempts[$postId][$attempt])) {
             $this->replaceTranslationGroup(
-                $this->replaceTranslationsBeforeReadAttempts[$this->translationReadAttempts]
+                $this->replaceTranslationsBeforeReadAttempts[$postId][$attempt]
             );
         }
 

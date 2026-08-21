@@ -97,7 +97,7 @@ try {
                 throw new RuntimeException('A cached translation term hid a newer editor mapping.');
             }
         } finally {
-            $wpdb->update(
+            $restored = $wpdb->update(
                 $wpdb->term_taxonomy,
                 ['description' => $originalDescription],
                 ['term_taxonomy_id' => $termTaxonomyId],
@@ -106,6 +106,9 @@ try {
             );
             clean_term_cache([(int) $translationTerm->term_id], 'post_translations', false);
             clean_object_term_cache(array_values($desiredTranslations), 'post');
+            if (1 !== $restored) {
+                throw new RuntimeException('The translation term fixture could not be restored.');
+            }
         }
 
         $lockedWrite = new ReflectionMethod($pageStore, 'withPolylangWriteLock');
@@ -129,6 +132,56 @@ try {
         if (false !== $lockedResult
             || $originalExcerpt !== (string) get_post_field('post_excerpt', (int) $publishedPage, 'raw')) {
             throw new RuntimeException('A failed locked Polylang callback committed its partial database write.');
+        }
+
+        if (false === $wpdb->query('START TRANSACTION')) {
+            throw new RuntimeException('The nested transaction fixture could not start.');
+        }
+        try {
+            $wpdb->update(
+                $wpdb->posts,
+                ['post_excerpt' => 'outer-transaction-fixture'],
+                ['ID' => (int) $publishedPage],
+                ['%s'],
+                ['%d']
+            );
+            $transactionalPageStore = new WordPressPageStore(true);
+            $transactionalLockedWrite = new ReflectionMethod(
+                $transactionalPageStore,
+                'withPolylangWriteLock'
+            );
+            $nestedResult = $transactionalLockedWrite->invoke(
+                $transactionalPageStore,
+                [(int) $publishedPage],
+                static function () use ($wpdb, $publishedPage): bool {
+                    $wpdb->update(
+                        $wpdb->posts,
+                        ['post_excerpt' => 'nested-savepoint-fixture'],
+                        ['ID' => (int) $publishedPage],
+                        ['%s'],
+                        ['%d']
+                    );
+
+                    return false;
+                }
+            );
+            clean_post_cache((int) $publishedPage);
+            if (false !== $nestedResult
+                || 'outer-transaction-fixture' !== (string) get_post_field(
+                    'post_excerpt',
+                    (int) $publishedPage,
+                    'raw'
+                )) {
+                throw new RuntimeException('A nested locked write did not roll back to its savepoint.');
+            }
+        } finally {
+            if (false === $wpdb->query('ROLLBACK')) {
+                throw new RuntimeException('The nested transaction fixture could not be rolled back.');
+            }
+            clean_post_cache((int) $publishedPage);
+        }
+        if ($originalExcerpt !== (string) get_post_field('post_excerpt', (int) $publishedPage, 'raw')) {
+            throw new RuntimeException('The locked write committed its caller transaction.');
         }
     }
     $postUpdatedCalls = 0;
