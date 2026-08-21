@@ -18,6 +18,8 @@ interface PageStore extends PostStore
 
     public function setLanguage(int $postId, ?string $language): void;
 
+    public function setLanguageIfCurrent(int $postId, ?string $expectedLanguage, ?string $language): bool;
+
     public function language(int $postId): ?string;
 
     /** @return array<string, int> */
@@ -25,6 +27,11 @@ interface PageStore extends PostStore
 
     /** @param array<string, int> $translations */
     public function setTranslations(array $translations): void;
+
+    /** @param array<int, array<string, int>> $expectedByPost
+     *  @param array<string, int> $translations
+     */
+    public function setTranslationsIfCurrent(array $expectedByPost, array $translations): bool;
 
     public function attachmentExists(int $attachmentId): bool;
 

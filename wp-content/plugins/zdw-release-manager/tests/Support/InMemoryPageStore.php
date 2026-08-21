@@ -69,6 +69,12 @@ final class InMemoryPageStore implements PageStore
     /** @var array<int, array<string, int>> */
     public array $replaceTranslationsAfterTranslationAttempts = [];
 
+    /** @var array<int, ?string> */
+    public array $replaceLanguageBeforeConditionalSet = [];
+
+    /** @var array<string, int>|null */
+    public ?array $replaceTranslationsBeforeConditionalSet = null;
+
     /** @param list<PostRecord> $pages
      *  @param array<int, string> $attachments
      *  @param array<string, list<int>> $unpublishedSlugOwners
@@ -190,6 +196,26 @@ final class InMemoryPageStore implements PageStore
         }
     }
 
+    public function setLanguageIfCurrent(int $postId, ?string $expectedLanguage, ?string $language): bool
+    {
+        if (array_key_exists($postId, $this->replaceLanguageBeforeConditionalSet)) {
+            $replacement = $this->replaceLanguageBeforeConditionalSet[$postId];
+            if (null === $replacement) {
+                unset($this->languages[$postId]);
+            } else {
+                $this->languages[$postId] = $replacement;
+            }
+            unset($this->replaceLanguageBeforeConditionalSet[$postId]);
+        }
+        if ($this->language($postId) !== $expectedLanguage) {
+            return false;
+        }
+
+        $this->setLanguage($postId, $language);
+
+        return $this->language($postId) === $language;
+    }
+
     public function language(int $postId): ?string
     {
         return $this->languages[$postId] ?? null;
@@ -246,6 +272,35 @@ final class InMemoryPageStore implements PageStore
         }
     }
 
+    public function setTranslationsIfCurrent(array $expectedByPost, array $translations): bool
+    {
+        if (null !== $this->replaceTranslationsBeforeConditionalSet) {
+            $this->replaceTranslationGroup($this->replaceTranslationsBeforeConditionalSet);
+            $this->replaceTranslationsBeforeConditionalSet = null;
+        }
+        foreach ($expectedByPost as $postId => $expected) {
+            $current = $this->translations($postId);
+            ksort($current);
+            ksort($expected);
+            if ($current !== $expected) {
+                return false;
+            }
+        }
+
+        $this->setTranslations($translations);
+        $expectedResult = $translations;
+        ksort($expectedResult);
+        foreach ($translations as $postId) {
+            $current = $this->translations($postId);
+            ksort($current);
+            if ($current !== $expectedResult) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /** @return array<string, int> */
     public function translationGroup(): array
     {
@@ -276,6 +331,18 @@ final class InMemoryPageStore implements PageStore
         );
         foreach ($remaining as $translationId) {
             $this->translationGroupsByPost[$translationId] = $remaining;
+        }
+    }
+
+    /** @param array<string, int> $translations */
+    private function replaceTranslationGroup(array $translations): void
+    {
+        foreach (array_keys($this->translationGroupsByPost) as $postId) {
+            unset($this->translationGroupsByPost[$postId]);
+        }
+        $this->translations = $translations;
+        foreach ($translations as $postId) {
+            $this->translationGroupsByPost[$postId] = $translations;
         }
     }
 

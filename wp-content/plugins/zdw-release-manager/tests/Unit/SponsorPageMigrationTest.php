@@ -149,7 +149,6 @@ final class SponsorPageMigrationTest extends TestCase
             self::assertSame([
                 ['cs' => 42, 'en' => 43],
                 ['cs' => 42, 'en' => 99],
-                ['en' => 43],
             ], $store->translationWrites);
         }
     }
@@ -179,7 +178,6 @@ final class SponsorPageMigrationTest extends TestCase
             self::assertSame([
                 ['cs' => 42, 'en' => 43],
                 ['cs' => 42],
-                ['en' => 43],
             ], $store->translationWrites);
         }
     }
@@ -251,6 +249,53 @@ final class SponsorPageMigrationTest extends TestCase
         } catch (\RuntimeException $error) {
             self::assertStringContainsString('jiný požadavek', $error->getMessage());
             self::assertSame('editor-change', $store->find(42)?->content());
+            self::assertSame('original-en', $store->find(43)?->content());
+        }
+    }
+
+    public function test_concurrent_language_change_is_not_overwritten(): void
+    {
+        $store = new InMemoryPageStore(
+            [
+                new PostRecord(42, 'sponzori', 'original-cs'),
+                new PostRecord(43, 'partners', 'original-en'),
+            ],
+            [10 => 'one.svg'],
+            [],
+            [43 => 'en']
+        );
+        $store->replaceLanguageBeforeConditionalSet = [42 => 'de'];
+
+        try {
+            (new SponsorPageMigration($store, [10 => 'one.svg'], 'desired'))->apply();
+            self::fail('A concurrent language change should abort the migration.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Jazyk', $error->getMessage());
+            self::assertSame('de', $store->language(42));
+            self::assertSame('original-cs', $store->find(42)?->content());
+        }
+    }
+
+    public function test_concurrent_translation_change_is_not_overwritten(): void
+    {
+        $store = new InMemoryPageStore(
+            [
+                new PostRecord(42, 'sponzori', 'original-cs'),
+                new PostRecord(43, 'partners', 'original-en'),
+            ],
+            [10 => 'one.svg'],
+            [],
+            [42 => 'cs', 43 => 'en']
+        );
+        $store->replaceTranslationsBeforeConditionalSet = ['cs' => 42, 'en' => 99];
+
+        try {
+            (new SponsorPageMigration($store, [10 => 'one.svg'], 'desired'))->apply();
+            self::fail('A concurrent translation change should abort the migration.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Překladové vazby', $error->getMessage());
+            self::assertSame(['cs' => 42, 'en' => 99], $store->translations(42));
+            self::assertSame('original-cs', $store->find(42)?->content());
             self::assertSame('original-en', $store->find(43)?->content());
         }
     }

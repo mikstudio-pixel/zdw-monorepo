@@ -142,6 +142,17 @@ final class WordPressPageStore implements PageStore
         pll_set_post_language($postId, $language);
     }
 
+    public function setLanguageIfCurrent(int $postId, ?string $expectedLanguage, ?string $language): bool
+    {
+        if ($this->language($postId) !== $expectedLanguage) {
+            return false;
+        }
+
+        $this->setLanguage($postId, $language);
+
+        return $this->language($postId) === $language;
+    }
+
     public function language(int $postId): ?string
     {
         if (!function_exists('pll_get_post_language')) {
@@ -181,6 +192,31 @@ final class WordPressPageStore implements PageStore
         }
 
         pll_save_post_translations($translations);
+    }
+
+    public function setTranslationsIfCurrent(array $expectedByPost, array $translations): bool
+    {
+        foreach ($expectedByPost as $postId => $expected) {
+            $current = $this->translations($postId);
+            ksort($current);
+            ksort($expected);
+            if ($current !== $expected) {
+                return false;
+            }
+        }
+
+        $this->setTranslations($translations);
+        $expectedResult = $translations;
+        ksort($expectedResult);
+        foreach ($translations as $postId) {
+            $current = $this->translations($postId);
+            ksort($current);
+            if ($current !== $expectedResult) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function attachmentExists(int $attachmentId): bool
