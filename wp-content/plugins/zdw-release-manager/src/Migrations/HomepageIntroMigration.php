@@ -68,15 +68,35 @@ final class HomepageIntroMigration implements Migration
 
         [$posts, $video, $poster] = $this->targets($posts, $videos, $poster);
         $updates = [];
+        $originals = [];
         foreach ($posts as $post) {
             $desired = $this->transformer->desiredPageContent($post->content(), $video, $poster);
             if (!$this->transformer->equivalent($post->content(), $desired)) {
                 $updates[$post->id()] = $desired;
+                $originals[$post->id()] = $post->content();
             }
         }
 
-        foreach ($updates as $postId => $desired) {
-            $this->posts->updateContent($postId, $desired);
+        $updatedPostIds = [];
+        try {
+            foreach ($updates as $postId => $desired) {
+                $this->posts->updateContent($postId, $desired);
+                $updatedPostIds[] = $postId;
+            }
+        } catch (Throwable $error) {
+            foreach (array_reverse($updatedPostIds) as $postId) {
+                try {
+                    $this->posts->updateContent($postId, $originals[$postId]);
+                } catch (Throwable $rollbackError) {
+                    throw new RuntimeException(
+                        sprintf('Obnovení homepage ID %d po neúspěšné migraci selhalo: %s', $postId, $rollbackError->getMessage()),
+                        0,
+                        $error
+                    );
+                }
+            }
+
+            throw $error;
         }
     }
 

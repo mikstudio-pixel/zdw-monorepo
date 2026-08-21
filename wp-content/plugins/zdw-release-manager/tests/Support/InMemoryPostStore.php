@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ZDW\ReleaseManager\Tests\Support;
 
+use RuntimeException;
 use ZDW\ReleaseManager\Contracts\PostStore;
 use ZDW\ReleaseManager\Domain\PostRecord;
 
@@ -14,6 +15,8 @@ final class InMemoryPostStore implements PostStore
 
     /** @var list<int> */
     public array $writes = [];
+
+    public ?int $throwOnUpdateId = null;
 
     /** @param list<PostRecord> $posts */
     public function __construct(array $posts = [])
@@ -31,6 +34,10 @@ final class InMemoryPostStore implements PostStore
 
     public function updateContent(int $postId, string $content): void
     {
+        if ($postId === $this->throwOnUpdateId) {
+            throw new RuntimeException(sprintf('Post ID %d update failed.', $postId));
+        }
+
         $post = $this->posts[$postId];
         $this->posts[$postId] = new PostRecord($post->id(), $post->slug(), $content);
         $this->writes[] = $postId;
