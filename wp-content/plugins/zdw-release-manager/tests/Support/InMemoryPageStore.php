@@ -51,6 +51,9 @@ final class InMemoryPageStore implements PageStore
 
     public bool $ignoreTranslationWrites = false;
 
+    /** @var array<int, string> */
+    public array $replaceContentBeforeConditionalUpdate = [];
+
     /** @param list<PostRecord> $pages
      *  @param array<int, string> $attachments
      *  @param array<string, list<int>> $unpublishedSlugOwners
@@ -93,6 +96,15 @@ final class InMemoryPageStore implements PageStore
 
     public function updateContentIfCurrent(int $postId, string $expectedContent, string $content): bool
     {
+        if (isset($this->replaceContentBeforeConditionalUpdate[$postId])) {
+            $page = $this->pages[$postId];
+            $this->pages[$postId] = new PostRecord(
+                $postId,
+                $page->slug(),
+                $this->replaceContentBeforeConditionalUpdate[$postId]
+            );
+            unset($this->replaceContentBeforeConditionalUpdate[$postId]);
+        }
         if (($this->pages[$postId] ?? null)?->content() !== $expectedContent) {
             return false;
         }

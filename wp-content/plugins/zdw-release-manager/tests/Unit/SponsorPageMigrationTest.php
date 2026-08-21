@@ -231,6 +231,30 @@ final class SponsorPageMigrationTest extends TestCase
         }
     }
 
+    public function test_concurrent_editor_change_is_not_overwritten(): void
+    {
+        $store = new InMemoryPageStore(
+            [
+                new PostRecord(42, 'sponzori', 'original-cs'),
+                new PostRecord(43, 'partners', 'original-en'),
+            ],
+            [10 => 'one.svg'],
+            [],
+            [42 => 'cs', 43 => 'en']
+        );
+        $store->replaceContentBeforeConditionalUpdate = [42 => 'editor-change'];
+        $migration = new SponsorPageMigration($store, [10 => 'one.svg'], 'desired');
+
+        try {
+            $migration->apply();
+            self::fail('A concurrent editor change should abort the migration.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('jiný požadavek', $error->getMessage());
+            self::assertSame('editor-change', $store->find(42)?->content());
+            self::assertSame('original-en', $store->find(43)?->content());
+        }
+    }
+
     public function test_translation_failure_restores_a_page_without_a_language(): void
     {
         $store = new InMemoryPageStore(

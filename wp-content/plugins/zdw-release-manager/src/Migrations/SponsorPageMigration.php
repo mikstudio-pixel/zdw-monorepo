@@ -81,7 +81,16 @@ final class SponsorPageMigration implements Migration
                         'targetLanguage' => $language,
                     ];
                     if ($page->content() !== $this->desiredContent) {
-                        $this->store->updateContent($pageId, $this->desiredContent);
+                        if (!$this->store->updateContentIfCurrent(
+                            $pageId,
+                            $page->content(),
+                            $this->desiredContent
+                        )) {
+                            throw new RuntimeException(sprintf(
+                                'Obsah stránky ID %d mezitím změnil jiný požadavek.',
+                                $pageId
+                            ));
+                        }
                     }
                 }
 
@@ -258,7 +267,16 @@ final class SponsorPageMigration implements Migration
                 }
                 if ($page->content() === $this->desiredContent
                     && $page->content() !== $original['content']) {
-                    $this->store->updateContent($pageId, $original['content']);
+                    if (!$this->store->updateContentIfCurrent(
+                        $pageId,
+                        $this->desiredContent,
+                        $original['content']
+                    )) {
+                        throw new RuntimeException(sprintf(
+                            'Stránku ID %d nelze bezpečně obnovit po souběžné úpravě.',
+                            $pageId
+                        ));
+                    }
                 } elseif (!in_array($page->content(), [$this->desiredContent, $original['content']], true)) {
                     throw new RuntimeException(sprintf('Stránka ID %d byla během obnovy mezitím upravena.', $pageId));
                 }
