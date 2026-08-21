@@ -148,6 +148,35 @@ final class HomepageIntroMigrationTest extends TestCase
         }
     }
 
+    public function test_apply_continues_rolling_back_after_one_restore_fails(): void
+    {
+        $posts = new InMemoryPostStore([
+            new PostRecord(2, 'zdw', 'homepage-cs'),
+            new PostRecord(93, 'zdw-en', 'homepage-en'),
+        ]);
+        $posts->throwAfterUpdateId = 93;
+        $posts->throwOnUpdateAttempts = [93 => [2]];
+        $migration = new HomepageIntroMigration(
+            $posts,
+            new FakeMediaStore(
+                [new MediaAsset(99, 'zdw-bg-trimmed-30-muted.mp4')],
+                new MediaAsset(35610, '16-zdw-tag-jiri-edit-1-2.jpg')
+            ),
+            new FakeIntroContentTransformer(),
+            [2 => 'zdw', 93 => 'zdw-en']
+        );
+
+        try {
+            $migration->apply();
+            self::fail('A rollback failure should be reported after remaining restores are attempted.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('ID 93', $error->getMessage());
+            self::assertSame('homepage-cs', $posts->find(2)?->content());
+            self::assertSame('homepage-en|intro:99:35610', $posts->find(93)?->content());
+            self::assertSame([2, 93, 2], $posts->writes);
+        }
+    }
+
     public function test_reused_poster_id_with_wrong_file_blocks_the_migration(): void
     {
         $posts = new InMemoryPostStore([new PostRecord(2, 'zdw', 'homepage')]);

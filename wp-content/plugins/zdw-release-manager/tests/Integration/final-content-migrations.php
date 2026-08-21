@@ -130,6 +130,23 @@ try {
     if (!str_contains($canteenContent, 'CO KANTÝNA SERVÍROVALA MINULÝ ROK?')) {
         throw new RuntimeException('Czech Design Canteen program cleanup removed the retained history section.');
     }
+
+    $mixedLegacyGroup = <<<'BLOCKS'
+<!-- wp:group --><div class="wp-block-group">
+<!-- wp:heading {"level":3} --><h3 class="wp-block-heading">Co ti letos naservírujeme na zlínském zámku?</h3><!-- /wp:heading -->
+<!-- wp:columns --><div class="wp-block-columns"></div><!-- /wp:columns -->
+<!-- wp:columns --><div class="wp-block-columns"></div><!-- /wp:columns -->
+<!-- wp:paragraph --><p>Retained editorial note</p><!-- /wp:paragraph -->
+</div><!-- /wp:group -->
+BLOCKS;
+    try {
+        (new WordPressDesignCanteenCleanupTransformer())->desiredPageContent($mixedLegacyGroup);
+        throw new RuntimeException('Czech Design Canteen cleanup accepted a mixed legacy group.');
+    } catch (RuntimeException $error) {
+        if (!str_contains($error->getMessage(), 'jiný obsah')) {
+            throw $error;
+        }
+    }
 } finally {
     wp_update_post(['ID' => 193, 'post_content' => wp_slash($hero->post_content)]);
     wp_update_post(['ID' => 12142, 'post_content' => wp_slash($canteen->post_content)]);

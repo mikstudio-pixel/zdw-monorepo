@@ -9,6 +9,13 @@ if (!function_exists('zdw_two_tier_menu_render_nav')) {
     throw new RuntimeException('Two-tier menu plugin is unavailable.');
 }
 
+foreach (['cs', 'en'] as $language) {
+    $expectedHomeUrl = function_exists('pll_home_url') ? pll_home_url($language) : home_url('/');
+    if ($expectedHomeUrl !== zdw_two_tier_menu_home_url($language)) {
+        throw new RuntimeException(sprintf('The header homepage URL is not localized for %s.', $language));
+    }
+}
+
 ob_start();
 zdw_two_tier_menu_render_nav('top', 'zdw-two-tier__menu--top');
 zdw_two_tier_menu_render_nav('top', 'zdw-two-tier__menu--mobile-top');

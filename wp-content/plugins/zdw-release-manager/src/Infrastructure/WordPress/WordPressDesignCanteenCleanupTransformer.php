@@ -16,6 +16,13 @@ final class WordPressDesignCanteenCleanupTransformer implements DesignCanteenCle
         'NEDĚLE, 10. KVĚTNA',
     ];
 
+    private const EXPECTED_CHILD_BLOCKS = [
+        'KUDY TUDY DO KANTÝNY?' => ['esab/accordion'],
+        'CO TI LETOS NASERVÍRUJEME NA ZLÍNSKÉM ZÁMKU?' => ['core/heading', 'core/columns', 'core/columns'],
+        'SOBOTA, 9. KVĚTNA' => ['core/heading', 'core/columns', 'core/spacer', 'core/columns', 'core/spacer'],
+        'NEDĚLE, 10. KVĚTNA' => ['core/heading', 'core/columns', 'core/spacer'],
+    ];
+
     public function desiredPageContent(string $content): string
     {
         $blocks = parse_blocks($content);
@@ -25,10 +32,20 @@ final class WordPressDesignCanteenCleanupTransformer implements DesignCanteenCle
                 continue;
             }
             $text = $this->plainText($block);
+            $groupMarkers = [];
             foreach (self::MARKERS as $marker) {
                 if (str_contains($text, $marker)) {
-                    $matches[$marker][] = $index;
+                    $groupMarkers[] = $marker;
                 }
+            }
+            if ([] === $groupMarkers) {
+                continue;
+            }
+            if (!$this->isDedicatedLegacyGroup($block, $groupMarkers)) {
+                throw new RuntimeException('Zastaralá sekce Design Canteen obsahuje také jiný obsah a nelze ji bezpečně odstranit.');
+            }
+            foreach ($groupMarkers as $marker) {
+                $matches[$marker][] = $index;
             }
         }
 
@@ -68,6 +85,32 @@ final class WordPressDesignCanteenCleanupTransformer implements DesignCanteenCle
         $text = (string) preg_replace('/\s+/u', ' ', $text);
 
         return mb_strtoupper(trim($text), 'UTF-8');
+    }
+
+    /** @param array<string, mixed> $block
+     *  @param list<string> $markers
+     */
+    private function isDedicatedLegacyGroup(array $block, array $markers): bool
+    {
+        if (1 !== count($markers)) {
+            return false;
+        }
+
+        $children = array_values(array_filter(
+            $block['innerBlocks'] ?? [],
+            static fn (mixed $child): bool => is_array($child) && null !== ($child['blockName'] ?? null)
+        ));
+        $names = array_map(static fn (array $child): string => (string) $child['blockName'], $children);
+        $marker = $markers[0];
+        if (($names !== (self::EXPECTED_CHILD_BLOCKS[$marker] ?? [])) || [] === $children) {
+            return false;
+        }
+
+        $leadText = $this->plainText($children[0]);
+
+        return 'esab/accordion' === $names[0]
+            ? str_starts_with($leadText, $marker)
+            : $marker === $leadText;
     }
 
     private function normalize(mixed $value): mixed

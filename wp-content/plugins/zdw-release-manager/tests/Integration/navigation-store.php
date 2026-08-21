@@ -90,4 +90,45 @@ try {
     }
 }
 
+$legacyItems = (array) wp_get_nav_menu_items((int) $legacyMenu->term_id);
+$sponsorItemId = 0;
+$originalSponsorParentId = 0;
+foreach ($legacyItems as $item) {
+    if ('page' === $item->object && (int) $sponsorPage->ID === (int) $item->object_id) {
+        $sponsorItemId = (int) $item->ID;
+        $originalSponsorParentId = (int) $item->menu_item_parent;
+        break;
+    }
+}
+if (0 === $sponsorItemId) {
+    throw new RuntimeException('Legacy sponsor item fixture is unavailable.');
+}
+$nestedFestivalId = wp_update_nav_menu_item((int) $legacyMenu->term_id, 0, [
+    'menu-item-title' => 'Nested festival fixture',
+    'menu-item-parent-id' => $festivalParentId,
+    'menu-item-object' => 'page',
+    'menu-item-object-id' => (int) $festivalPage->ID,
+    'menu-item-type' => 'post_type',
+    'menu-item-status' => 'publish',
+]);
+if (is_wp_error($nestedFestivalId)) {
+    throw new RuntimeException($nestedFestivalId->get_error_message());
+}
+try {
+    update_post_meta($sponsorItemId, '_menu_item_menu_item_parent', (int) $nestedFestivalId);
+    if ($store->matchesDesiredNavigation($sponsorPageIds)) {
+        throw new RuntimeException('A sponsor under a nested duplicate parent was accepted.');
+    }
+
+    $store->ensureLegacySponsorItem($sponsorPageIds);
+    if (!$store->matchesDesiredNavigation($sponsorPageIds)) {
+        throw new RuntimeException('The sponsor item was not restored under the top-level festival parent.');
+    }
+} finally {
+    update_post_meta($sponsorItemId, '_menu_item_menu_item_parent', $originalSponsorParentId);
+    if (get_post((int) $nestedFestivalId)) {
+        wp_delete_post((int) $nestedFestivalId, true);
+    }
+}
+
 echo "WordPressNavigationStore integration test passed.\n";

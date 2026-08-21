@@ -19,6 +19,12 @@ final class InMemoryPostStore implements PostStore
     public ?int $throwOnUpdateId = null;
     public ?int $throwAfterUpdateId = null;
 
+    /** @var array<int, list<int>> */
+    public array $throwOnUpdateAttempts = [];
+
+    /** @var array<int, int> */
+    private array $updateAttempts = [];
+
     /** @param list<PostRecord> $posts */
     public function __construct(array $posts = [])
     {
@@ -35,7 +41,10 @@ final class InMemoryPostStore implements PostStore
 
     public function updateContent(int $postId, string $content): void
     {
-        if ($postId === $this->throwOnUpdateId) {
+        $attempt = ($this->updateAttempts[$postId] ?? 0) + 1;
+        $this->updateAttempts[$postId] = $attempt;
+        if ($postId === $this->throwOnUpdateId
+            || in_array($attempt, $this->throwOnUpdateAttempts[$postId] ?? [], true)) {
             throw new RuntimeException(sprintf('Post ID %d update failed.', $postId));
         }
 

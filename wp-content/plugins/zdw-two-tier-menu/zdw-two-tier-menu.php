@@ -474,17 +474,30 @@ function zdw_two_tier_menu_menu_matches_blueprint( $menu_id, $blueprint ) {
  * Restore every menu already modified during an incomplete installation.
  *
  * @param array<int, array<string, mixed>> $affected Modified menus.
+ * @param array<int, int>                  $created_menu_ids Menus created by the failed installation.
+ * @return bool Whether every snapshot was restored and every new menu removed.
  */
 function zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids = array() ) {
 	$created_lookup = array_fill_keys( array_map( 'intval', $created_menu_ids ), true );
+	$success        = true;
 	foreach ( $affected as $menu ) {
-		if ( ! isset( $created_lookup[ (int) $menu['id'] ] ) ) {
-			zdw_two_tier_menu_restore_items( $menu['id'], $menu['snapshot'] );
+		if ( ! isset( $created_lookup[ (int) $menu['id'] ] )
+			&& ! zdw_two_tier_menu_restore_items( $menu['id'], $menu['snapshot'] ) ) {
+			$success = false;
 		}
 	}
 	foreach ( $created_menu_ids as $menu_id ) {
-		wp_delete_nav_menu( (int) $menu_id );
+		$deleted = wp_delete_nav_menu( (int) $menu_id );
+		if ( is_wp_error( $deleted ) || ! $deleted ) {
+			$success = false;
+		}
 	}
+
+	if ( ! $success ) {
+		zdw_two_tier_menu_record_install_failure();
+	}
+
+	return $success;
 }
 
 /**
@@ -927,6 +940,23 @@ function zdw_two_tier_menu_language() {
 }
 
 /**
+ * Localized homepage URL with a safe site-root fallback.
+ *
+ * @param string $language Polylang language slug.
+ * @return string
+ */
+function zdw_two_tier_menu_home_url( $language ) {
+	if ( function_exists( 'pll_home_url' ) ) {
+		$url = pll_home_url( $language );
+		if ( is_string( $url ) && '' !== $url ) {
+			return $url;
+		}
+	}
+
+	return home_url( '/' );
+}
+
+/**
  * Render one of the isolated menus by name.
  *
  * @param string $kind top or bottom row.
@@ -1033,7 +1063,7 @@ function zdw_two_tier_menu_render_header() {
 	$language     = zdw_two_tier_menu_language();
 	$top_label    = 'en' === $language ? 'Festival navigation' : 'Festivalová navigace';
 	$bottom_label = 'en' === $language ? 'Projects navigation' : 'Navigace projektů';
-	$home_url     = zdw_two_tier_menu_preview_url( home_url( '/' ) );
+	$home_url     = zdw_two_tier_menu_preview_url( zdw_two_tier_menu_home_url( $language ) );
 	?>
 	<header class="header zdw-two-tier<?php echo zdw_two_tier_menu_notice_is_visible() ? ' has-notice' : ''; ?>" role="banner">
 		<?php zdw_two_tier_menu_render_notice(); ?>

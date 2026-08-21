@@ -224,6 +224,7 @@ final class WordPressNavigationStore implements NavigationStore
         return (string) $item->title === $title
             && null !== $parent
             && 'page' === $parent->object
+            && 0 === (int) $parent->menu_item_parent
             && $this->pageIdBySlug($parentSlug) === (int) $parent->object_id;
     }
 

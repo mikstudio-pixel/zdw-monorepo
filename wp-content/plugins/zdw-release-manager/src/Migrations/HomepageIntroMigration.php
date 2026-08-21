@@ -84,6 +84,7 @@ final class HomepageIntroMigration implements Migration
                 $this->posts->updateContent($postId, $desired);
             }
         } catch (Throwable $error) {
+            $rollbackFailure = null;
             foreach (array_reverse($attemptedPostIds) as $postId) {
                 $current = $this->posts->find($postId);
                 if ($current instanceof PostRecord && $originals[$postId] === $current->content()) {
@@ -98,12 +99,17 @@ final class HomepageIntroMigration implements Migration
                         continue;
                     }
 
-                    throw new RuntimeException(
-                        sprintf('Obnovení homepage ID %d po neúspěšné migraci selhalo: %s', $postId, $rollbackError->getMessage()),
-                        0,
-                        $error
-                    );
+                    $rollbackFailure ??= [$postId, $rollbackError];
                 }
+            }
+
+            if (null !== $rollbackFailure) {
+                [$postId, $rollbackError] = $rollbackFailure;
+                throw new RuntimeException(
+                    sprintf('Obnovení homepage ID %d po neúspěšné migraci selhalo: %s', $postId, $rollbackError->getMessage()),
+                    0,
+                    $error
+                );
             }
 
             throw $error;

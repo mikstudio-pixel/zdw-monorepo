@@ -32,6 +32,9 @@ if (is_wp_error($createdMenuId)) {
     wp_delete_nav_menu((int) $menuId);
     throw new RuntimeException($createdMenuId->get_error_message());
 }
+$enabledBefore = get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, null);
+$pendingBefore = get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, null);
+$versionBefore = get_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, null);
 
 try {
     $parentId = zdw_two_tier_menu_add_url((int) $menuId, 'Original parent', home_url('/original/'));
@@ -69,10 +72,12 @@ try {
         throw new RuntimeException('The newly-created menu fixture could not be populated.');
     }
 
-    zdw_two_tier_menu_rollback_install(
+    if (!zdw_two_tier_menu_rollback_install(
         [['id' => (int) $menuId, 'snapshot' => $snapshot]],
         [(int) $createdMenuId]
-    );
+    )) {
+        throw new RuntimeException('A complete menu snapshot rollback reported failure.');
+    }
     if (wp_get_nav_menu_object((int) $createdMenuId)) {
         throw new RuntimeException('A menu created during the failed installation was not removed.');
     }
@@ -88,12 +93,41 @@ try {
         || (int) $restored[0]->ID !== (int) $restored[1]->menu_item_parent) {
         throw new RuntimeException('The restored menu hierarchy does not match the snapshot.');
     }
+
+    if (!zdw_two_tier_menu_clear_items((int) $menuId)) {
+        throw new RuntimeException('The rollback failure fixture could not clear the menu.');
+    }
+    update_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1');
+    $rejectMenuItems = static fn (bool $maybeEmpty, array $postarr): bool =>
+        'nav_menu_item' === ($postarr['post_type'] ?? '') ? true : $maybeEmpty;
+    add_filter('wp_insert_post_empty_content', $rejectMenuItems, 10, 2);
+    try {
+        if (zdw_two_tier_menu_rollback_install([['id' => (int) $menuId, 'snapshot' => $snapshot]])) {
+            throw new RuntimeException('A rejected snapshot restore unexpectedly reported success.');
+        }
+    } finally {
+        remove_filter('wp_insert_post_empty_content', $rejectMenuItems, 10);
+    }
+    if ('0' !== (string) get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1')) {
+        throw new RuntimeException('A failed snapshot restore did not fail the header closed.');
+    }
 } finally {
     if (wp_get_nav_menu_object((int) $menuId)) {
         wp_delete_nav_menu((int) $menuId);
     }
     if (wp_get_nav_menu_object((int) $createdMenuId)) {
         wp_delete_nav_menu((int) $createdMenuId);
+    }
+    foreach ([
+        ZDW_TWO_TIER_MENU_OPTION_ENABLED => $enabledBefore,
+        ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL => $pendingBefore,
+        ZDW_TWO_TIER_MENU_OPTION_DB_VERSION => $versionBefore,
+    ] as $option => $value) {
+        if (null === $value) {
+            delete_option($option);
+        } else {
+            update_option($option, $value);
+        }
     }
 }
 
