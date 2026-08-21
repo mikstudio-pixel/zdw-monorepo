@@ -78,6 +78,13 @@ try {
     if (!zdw_two_tier_menu_native_menu_writes_blocked()) {
         throw new RuntimeException('A native menu write was not blocked behind another request\'s rebuild.');
     }
+    update_option(ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK, [
+        'token' => 'abandoned-request',
+        'claimed_at' => time() - ZDW_TWO_TIER_MENU_UPGRADE_LOCK_TTL - 1,
+    ], false);
+    if (zdw_two_tier_menu_native_menu_writes_blocked()) {
+        throw new RuntimeException('An expired install lock continued to block native menu writes.');
+    }
 } finally {
     if (isset($installToken) && is_string($installToken)) {
         zdw_two_tier_menu_release_install_lock($installToken);

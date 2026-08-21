@@ -969,7 +969,9 @@ function zdw_two_tier_menu_release_install_lock( $token ) {
 /** Return whether a different request currently owns the menu-mutation lock. */
 function zdw_two_tier_menu_native_menu_writes_blocked() {
 	$claim = get_option( ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK, false );
-	if ( ! is_array( $claim ) || ! is_string( $claim['token'] ?? null ) ) {
+	if ( ! is_array( $claim )
+		|| ! is_string( $claim['token'] ?? null )
+		|| (int) ( $claim['claimed_at'] ?? 0 ) <= time() - ZDW_TWO_TIER_MENU_UPGRADE_LOCK_TTL ) {
 		return false;
 	}
 
