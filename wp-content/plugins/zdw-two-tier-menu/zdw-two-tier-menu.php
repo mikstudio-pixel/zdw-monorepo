@@ -311,13 +311,14 @@ function zdw_two_tier_menu_snapshot_items( $menu_id ) {
  * @return bool
  */
 function zdw_two_tier_menu_clear_items( $menu_id ) {
+	$success = true;
 	foreach ( (array) wp_get_nav_menu_items( $menu_id ) as $item ) {
 		if ( ! wp_delete_post( $item->ID, true ) ) {
-			return false;
+			$success = false;
 		}
 	}
 
-	return true;
+	return $success;
 }
 
 /**
@@ -328,8 +329,20 @@ function zdw_two_tier_menu_clear_items( $menu_id ) {
  * @return bool
  */
 function zdw_two_tier_menu_restore_items( $menu_id, $snapshot ) {
-	if ( ! zdw_two_tier_menu_clear_items( $menu_id ) ) {
-		return false;
+	$original_ids = array_fill_keys(
+		array_map(
+			static function ( $item ) {
+				return (int) ( $item['original_id'] ?? 0 );
+			},
+			$snapshot
+		),
+		true
+	);
+	$success      = true;
+	foreach ( (array) wp_get_nav_menu_items( $menu_id ) as $current ) {
+		if ( ! isset( $original_ids[ (int) $current->ID ] ) && ! wp_delete_post( $current->ID, true ) ) {
+			$success = false;
+		}
 	}
 
 	foreach ( $snapshot as $item ) {
@@ -337,31 +350,41 @@ function zdw_two_tier_menu_restore_items( $menu_id, $snapshot ) {
 			return false;
 		}
 
-		$post = $item['post'];
-		unset( $post['ID'] );
-		$post['import_id'] = (int) $item['original_id'];
-		$post['post_type'] = 'nav_menu_item';
-		$result            = wp_insert_post( wp_slash( $post ), true );
-		if ( is_wp_error( $result ) || (int) $item['original_id'] !== (int) $result ) {
-			return false;
+		$original_id = (int) $item['original_id'];
+		$post        = get_post( $original_id );
+		if ( $post && 'nav_menu_item' !== $post->post_type ) {
+			$success = false;
+			continue;
+		}
+		if ( ! $post ) {
+			$post = $item['post'];
+			unset( $post['ID'] );
+			$post['import_id'] = $original_id;
+			$post['post_type'] = 'nav_menu_item';
+			$result            = wp_insert_post( wp_slash( $post ), true );
+			if ( is_wp_error( $result ) || $original_id !== (int) $result ) {
+				$success = false;
+				continue;
+			}
 		}
 
-		$terms = wp_set_object_terms( (int) $result, array( (int) $menu_id ), 'nav_menu', false );
+		$terms = wp_set_object_terms( $original_id, array( (int) $menu_id ), 'nav_menu', false );
 		if ( is_wp_error( $terms ) ) {
-			return false;
+			$success = false;
+			continue;
 		}
 
 		foreach ( (array) ( $item['meta'] ?? array() ) as $key => $values ) {
-			delete_post_meta( (int) $result, (string) $key );
+			delete_post_meta( $original_id, (string) $key );
 			foreach ( (array) $values as $value ) {
-				if ( false === add_post_meta( (int) $result, (string) $key, $value ) ) {
-					return false;
+				if ( false === add_post_meta( $original_id, (string) $key, $value ) ) {
+					$success = false;
 				}
 			}
 		}
 	}
 
-	return true;
+	return $success;
 }
 
 /**

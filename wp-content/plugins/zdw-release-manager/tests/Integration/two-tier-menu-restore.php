@@ -132,6 +132,28 @@ try {
         throw new RuntimeException('The restored menu hierarchy does not match the snapshot.');
     }
 
+    $rejectParentDeletion = static fn ($delete, WP_Post $post) =>
+        $parentId === (int) $post->ID ? false : $delete;
+    add_filter('pre_delete_post', $rejectParentDeletion, 10, 2);
+    try {
+        if (zdw_two_tier_menu_clear_items((int) $menuId)) {
+            throw new RuntimeException('A rejected item deletion unexpectedly reported success.');
+        }
+        if (!get_post($parentId) || get_post($childId)) {
+            throw new RuntimeException('The partial-delete fixture did not preserve only the rejected item.');
+        }
+        if (!zdw_two_tier_menu_restore_items((int) $menuId, $snapshot)) {
+            throw new RuntimeException('Rollback could not recover around an undeletable original item.');
+        }
+    } finally {
+        remove_filter('pre_delete_post', $rejectParentDeletion, 10);
+    }
+    if (!get_post($parentId) || !get_post($childId)
+        || ['first', 'second'] !== get_post_meta($parentId, '_zdw_rollback_test')
+        || $parentId !== (int) get_post_meta($childId, '_zdw_related_menu_item', true)) {
+        throw new RuntimeException('Partial-delete rollback did not preserve the complete original snapshot.');
+    }
+
     if (!zdw_two_tier_menu_clear_items((int) $menuId)) {
         throw new RuntimeException('The rollback failure fixture could not clear the menu.');
     }
