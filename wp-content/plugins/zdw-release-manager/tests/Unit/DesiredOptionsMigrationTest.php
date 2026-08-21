@@ -85,4 +85,27 @@ final class DesiredOptionsMigrationTest extends TestCase
         self::assertSame([], $store->writes);
         self::assertSame('pass', $migration->verify()[0]->severity());
     }
+
+    public function test_later_option_failure_restores_changed_and_absent_options(): void
+    {
+        $store = new InMemoryOptionStore(['effect' => 'filter']);
+        $store->throwOnSetAttempts = ['opacity' => [1]];
+        $migration = new DesiredOptionsMigration(
+            '20260807_001_interface_settings',
+            'Nastavení rozhraní',
+            $store,
+            ['effect' => 'overlay', 'intensity' => '25', 'opacity' => '30']
+        );
+
+        try {
+            $migration->apply();
+            self::fail('A later option failure should abort the migration.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('opacity', $error->getMessage());
+            self::assertSame('filter', $store->get('effect'));
+            self::assertFalse($store->has('intensity'));
+            self::assertFalse($store->has('opacity'));
+            self::assertSame(['effect', 'intensity', 'opacity', 'opacity', 'intensity', 'effect'], $store->writes);
+        }
+    }
 }

@@ -18,6 +18,13 @@ final class WordPressOptionStore implements OptionStore
         return get_option($name, null);
     }
 
+    public function has(string $name): bool
+    {
+        $missing = new \stdClass();
+
+        return $missing !== get_option($name, $missing);
+    }
+
     public function set(string $name, mixed $value): void
     {
         if (update_option($name, $value, $this->autoload)) {
@@ -29,5 +36,14 @@ final class WordPressOptionStore implements OptionStore
         }
 
         throw new RuntimeException(sprintf('Nepodařilo se uložit nastavení %s.', $name));
+    }
+
+    public function delete(string $name): void
+    {
+        if (delete_option($name) || !$this->has($name)) {
+            return;
+        }
+
+        throw new RuntimeException(sprintf('Nepodařilo se odstranit nastavení %s.', $name));
     }
 }

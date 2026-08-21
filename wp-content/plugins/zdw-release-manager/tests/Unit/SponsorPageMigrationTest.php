@@ -183,4 +183,27 @@ final class SponsorPageMigrationTest extends TestCase
             ], $store->translationWrites);
         }
     }
+
+    public function test_matching_content_and_languages_are_not_ready_until_translations_are_linked(): void
+    {
+        $store = new InMemoryPageStore(
+            [
+                new PostRecord(42, 'sponzori', 'desired'),
+                new PostRecord(43, 'partners', 'desired'),
+            ],
+            [10 => 'one.svg'],
+            [],
+            [42 => 'cs', 43 => 'en']
+        );
+        $migration = new SponsorPageMigration($store, [10 => 'one.svg'], 'desired');
+
+        self::assertSame('warning', $migration->preflight()[0]->severity());
+        self::assertSame('blocker', $migration->verify()[0]->severity());
+
+        $migration->apply();
+
+        self::assertSame(['cs' => 42, 'en' => 43], $store->translations(42));
+        self::assertSame(['cs' => 42, 'en' => 43], $store->translations(43));
+        self::assertSame('pass', $migration->verify()[0]->severity());
+    }
 }

@@ -14,6 +14,12 @@ final class InMemoryOptionStore implements OptionStore
     /** @var list<string> */
     public array $writes = [];
 
+    /** @var array<string, list<int>> */
+    public array $throwOnSetAttempts = [];
+
+    /** @var array<string, int> */
+    private array $setAttempts = [];
+
     /** @param array<string, mixed> $values */
     public function __construct(array $values = [])
     {
@@ -25,9 +31,25 @@ final class InMemoryOptionStore implements OptionStore
         return $this->values[$name] ?? null;
     }
 
+    public function has(string $name): bool
+    {
+        return array_key_exists($name, $this->values);
+    }
+
     public function set(string $name, mixed $value): void
     {
+        $attempt = ($this->setAttempts[$name] ?? 0) + 1;
+        $this->setAttempts[$name] = $attempt;
         $this->values[$name] = $value;
+        $this->writes[] = $name;
+        if (in_array($attempt, $this->throwOnSetAttempts[$name] ?? [], true)) {
+            throw new \RuntimeException(sprintf('Option write failed for %s.', $name));
+        }
+    }
+
+    public function delete(string $name): void
+    {
+        unset($this->values[$name]);
         $this->writes[] = $name;
     }
 }

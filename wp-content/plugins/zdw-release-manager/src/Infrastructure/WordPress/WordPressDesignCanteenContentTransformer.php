@@ -11,10 +11,7 @@ final class WordPressDesignCanteenContentTransformer implements DesignCanteenCon
 {
     public function desiredPageContent(string $content): string
     {
-        $blocks = array_values(array_filter(
-            parse_blocks($content),
-            static fn (array $block): bool => null !== ($block['blockName'] ?? null)
-        ));
+        $blocks = parse_blocks($content);
         $candidates = [];
         foreach ($blocks as $index => $block) {
             if ('core/group' !== ($block['blockName'] ?? null)) {

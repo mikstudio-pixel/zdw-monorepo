@@ -180,6 +180,7 @@ final class SponsorPageMigration implements Migration
 
     private function pagesMatch(): bool
     {
+        $expectedTranslations = [];
         foreach (self::PAGES as $language => $definition) {
             $pageIds = $this->store->findPageIdsBySlug($definition['slug']);
             if (1 !== count($pageIds)) {
@@ -191,6 +192,16 @@ final class SponsorPageMigration implements Migration
                 || $page->content() !== $this->desiredContent
                 || $language !== $this->store->language($page->id())) {
                 return false;
+            }
+            $expectedTranslations[$language] = $page->id();
+        }
+
+        foreach ($expectedTranslations as $pageId) {
+            $actualTranslations = $this->store->translations($pageId);
+            foreach ($expectedTranslations as $language => $expectedPageId) {
+                if (($actualTranslations[$language] ?? null) !== $expectedPageId) {
+                    return false;
+                }
             }
         }
 

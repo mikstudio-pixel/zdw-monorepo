@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace ZDW\ReleaseManager\Migrations;
 
+use RuntimeException;
+use Throwable;
 use ZDW\ReleaseManager\Contracts\Migration;
 use ZDW\ReleaseManager\Contracts\OptionStore;
 use ZDW\ReleaseManager\Domain\PreflightCheck;
@@ -53,12 +55,55 @@ final class DesiredOptionsMigration implements Migration
 
     public function apply(): void
     {
-        foreach ($this->desiredValues as $name => $value) {
-            if ($this->valuesMatch($this->store->get($name), $value)) {
-                continue;
+        $originals = [];
+        $attempted = [];
+
+        try {
+            foreach ($this->desiredValues as $name => $value) {
+                $original = $this->store->get($name);
+                if ($this->valuesMatch($original, $value)) {
+                    continue;
+                }
+
+                $originals[$name] = ['exists' => $this->store->has($name), 'value' => $original];
+                $attempted[] = $name;
+                $this->store->set($name, $value);
+            }
+        } catch (Throwable $error) {
+            $rollbackFailure = null;
+            foreach (array_reverse($attempted) as $name) {
+                try {
+                    $current = $this->store->get($name);
+                    if ($this->store->has($name) === $originals[$name]['exists']
+                        && $this->valuesMatch($current, $originals[$name]['value'])) {
+                        continue;
+                    }
+                    if (!$this->valuesMatch($current, $this->desiredValues[$name])) {
+                        $rollbackFailure ??= new RuntimeException(sprintf(
+                            'Nastavení %s mezitím změnil jiný požadavek.',
+                            $name
+                        ));
+                        continue;
+                    }
+                    if ($originals[$name]['exists']) {
+                        $this->store->set($name, $originals[$name]['value']);
+                    } else {
+                        $this->store->delete($name);
+                    }
+                } catch (Throwable $rollbackError) {
+                    $rollbackFailure ??= $rollbackError;
+                }
             }
 
-            $this->store->set($name, $value);
+            if (null !== $rollbackFailure) {
+                throw new RuntimeException(
+                    sprintf('%s Obnova nastavení selhala: %s', $error->getMessage(), $rollbackFailure->getMessage()),
+                    0,
+                    $error
+                );
+            }
+
+            throw $error;
         }
     }
 

@@ -28,4 +28,11 @@ foreach (['IT ALL STARTED ON FACEBOOK', 'DESIGN OF ALL TASTES PODCAST', 'A Look 
     }
 }
 
+$rawMarker = '<aside data-zdw-test="raw-content">Editorial raw marker</aside>';
+$withRawContent = $rawMarker . (string) $post->post_content;
+$rawResult = $transformer->desiredPageContent($withRawContent);
+if (!str_contains($rawResult, $rawMarker)) {
+    throw new RuntimeException('Design Canteen transform removed unrelated top-level raw content.');
+}
+
 echo "WordPressDesignCanteenContentTransformer integration test passed.\n";
