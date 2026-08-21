@@ -32,7 +32,23 @@ final class WordPressBlockContentGuard
         }
 
         if ([] === $namedChildren) {
-            return false;
+            $emptyPattern = self::emptyWrapperPattern((string) ($block['blockName'] ?? ''));
+            if (null === $emptyPattern) {
+                return false;
+            }
+            if ([] !== $children) {
+                return true;
+            }
+
+            $innerContent = $block['innerContent'] ?? null;
+            if (!is_array($innerContent)
+                || [] !== array_filter($innerContent, static fn (mixed $fragment): bool => !is_string($fragment))) {
+                return true;
+            }
+            $markup = implode('', $innerContent);
+
+            return $markup !== (string) ($block['innerHTML'] ?? '')
+                || 1 !== preg_match($emptyPattern, $markup);
         }
 
         $innerContent = $block['innerContent'] ?? null;
@@ -79,5 +95,12 @@ final class WordPressBlockContentGuard
         }
 
         return [null, '~$~'];
+    }
+
+    private static function emptyWrapperPattern(string $blockName): ?string
+    {
+        return in_array($blockName, ['core/group', 'core/columns', 'core/column', 'core/buttons'], true)
+            ? '~^\s*<div\b[^>]*>\s*</div>\s*$~s'
+            : null;
     }
 }

@@ -54,4 +54,14 @@ final class WordPressBlockContentGuardTest extends TestCase
             'innerContent' => ['<div class="wp-block-columns">', null, '</div>'],
         ]));
     }
+
+    public function test_rejects_tag_only_content_in_an_otherwise_empty_column(): void
+    {
+        self::assertTrue(WordPressBlockContentGuard::hasUnexpectedContainerContent([
+            'blockName' => 'core/column',
+            'innerBlocks' => [],
+            'innerHTML' => '<div class="wp-block-column"><img src="editorial-marker.jpg" alt=""></div>',
+            'innerContent' => ['<div class="wp-block-column"><img src="editorial-marker.jpg" alt=""></div>'],
+        ]));
+    }
 }

@@ -182,6 +182,43 @@ if (!$nestedMarkupRejected) {
     throw new RuntimeException('Design Canteen transform accepted nested tag-only content in the obsolete programme.');
 }
 
+$editedLeafBlocks = parse_blocks((string) $legacyRevision->post_content);
+$editedLeafFixtureCreated = false;
+foreach ($editedLeafBlocks as &$block) {
+    if ('core/group' !== ($block['blockName'] ?? null)
+        || !str_contains(serialize_block($block), 'What will we serve you at ZlIn Castle this year?')) {
+        continue;
+    }
+    foreach ($block['innerBlocks'] ?? [] as $programmeIndex => $programmeBlock) {
+        if ('core/columns' !== ($programmeBlock['blockName'] ?? null)
+            || !str_contains(serialize_block($programmeBlock), 'THURSDAY, 7 MAY')) {
+            continue;
+        }
+        $html = &$block['innerBlocks'][$programmeIndex]['innerBlocks'][0]['innerBlocks'][0];
+        $html['innerHTML'] .= '<p>Edited programme detail</p>';
+        $html['innerContent'][0] .= '<p>Edited programme detail</p>';
+        unset($html);
+        $editedLeafFixtureCreated = true;
+        break 2;
+    }
+}
+unset($block);
+if (!$editedLeafFixtureCreated) {
+    throw new RuntimeException('Edited obsolete-programme leaf fixture could not be created.');
+}
+$editedLeafRejected = false;
+try {
+    $transformer->desiredPageContent(serialize_blocks($editedLeafBlocks));
+} catch (RuntimeException $error) {
+    if (!str_contains($error->getMessage(), 'další redakční blok')) {
+        throw $error;
+    }
+    $editedLeafRejected = true;
+}
+if (!$editedLeafRejected) {
+    throw new RuntimeException('Design Canteen transform accepted an edited leaf in the obsolete programme.');
+}
+
 $czechLegacyRevision = get_post(43892);
 if (!$czechLegacyRevision instanceof WP_Post) {
     throw new RuntimeException('Legacy Czech Design Canteen revision 43892 is unavailable.');

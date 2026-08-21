@@ -9,6 +9,8 @@ use ZDW\ReleaseManager\Contracts\DesignCanteenContentTransformer;
 
 final class WordPressDesignCanteenContentTransformer implements DesignCanteenContentTransformer
 {
+    private const OBSOLETE_PROGRAMME_HASH = 'c07cb5e0f091322028f10de12963425d28c5623fcfb1bbd9bdc8908c0742fc8b';
+
     public function desiredPageContent(string $content): string
     {
         $blocks = parse_blocks($content);
@@ -130,20 +132,10 @@ final class WordPressDesignCanteenContentTransformer implements DesignCanteenCon
             return false;
         }
 
-        $serialized = serialize_blocks($blocks);
-        foreach ([
-            'What will we serve you at ZlIn Castle this year?',
-            'THURSDAY, 7 MAY',
-            'FRIDAY, 8 MAY',
-            'SATURDAY, 9 MAY',
-            'SUNDAY, 10 MAY',
-        ] as $marker) {
-            if (!str_contains($serialized, $marker)) {
-                return false;
-            }
-        }
-
-        return true;
+        return hash_equals(
+            self::OBSOLETE_PROGRAMME_HASH,
+            hash('sha256', serialize_blocks($blocks))
+        );
     }
 
     /** @param array<string, mixed> $block */
