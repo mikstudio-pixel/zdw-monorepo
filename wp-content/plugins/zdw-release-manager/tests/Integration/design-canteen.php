@@ -103,4 +103,48 @@ if (!$namedBlockRejected) {
     throw new RuntimeException('Design Canteen transform accepted a new named editorial block.');
 }
 
+$legacyRevision = get_post(43893);
+if (!$legacyRevision instanceof WP_Post) {
+    throw new RuntimeException('Legacy Design Canteen revision 43893 is unavailable.');
+}
+$legacyBlocks = parse_blocks((string) $legacyRevision->post_content);
+$nestedProgrammeFixtureCreated = false;
+foreach ($legacyBlocks as &$block) {
+    if ('core/group' !== ($block['blockName'] ?? null)
+        || !str_contains(serialize_block($block), 'What will we serve you at ZlIn Castle this year?')) {
+        continue;
+    }
+    foreach ($block['innerBlocks'] ?? [] as $programmeIndex => $programmeBlock) {
+        if ('core/columns' !== ($programmeBlock['blockName'] ?? null)
+            || !str_contains(serialize_block($programmeBlock), 'THURSDAY, 7 MAY')) {
+            continue;
+        }
+        $block['innerBlocks'][$programmeIndex]['innerBlocks'][0]['innerBlocks'][] = $paragraph;
+        array_splice(
+            $block['innerBlocks'][$programmeIndex]['innerBlocks'][0]['innerContent'],
+            -1,
+            0,
+            ["\n", null]
+        );
+        $nestedProgrammeFixtureCreated = true;
+        break 2;
+    }
+}
+unset($block);
+if (!$nestedProgrammeFixtureCreated) {
+    throw new RuntimeException('Nested obsolete-programme fixture could not be created.');
+}
+$nestedProgrammeRejected = false;
+try {
+    $transformer->desiredPageContent(serialize_blocks($legacyBlocks));
+} catch (RuntimeException $error) {
+    if (!str_contains($error->getMessage(), 'další redakční blok')) {
+        throw $error;
+    }
+    $nestedProgrammeRejected = true;
+}
+if (!$nestedProgrammeRejected) {
+    throw new RuntimeException('Design Canteen transform accepted nested editorial content in the obsolete programme.');
+}
+
 echo "WordPressDesignCanteenContentTransformer integration test passed.\n";

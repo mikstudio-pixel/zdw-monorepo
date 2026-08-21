@@ -107,6 +107,33 @@ final class WordPressPageStore implements PageStore
         }
     }
 
+    public function pageFingerprint(int $postId): ?string
+    {
+        $post = get_post($postId, ARRAY_A);
+        if (!is_array($post) || 'page' !== ($post['post_type'] ?? null)) {
+            return null;
+        }
+
+        $fields = array_intersect_key($post, array_flip([
+            'post_author',
+            'post_date',
+            'post_date_gmt',
+            'post_content',
+            'post_title',
+            'post_excerpt',
+            'post_status',
+            'comment_status',
+            'ping_status',
+            'post_password',
+            'post_name',
+            'post_parent',
+            'menu_order',
+            'post_type',
+        ]));
+
+        return hash('sha256', serialize($fields));
+    }
+
     public function setLanguage(int $postId, ?string $language): void
     {
         if (null === $language) {

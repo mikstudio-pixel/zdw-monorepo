@@ -53,6 +53,18 @@ foreach ([2 => 'zdw', 93 => 'zdw-en'] as $postId => $slug) {
             throw new RuntimeException(sprintf('Homepage %d transform accepted unrelated editorial content.', $postId));
         }
     }
+
+    $nestedRawBlocks = parse_blocks($desired);
+    array_splice($nestedRawBlocks[1]['innerContent'], 1, 0, ['Nested raw spacing note']);
+    $nestedRawRejected = false;
+    try {
+        $transformer->desiredPageContent(serialize_blocks($nestedRawBlocks));
+    } catch (RuntimeException) {
+        $nestedRawRejected = true;
+    }
+    if (!$nestedRawRejected) {
+        throw new RuntimeException(sprintf('Homepage %d accepted raw content inside spacing.', $postId));
+    }
 }
 
 echo "Homepage body integration test passed.\n";

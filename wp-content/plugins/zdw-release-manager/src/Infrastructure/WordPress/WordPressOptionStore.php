@@ -20,9 +20,12 @@ final class WordPressOptionStore implements OptionStore
 
     public function has(string $name): bool
     {
-        $missing = new \stdClass();
+        global $wpdb;
 
-        return $missing !== get_option($name, $missing);
+        return null !== $wpdb->get_var($wpdb->prepare(
+            "SELECT option_id FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+            $name
+        ));
     }
 
     public function set(string $name, mixed $value): void

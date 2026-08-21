@@ -13,6 +13,9 @@ interface PageStore extends PostStore
 
     public function deletePage(int $postId): void;
 
+    /** Fingerprint all persisted page fields relevant to safe deletion. */
+    public function pageFingerprint(int $postId): ?string;
+
     public function setLanguage(int $postId, ?string $language): void;
 
     public function language(int $postId): ?string;

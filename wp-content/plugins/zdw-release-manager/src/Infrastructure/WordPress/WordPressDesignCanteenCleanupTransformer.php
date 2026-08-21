@@ -23,6 +23,13 @@ final class WordPressDesignCanteenCleanupTransformer implements DesignCanteenCle
         'NEDĚLE, 10. KVĚTNA' => ['core/heading', 'core/columns', 'core/spacer'],
     ];
 
+    private const EXPECTED_TREES = [
+        'KUDY TUDY DO KANTÝNY?' => 'core/group(esab/accordion(esab/accordion-child(core/paragraph,core/paragraph,core/paragraph,core/paragraph)))',
+        'CO TI LETOS NASERVÍRUJEME NA ZLÍNSKÉM ZÁMKU?' => 'core/group(core/heading,core/columns(core/column(core/heading),core/column(core/heading)),core/columns(core/column(core/html),core/column(core/html)))',
+        'SOBOTA, 9. KVĚTNA' => 'core/group(core/heading,core/columns(core/column(core/html),core/column(core/html)),core/spacer,core/columns(core/column,core/column),core/spacer)',
+        'NEDĚLE, 10. KVĚTNA' => 'core/group(core/heading,core/columns(core/column(core/html),core/column(core/html)),core/spacer)',
+    ];
+
     public function desiredPageContent(string $content): string
     {
         $blocks = parse_blocks($content);
@@ -110,7 +117,9 @@ final class WordPressDesignCanteenCleanupTransformer implements DesignCanteenCle
         ));
         $names = array_map(static fn (array $child): string => (string) $child['blockName'], $children);
         $marker = $markers[0];
-        if (($names !== (self::EXPECTED_CHILD_BLOCKS[$marker] ?? [])) || [] === $children) {
+        if (($names !== (self::EXPECTED_CHILD_BLOCKS[$marker] ?? []))
+            || [] === $children
+            || (self::EXPECTED_TREES[$marker] ?? null) !== $this->blockTree($block)) {
             return false;
         }
 
@@ -119,6 +128,18 @@ final class WordPressDesignCanteenCleanupTransformer implements DesignCanteenCle
         return 'esab/accordion' === $names[0]
             ? str_starts_with($leadText, $marker)
             : $marker === $leadText;
+    }
+
+    /** @param array<string, mixed> $block */
+    private function blockTree(array $block): string
+    {
+        $name = (string) ($block['blockName'] ?? 'RAW');
+        $children = array_map(
+            fn (mixed $child): string => is_array($child) ? $this->blockTree($child) : 'INVALID',
+            $block['innerBlocks'] ?? []
+        );
+
+        return [] === $children ? $name : $name . '(' . implode(',', $children) . ')';
     }
 
     private function normalize(mixed $value): mixed

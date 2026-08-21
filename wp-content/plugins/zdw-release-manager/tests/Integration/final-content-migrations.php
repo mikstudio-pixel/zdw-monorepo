@@ -180,6 +180,28 @@ BLOCKS;
             throw $error;
         }
     }
+
+    $nestedLegacyGroup = <<<'BLOCKS'
+<!-- wp:group --><div class="wp-block-group">
+<!-- wp:heading --><h2 class="wp-block-heading">Co ti letos naservírujeme na zlínském zámku?</h2><!-- /wp:heading -->
+<!-- wp:columns --><div class="wp-block-columns">
+<!-- wp:column --><div class="wp-block-column"><!-- wp:heading --><h2 class="wp-block-heading">Čtvrtek</h2><!-- /wp:heading --><!-- wp:paragraph --><p>New nested note</p><!-- /wp:paragraph --></div><!-- /wp:column -->
+<!-- wp:column --><div class="wp-block-column"><!-- wp:heading --><h2 class="wp-block-heading">Pátek</h2><!-- /wp:heading --></div><!-- /wp:column -->
+</div><!-- /wp:columns -->
+<!-- wp:columns --><div class="wp-block-columns">
+<!-- wp:column --><div class="wp-block-column"><!-- wp:html --><div>Programme</div><!-- /wp:html --></div><!-- /wp:column -->
+<!-- wp:column --><div class="wp-block-column"><!-- wp:html --><div>Programme</div><!-- /wp:html --></div><!-- /wp:column -->
+</div><!-- /wp:columns -->
+</div><!-- /wp:group -->
+BLOCKS;
+    try {
+        (new WordPressDesignCanteenCleanupTransformer())->desiredPageContent($nestedLegacyGroup);
+        throw new RuntimeException('Czech Design Canteen cleanup accepted nested editorial content.');
+    } catch (RuntimeException $error) {
+        if (!str_contains($error->getMessage(), 'jiný obsah')) {
+            throw $error;
+        }
+    }
 } finally {
     foreach ([193 => $hero->post_content, 12142 => $canteen->post_content] as $restoreId => $restoreContent) {
         $restored = wp_update_post(['ID' => $restoreId, 'post_content' => wp_slash($restoreContent)], true);

@@ -228,12 +228,14 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
             return false;
         }
 
-        $columns = array_values(array_filter(
-            $innerBlocks[0]['innerBlocks'] ?? [],
-            static fn (mixed $innerBlock): bool => is_array($innerBlock)
-                && 'core/column' === ($innerBlock['blockName'] ?? null)
-        ));
-        if (3 !== count($columns)) {
+        $columns = $innerBlocks[0]['innerBlocks'] ?? [];
+        if (!is_array($columns)
+            || 3 !== count($columns)
+            || [] !== array_filter(
+                $columns,
+                static fn (mixed $column): bool => !is_array($column)
+                    || 'core/column' !== ($column['blockName'] ?? null)
+            )) {
             return false;
         }
 

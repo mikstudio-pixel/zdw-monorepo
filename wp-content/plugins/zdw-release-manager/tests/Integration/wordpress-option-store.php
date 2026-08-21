@@ -11,8 +11,10 @@ use ZDW\ReleaseManager\Migrations\DesiredOptionsMigration;
 
 $option = 'zdw_release_manager_integration_option';
 $integerOption = 'zdw_release_manager_integration_integer_option';
+$defaultOption = 'zdw_release_manager_integration_default_option';
 delete_option($option);
 delete_option($integerOption);
+delete_option($defaultOption);
 
 try {
     $store = new WordPressOptionStore();
@@ -29,6 +31,13 @@ try {
         'type' => 'integer',
         'sanitize_callback' => static fn (mixed $value): int => (int) $value,
     ]);
+    register_setting('general', $defaultOption, [
+        'type' => 'string',
+        'default' => 'registered-default',
+    ]);
+    if ($store->has($defaultOption)) {
+        throw new RuntimeException('A registered default was mistaken for a persisted option row.');
+    }
 
     $migration = new DesiredOptionsMigration(
         'integration_scalar_options',
@@ -60,6 +69,7 @@ try {
 } finally {
     delete_option($option);
     delete_option($integerOption);
+    delete_option($defaultOption);
 }
 
 echo "WordPressOptionStore integration test passed.\n";

@@ -121,6 +121,17 @@ if (!str_contains($unsafeAccreditationResult, 'Retained accreditation note')) {
     throw new RuntimeException('Accreditation cleanup removed an unrelated sibling block.');
 }
 
+$columnsClosing = '</div><!-- /wp:columns -->';
+$unsafeAccreditationRow = str_replace(
+    $columnsClosing,
+    '<!-- wp:paragraph --><p>Retained row note</p><!-- /wp:paragraph -->' . $columnsClosing,
+    $legacyAccreditation
+);
+$unsafeAccreditationRowResult = $transformer->pressPage($syntheticPress . $unsafeAccreditationRow, $eva);
+if (!str_contains($unsafeAccreditationRowResult, 'Retained row note')) {
+    throw new RuntimeException('Accreditation cleanup removed a non-column row child.');
+}
+
 $rawAccreditation = substr($legacyAccreditation, 0, -strlen($groupClosing))
     . 'Retained raw accreditation note'
     . $groupClosing;

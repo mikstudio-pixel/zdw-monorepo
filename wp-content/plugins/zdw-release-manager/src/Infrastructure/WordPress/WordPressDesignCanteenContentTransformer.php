@@ -105,21 +105,21 @@ final class WordPressDesignCanteenContentTransformer implements DesignCanteenCon
     /** @param list<array<string, mixed>> $blocks */
     private function isKnownObsoleteProgramme(array $blocks): bool
     {
-        $expectedNames = [
+        $expectedTrees = [
             'core/heading',
-            'core/columns',
-            'core/columns',
+            'core/columns(core/column(core/heading),core/column(core/heading))',
+            'core/columns(core/column(core/html),core/column(core/html))',
             'core/spacer',
             'core/heading',
-            'core/columns',
+            'core/columns(core/column(core/html),core/column(core/html))',
             'core/spacer',
-            'core/columns',
+            'core/columns(core/column)',
             'core/spacer',
             'core/heading',
-            'core/columns',
+            'core/columns(core/column(core/html),core/column(core/html))',
             'core/spacer',
         ];
-        if ($expectedNames !== array_column($blocks, 'blockName')) {
+        if ($expectedTrees !== array_map($this->blockTree(...), $blocks)) {
             return false;
         }
 
@@ -137,6 +137,18 @@ final class WordPressDesignCanteenContentTransformer implements DesignCanteenCon
         }
 
         return true;
+    }
+
+    /** @param array<string, mixed> $block */
+    private function blockTree(array $block): string
+    {
+        $name = (string) ($block['blockName'] ?? 'RAW');
+        $children = array_map(
+            fn (mixed $child): string => is_array($child) ? $this->blockTree($child) : 'INVALID',
+            $block['innerBlocks'] ?? []
+        );
+
+        return [] === $children ? $name : $name . '(' . implode(',', $children) . ')';
     }
 
     /** @param list<mixed> $original

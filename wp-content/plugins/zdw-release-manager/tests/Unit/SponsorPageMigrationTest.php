@@ -300,4 +300,21 @@ final class SponsorPageMigrationTest extends TestCase
             self::assertSame([2], $store->deleted);
         }
     }
+
+    public function test_created_page_with_an_edited_non_content_field_is_not_deleted(): void
+    {
+        $store = new InMemoryPageStore([], [10 => 'one.svg']);
+        $store->replaceFingerprintBeforeTranslationAttempts = [1 => [1 => 'editor-title-state']];
+        $store->throwOnTranslationAttempts = [1];
+        $migration = new SponsorPageMigration($store, [10 => 'one.svg'], 'desired');
+
+        try {
+            $migration->apply();
+            self::fail('A translation failure should abort the migration.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('souběžné úpravě', $error->getMessage());
+            self::assertSame('desired', $store->find(1)?->content());
+            self::assertNull($store->find(2));
+        }
+    }
 }

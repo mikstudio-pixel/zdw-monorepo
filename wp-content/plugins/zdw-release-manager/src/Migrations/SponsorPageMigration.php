@@ -67,7 +67,11 @@ final class SponsorPageMigration implements Migration
                         $definition['slug'],
                         $this->desiredContent
                     );
-                    $created[$pageId] = $language;
+                    $fingerprint = $this->store->pageFingerprint($pageId);
+                    if (null === $fingerprint) {
+                        throw new RuntimeException(sprintf('Nově vytvořenou stránku ID %d nelze ověřit.', $pageId));
+                    }
+                    $created[$pageId] = ['language' => $language, 'fingerprint' => $fingerprint];
                 } else {
                     $pageId = $pageIds[0];
                     $page = $this->store->find($pageId);
@@ -220,7 +224,7 @@ final class SponsorPageMigration implements Migration
         return true;
     }
 
-    /** @param array<int, string> $created
+    /** @param array<int, array{language: string, fingerprint: string}> $created
      *  @param array<int, array{content: string, language: ?string, translations: array<string, int>, targetLanguage: string}> $originals
      */
     private function rollback(array $created, array $originals, bool $translationsAttempted): ?Throwable
@@ -240,19 +244,21 @@ final class SponsorPageMigration implements Migration
         return $failure;
     }
 
-    /** @param array<int, string> $created */
+    /** @param array<int, array{language: string, fingerprint: string}> $created */
     private function rollbackCreatedPages(array $created): ?Throwable
     {
         $failure = null;
-        foreach (array_reverse($created, true) as $pageId => $targetLanguage) {
+        foreach (array_reverse($created, true) as $pageId => $snapshot) {
             try {
-                $page = $this->store->find($pageId);
-                if (null === $page) {
+                $fingerprint = $this->store->pageFingerprint($pageId);
+                if (null === $fingerprint) {
                     continue;
                 }
+                $page = $this->store->find($pageId);
                 $language = $this->store->language($pageId);
-                if ($page->content() !== $this->desiredContent
-                    || !in_array($language, [null, $targetLanguage], true)) {
+                if (null === $page
+                    || !hash_equals($snapshot['fingerprint'], $fingerprint)
+                    || !in_array($language, [null, $snapshot['language']], true)) {
                     throw new RuntimeException(sprintf(
                         'Nově vytvořenou stránku ID %d nelze smazat po souběžné úpravě.',
                         $pageId
