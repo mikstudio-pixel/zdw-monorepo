@@ -30,6 +30,7 @@ final class WordPressNavigationStore implements NavigationStore
             && function_exists('zdw_two_tier_menu_renew_state_lock')
             && function_exists('zdw_two_tier_menu_release_state_lock')
             && function_exists('zdw_two_tier_menu_record_install_failure_unlocked')
+            && function_exists('zdw_two_tier_menu_option_exists')
             && defined('ZDW_TWO_TIER_MENU_DB_VERSION');
     }
 
@@ -94,6 +95,10 @@ final class WordPressNavigationStore implements NavigationStore
             $this->assertNavigationLocks($installLock, $stateLock);
             if (!zdw_two_tier_menu_complete_install_state_unlocked(true)) {
                 throw new RuntimeException('Víceúrovňovou navigaci se nepodařilo bezpečně zapnout.');
+            }
+            $this->assertNavigationLocks($installLock, $stateLock);
+            if (!$this->matchesDesiredNavigation($sponsorPageIds)) {
+                throw new RuntimeException('Navigace po zápisu neodpovídá požadovanému stavu.');
             }
         } catch (Throwable $error) {
             if (null !== $snapshot) {
@@ -213,6 +218,9 @@ final class WordPressNavigationStore implements NavigationStore
                 if ($duplicateItemId !== (int) $item->menu_item_parent) {
                     continue;
                 }
+                if ($sponsorItemId === (int) $item->ID) {
+                    continue;
+                }
 
                 update_post_meta((int) $item->ID, '_menu_item_menu_item_parent', $sponsorItemId);
                 if ($sponsorItemId !== (int) get_post_meta((int) $item->ID, '_menu_item_menu_item_parent', true)) {
@@ -311,7 +319,11 @@ final class WordPressNavigationStore implements NavigationStore
     {
         $page = get_page_by_path($slug, OBJECT, 'page');
 
-        return $page instanceof WP_Post ? (int) $page->ID : 0;
+        return $page instanceof WP_Post
+            && 'page' === $page->post_type
+            && 'publish' === $page->post_status
+                ? (int) $page->ID
+                : 0;
     }
 
     /** @return array{menus: array<string, array{id: ?int, items: array<int, array<string, mixed>>}>, options: array<string, array{exists: bool, value: mixed}>} */

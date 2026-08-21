@@ -98,9 +98,11 @@ try {
 
 $unrelatedAccreditation = '<!-- wp:group --><div class="wp-block-group"><!-- wp:heading --><h2>Akreditace novinářů bude otevřena později</h2><!-- /wp:heading --></div><!-- /wp:group -->';
 $legacyAccreditation = '<!-- wp:group --><div class="wp-block-group"><!-- wp:columns --><div class="wp-block-columns">'
-    . '<!-- wp:column --><div class="wp-block-column"><!-- wp:heading {"level":4} --><h4>AKREDITACE</h4><!-- /wp:heading --><!-- wp:buttons --><div class="wp-block-buttons"><!-- wp:button --><div class="wp-block-button"><a class="wp-block-button__link wp-element-button">ZOBRAZIT SOUBORY</a></div><!-- /wp:button --></div><!-- /wp:buttons --></div><!-- /wp:column -->'
-    . '<!-- wp:column --><div class="wp-block-column"><!-- wp:heading {"level":4} --><h4></h4><!-- /wp:heading --></div><!-- /wp:column -->'
-    . '<!-- wp:column --><div class="wp-block-column"><!-- wp:heading {"level":4} --><h4></h4><!-- /wp:heading --></div><!-- /wp:column -->'
+    . '<!-- wp:column --><div class="wp-block-column"><!-- wp:spacer {"height":"30px"} --><div style="height:30px" aria-hidden="true" class="wp-block-spacer"></div><!-- /wp:spacer -->'
+    . '<!-- wp:heading {"textAlign":"center","level":4} --><h4 class="wp-block-heading has-text-align-center">AKREDITACE</h4><!-- /wp:heading -->'
+    . '<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} --><div class="wp-block-buttons"><!-- wp:button {"textAlign":"center"} --><div class="wp-block-button"><a class="wp-block-button__link has-text-align-center wp-element-button" href="https://docs.google.com/forms/d/e/1FAIpQLSerSEKT-2eufUO50ymmo3cyJAZb-Q3yfmGizhRRzLXtQBLihA/viewform" target="_blank" rel="noreferrer noopener">ZOBRAZIT SOUBORY</a></div><!-- /wp:button --></div><!-- /wp:buttons --></div><!-- /wp:column -->'
+    . '<!-- wp:column --><div class="wp-block-column"><!-- wp:spacer {"height":"30px"} --><div style="height:30px" aria-hidden="true" class="wp-block-spacer"></div><!-- /wp:spacer --><!-- wp:heading {"textAlign":"center","level":4} --><h4 class="wp-block-heading has-text-align-center"></h4><!-- /wp:heading --></div><!-- /wp:column -->'
+    . '<!-- wp:column --><div class="wp-block-column"><!-- wp:spacer {"height":"30px"} --><div style="height:30px" aria-hidden="true" class="wp-block-spacer"></div><!-- /wp:spacer --><!-- wp:heading {"textAlign":"center","level":4} --><h4 class="wp-block-heading has-text-align-center"></h4><!-- /wp:heading --></div><!-- /wp:column -->'
     . '</div><!-- /wp:columns --></div><!-- /wp:group -->';
 $overlappingAccreditation = str_replace(
     '<!-- /wp:button -->',
@@ -161,13 +163,22 @@ if (!str_contains($nestedRawResult, 'Retained nested raw accreditation note')) {
 }
 
 $nestedMarkupAccreditation = str_replace(
-    '<div class="wp-block-column"><!-- wp:heading {"level":4} -->',
-    '<div class="wp-block-column"><img src="editorial-marker.jpg" alt=""><!-- wp:heading {"level":4} -->',
+    '</div><!-- /wp:spacer --><!-- wp:heading',
+    '</div><!-- /wp:spacer --><img src="editorial-marker.jpg" alt=""><!-- wp:heading',
     $legacyAccreditation
 );
 $nestedMarkupResult = $transformer->pressPage($syntheticPress . $nestedMarkupAccreditation, $eva);
 if (!str_contains($nestedMarkupResult, 'editorial-marker.jpg')) {
     throw new RuntimeException('Accreditation cleanup removed unrelated tag-only content.');
+}
+
+$editedAccreditationText = str_replace('ZOBRAZIT SOUBORY', 'NOVÝ REDAKČNÍ ODKAZ', $legacyAccreditation);
+if (!str_contains($transformer->pressPage($syntheticPress . $editedAccreditationText, $eva), 'NOVÝ REDAKČNÍ ODKAZ')) {
+    throw new RuntimeException('Accreditation cleanup removed edited button text.');
+}
+$editedAccreditationUrl = str_replace('1FAIpQLSerSEKT-2eufUO50ymmo3cyJAZb-Q3yfmGizhRRzLXtQBLihA', 'editorial-form', $legacyAccreditation);
+if (!str_contains($transformer->pressPage($syntheticPress . $editedAccreditationUrl, $eva), 'editorial-form')) {
+    throw new RuntimeException('Accreditation cleanup removed an edited button URL.');
 }
 
 $safePress = $syntheticPress . $unrelatedAccreditation . $legacyAccreditation;

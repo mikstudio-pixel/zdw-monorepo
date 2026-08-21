@@ -276,9 +276,68 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
             && in_array($headings[0], ['AKREDITACE', 'ACCREDITATION'], true);
 
         return $expectedHeading
-            && $this->containsBlock($columns[0], 'core/button')
+            && $this->accreditationLeafPayloadMatches($columns, $headings[0])
             && '' === $this->plainText($columns[1])
             && '' === $this->plainText($columns[2]);
+    }
+
+    /** @param list<array<string, mixed>> $columns */
+    private function accreditationLeafPayloadMatches(array $columns, string $heading): bool
+    {
+        $childNames = static fn (array $block): array => array_map(
+            static fn (array $child): string => (string) ($child['blockName'] ?? ''),
+            array_values(array_filter($block['innerBlocks'] ?? [], 'is_array'))
+        );
+        if (['core/spacer', 'core/heading', 'core/buttons'] !== $childNames($columns[0])
+            || ['core/spacer', 'core/heading'] !== $childNames($columns[1])
+            || ['core/spacer', 'core/heading'] !== $childNames($columns[2])) {
+            return false;
+        }
+
+        $first = array_values(array_filter($columns[0]['innerBlocks'], 'is_array'));
+        $second = array_values(array_filter($columns[1]['innerBlocks'], 'is_array'));
+        $third = array_values(array_filter($columns[2]['innerBlocks'], 'is_array'));
+        $spacerHtml = '<div style="height:30px" aria-hidden="true" class="wp-block-spacer"></div>';
+        foreach ([$first[0], $second[0], $third[0]] as $spacer) {
+            if (!$this->leafPayloadMatches($spacer, ['height' => '30px'], $spacerHtml)) {
+                return false;
+            }
+        }
+
+        $headingText = 'AKREDITACE' === $heading ? 'AKREDITACE' : 'ACCREDITATION';
+        $headingHtml = sprintf(
+            '<h4 class="wp-block-heading has-text-align-center">%s</h4>',
+            $headingText
+        );
+        $emptyHeadingHtml = '<h4 class="wp-block-heading has-text-align-center"></h4>';
+        if (!$this->leafPayloadMatches($first[1], ['textAlign' => 'center', 'level' => 4], $headingHtml)
+            || !$this->leafPayloadMatches($second[1], ['textAlign' => 'center', 'level' => 4], $emptyHeadingHtml)
+            || !$this->leafPayloadMatches($third[1], ['textAlign' => 'center', 'level' => 4], $emptyHeadingHtml)) {
+            return false;
+        }
+
+        $buttons = $first[2];
+        if (($buttons['attrs'] ?? []) != ['layout' => ['type' => 'flex', 'justifyContent' => 'center']]) {
+            return false;
+        }
+        $buttonChildren = array_values(array_filter($buttons['innerBlocks'] ?? [], 'is_array'));
+        $button = $buttonChildren[0] ?? [];
+        $buttonText = 'AKREDITACE' === $heading ? 'ZOBRAZIT SOUBORY' : 'VIEW FILES';
+        $buttonHtml = sprintf(
+            '<div class="wp-block-button"><a class="wp-block-button__link has-text-align-center wp-element-button" href="https://docs.google.com/forms/d/e/1FAIpQLSerSEKT-2eufUO50ymmo3cyJAZb-Q3yfmGizhRRzLXtQBLihA/viewform" target="_blank" rel="noreferrer noopener">%s</a></div>',
+            $buttonText
+        );
+
+        return $this->leafPayloadMatches($button, ['textAlign' => 'center'], $buttonHtml);
+    }
+
+    /** @param array<string, mixed> $block
+     *  @param array<string, mixed> $attrs
+     */
+    private function leafPayloadMatches(array $block, array $attrs, string $innerHtml): bool
+    {
+        return ($block['attrs'] ?? []) == $attrs
+            && trim((string) ($block['innerHTML'] ?? '')) === $innerHtml;
     }
 
     /** @param array<string, mixed> $block

@@ -318,6 +318,24 @@ final class SponsorPageMigrationTest extends TestCase
         }
     }
 
+    public function test_created_page_with_an_edited_translation_group_is_not_deleted(): void
+    {
+        $store = new InMemoryPageStore([], [10 => 'one.svg']);
+        $store->replaceTranslationsAfterTranslationAttempts = [1 => ['cs' => 1, 'en' => 99]];
+        $store->throwOnTranslationAttempts = [1];
+        $migration = new SponsorPageMigration($store, [10 => 'one.svg'], 'desired');
+
+        try {
+            $migration->apply();
+            self::fail('A translation failure should abort the migration.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('souběžné úpravě', $error->getMessage());
+            self::assertNotNull($store->find(1));
+            self::assertNull($store->find(2));
+            self::assertSame(['cs' => 1, 'en' => 99], $store->translations(1));
+        }
+    }
+
     public function test_translation_failure_restores_existing_group_after_removing_created_page(): void
     {
         $store = new InMemoryPageStore(

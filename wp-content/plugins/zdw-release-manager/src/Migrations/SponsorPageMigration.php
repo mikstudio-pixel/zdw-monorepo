@@ -71,7 +71,11 @@ final class SponsorPageMigration implements Migration
                     if (null === $fingerprint) {
                         throw new RuntimeException(sprintf('Nově vytvořenou stránku ID %d nelze ověřit.', $pageId));
                     }
-                    $created[$pageId] = ['language' => $language, 'fingerprint' => $fingerprint];
+                    $created[$pageId] = [
+                        'language' => $language,
+                        'fingerprint' => $fingerprint,
+                        'translations' => [[]],
+                    ];
                 } else {
                     $pageId = $pageIds[0];
                     $page = $this->store->find($pageId);
@@ -101,10 +105,18 @@ final class SponsorPageMigration implements Migration
                 if ($language !== $this->store->language($pageId)) {
                     $this->store->setLanguage($pageId, $language);
                 }
+                if (isset($created[$pageId])) {
+                    $createdTranslations = $this->store->translations($pageId);
+                    ksort($createdTranslations);
+                    $created[$pageId]['translations'][] = $createdTranslations;
+                }
                 $translations[$language] = $pageId;
             }
 
             $translationsAttempted = true;
+            foreach (array_keys($created) as $pageId) {
+                $created[$pageId]['translations'][] = $translations;
+            }
             $this->store->setTranslations($translations);
             if (!$this->pagesMatch()) {
                 throw new RuntimeException('Propojení překladů stránek Sponzoři a Partners nebylo uloženo.');
@@ -224,7 +236,7 @@ final class SponsorPageMigration implements Migration
         return true;
     }
 
-    /** @param array<int, array{language: string, fingerprint: string}> $created
+    /** @param array<int, array{language: string, fingerprint: string, translations: list<array<string, int>>}> $created
      *  @param array<int, array{content: string, language: ?string, translations: array<string, int>, targetLanguage: string}> $originals
      */
     private function rollback(array $created, array $originals, bool $translationsAttempted): ?Throwable
@@ -244,7 +256,7 @@ final class SponsorPageMigration implements Migration
         return $failure;
     }
 
-    /** @param array<int, array{language: string, fingerprint: string}> $created */
+    /** @param array<int, array{language: string, fingerprint: string, translations: list<array<string, int>>}> $created */
     private function rollbackCreatedPages(array $created): ?Throwable
     {
         $failure = null;
@@ -256,9 +268,12 @@ final class SponsorPageMigration implements Migration
                 }
                 $page = $this->store->find($pageId);
                 $language = $this->store->language($pageId);
+                $translations = $this->store->translations($pageId);
+                ksort($translations);
                 if (null === $page
                     || !hash_equals($snapshot['fingerprint'], $fingerprint)
-                    || !in_array($language, [null, $snapshot['language']], true)) {
+                    || !in_array($language, [null, $snapshot['language']], true)
+                    || !in_array($translations, $snapshot['translations'], true)) {
                     throw new RuntimeException(sprintf(
                         'Nově vytvořenou stránku ID %d nelze smazat po souběžné úpravě.',
                         $pageId

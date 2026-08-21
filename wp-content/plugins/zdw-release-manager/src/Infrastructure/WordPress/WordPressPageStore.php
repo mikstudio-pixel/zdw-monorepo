@@ -113,7 +113,13 @@ final class WordPressPageStore implements PageStore
             'post_type',
         ]));
 
-        return hash('sha256', serialize($fields));
+        $metadata = get_post_meta($postId);
+        if (!is_array($metadata)) {
+            $metadata = [];
+        }
+        ksort($metadata);
+
+        return hash('sha256', serialize(['post' => $fields, 'meta' => $metadata]));
     }
 
     public function setLanguage(int $postId, ?string $language): void

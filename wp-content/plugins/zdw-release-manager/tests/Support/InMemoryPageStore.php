@@ -66,6 +66,9 @@ final class InMemoryPageStore implements PageStore
     /** @var array<int, array<int, string>> */
     public array $replaceFingerprintBeforeTranslationAttempts = [];
 
+    /** @var array<int, array<string, int>> */
+    public array $replaceTranslationsAfterTranslationAttempts = [];
+
     /** @param list<PostRecord> $pages
      *  @param array<int, string> $attachments
      *  @param array<string, list<int>> $unpublishedSlugOwners
@@ -227,6 +230,16 @@ final class InMemoryPageStore implements PageStore
         $this->translations = $translations;
         foreach ($translations as $postId) {
             $this->translationGroupsByPost[$postId] = $translations;
+        }
+        if (isset($this->replaceTranslationsAfterTranslationAttempts[$this->translationAttempts])) {
+            $replacement = $this->replaceTranslationsAfterTranslationAttempts[$this->translationAttempts];
+            foreach (array_keys($this->translationGroupsByPost) as $postId) {
+                unset($this->translationGroupsByPost[$postId]);
+            }
+            $this->translations = $replacement;
+            foreach ($replacement as $postId) {
+                $this->translationGroupsByPost[$postId] = $replacement;
+            }
         }
         if (in_array($this->translationAttempts, $this->throwOnTranslationAttempts, true)) {
             throw new \RuntimeException('Translation write failed.');

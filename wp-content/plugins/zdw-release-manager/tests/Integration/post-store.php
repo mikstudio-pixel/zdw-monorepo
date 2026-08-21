@@ -7,6 +7,7 @@ require $wordpressRoot . '/wp-load.php';
 require_once dirname(__DIR__, 2) . '/zdw-release-manager.php';
 
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressPostStore;
+use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressPageStore;
 
 $administratorIds = get_users(['role' => 'administrator', 'number' => 1, 'fields' => 'ID']);
 if ([] === $administratorIds) {
@@ -20,12 +21,19 @@ $previousUserId = get_current_user_id();
 try {
     wp_set_current_user((int) $administratorIds[0]);
     $store = new WordPressPostStore();
+    $pageStore = new WordPressPageStore();
     if (null === $store->find((int) $publishedPage)) {
         throw new RuntimeException('Published page was not accepted.');
     }
     if (null !== $store->find((int) $draftPage) || null !== $store->find((int) $publishedPost)) {
         throw new RuntimeException('Draft page or non-page migration target was accepted.');
     }
+    $fingerprintBeforeMetadata = $pageStore->pageFingerprint((int) $publishedPage);
+    update_post_meta((int) $publishedPage, '_wp_page_template', 'review-fixture.php');
+    if ($fingerprintBeforeMetadata === $pageStore->pageFingerprint((int) $publishedPage)) {
+        throw new RuntimeException('Page metadata was omitted from the rollback fingerprint.');
+    }
+    delete_post_meta((int) $publishedPage, '_wp_page_template');
     $postUpdatedCalls = 0;
     $postUpdated = static function (int $postId) use ($publishedPage, &$postUpdatedCalls): void {
         if ((int) $publishedPage === $postId) {

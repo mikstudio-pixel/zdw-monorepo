@@ -133,6 +133,16 @@ foreach ((array) wp_get_nav_menu_items((int) $legacyMenu->term_id) as $item) {
 if (0 === $festivalParentId) {
     throw new RuntimeException('Legacy festival parent fixture is unavailable.');
 }
+$canonicalSponsorItemId = 0;
+foreach ((array) wp_get_nav_menu_items((int) $legacyMenu->term_id) as $item) {
+    if ('page' === $item->object && (int) $sponsorPage->ID === (int) $item->object_id) {
+        $canonicalSponsorItemId = (int) $item->ID;
+        break;
+    }
+}
+if (0 === $canonicalSponsorItemId) {
+    throw new RuntimeException('Canonical legacy sponsor fixture is unavailable.');
+}
 $duplicateId = wp_update_nav_menu_item((int) $legacyMenu->term_id, 0, [
     'menu-item-title' => 'Sponzoři duplicate fixture',
     'menu-item-parent-id' => $festivalParentId,
@@ -145,6 +155,7 @@ if (is_wp_error($duplicateId)) {
     throw new RuntimeException($duplicateId->get_error_message());
 }
 try {
+    update_post_meta($canonicalSponsorItemId, '_menu_item_menu_item_parent', (int) $duplicateId);
     $store->ensureLegacySponsorItem($sponsorPageIds);
     $matchingItems = array_filter(
         (array) wp_get_nav_menu_items((int) $legacyMenu->term_id),
@@ -154,7 +165,12 @@ try {
     if (1 !== count($matchingItems)) {
         throw new RuntimeException('Duplicate legacy sponsor items were not consolidated.');
     }
+    $canonicalSponsorItem = reset($matchingItems);
+    if ($festivalParentId !== (int) $canonicalSponsorItem->menu_item_parent) {
+        throw new RuntimeException('Canonical sponsor item became its own parent during consolidation.');
+    }
 } finally {
+    update_post_meta($canonicalSponsorItemId, '_menu_item_menu_item_parent', $festivalParentId);
     if (get_post((int) $duplicateId)) {
         wp_delete_post((int) $duplicateId, true);
     }
