@@ -50,7 +50,18 @@ final class WordPressOptionStore implements OptionStore
                 return false;
             }
 
-            return true;
+            $actual = $this->get($name);
+            if ($this->valuesMatch($actual, $value)) {
+                return true;
+            }
+            if (!$this->deleteIfCurrent($name, $actual)) {
+                throw new RuntimeException(sprintf(
+                    'Filtrem změněné nastavení %s nelze po souběžné úpravě bezpečně odstranit.',
+                    $name
+                ));
+            }
+
+            return false;
         }
 
         global $wpdb;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ZDW\ReleaseManager\Infrastructure\WordPress;
 
 use RuntimeException;
+use Throwable;
 use WP_Post;
 
 final class WordPressConditionalPostContentUpdater
@@ -44,16 +45,54 @@ final class WordPressConditionalPostContentUpdater
             return false;
         }
 
-        clean_post_cache($postId);
-        $postAfter = get_post($postId);
-        if (!$postAfter instanceof WP_Post) {
-            throw new RuntimeException(sprintf('Aktualizovanou stránku ID %d nelze načíst.', $postId));
+        try {
+            clean_post_cache($postId);
+            $postAfter = get_post($postId);
+            if (!$postAfter instanceof WP_Post) {
+                throw new RuntimeException(sprintf('Aktualizovanou stránku ID %d nelze načíst.', $postId));
+            }
+
+            self::saveRevision($postBefore);
+            self::dispatchUpdateLifecycle($postId, $postBefore, $postAfter);
+        } catch (Throwable $error) {
+            self::restoreContentAfterFailure($postBefore, $content, $error);
+            throw $error;
         }
 
-        self::saveRevision($postBefore);
-        self::dispatchUpdateLifecycle($postId, $postBefore, $postAfter);
-
         return true;
+    }
+
+    private static function restoreContentAfterFailure(
+        WP_Post $postBefore,
+        string $failedContent,
+        Throwable $originalError
+    ): void {
+        global $wpdb;
+        $restored = $wpdb->query(
+            $wpdb->prepare(
+                "UPDATE {$wpdb->posts}
+                SET post_content = %s, post_modified = %s, post_modified_gmt = %s
+                WHERE ID = %d AND post_type = 'page' AND post_status = 'publish'
+                    AND CAST(post_content AS BINARY) = CAST(%s AS BINARY)",
+                $postBefore->post_content,
+                $postBefore->post_modified,
+                $postBefore->post_modified_gmt,
+                $postBefore->ID,
+                $failedContent
+            )
+        );
+        clean_post_cache((int) $postBefore->ID);
+        if (1 !== $restored) {
+            throw new RuntimeException(
+                sprintf(
+                    '%s Obnova obsahu stránky ID %d po chybě lifecycle selhala.',
+                    $originalError->getMessage(),
+                    $postBefore->ID
+                ),
+                0,
+                $originalError
+            );
+        }
     }
 
     private static function saveRevision(WP_Post $postBefore): void

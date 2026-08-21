@@ -70,6 +70,31 @@ try {
         || 'conditional-restore' !== $store->find((int) $publishedPage)?->content()) {
         throw new RuntimeException('A case-only stale conditional update overwrote newer content.');
     }
+    $throwingLifecycle = static function (int $postId) use ($publishedPage): void {
+        if ((int) $publishedPage === $postId) {
+            throw new RuntimeException('Lifecycle fixture failure.');
+        }
+    };
+    add_action('edit_post_page', $throwingLifecycle, 10, 1);
+    try {
+        try {
+            $store->updateContentIfCurrent(
+                (int) $publishedPage,
+                'conditional-restore',
+                'lifecycle-failure'
+            );
+            throw new RuntimeException('A throwing lifecycle hook unexpectedly completed the update.');
+        } catch (RuntimeException $error) {
+            if ('Lifecycle fixture failure.' !== $error->getMessage()) {
+                throw $error;
+            }
+        }
+    } finally {
+        remove_action('edit_post_page', $throwingLifecycle, 10);
+    }
+    if ('conditional-restore' !== $store->find((int) $publishedPage)?->content()) {
+        throw new RuntimeException('A post-write lifecycle failure left migrated content persisted.');
+    }
 } finally {
     wp_set_current_user($previousUserId);
     wp_delete_post((int) $publishedPage, true);

@@ -12,9 +12,11 @@ use ZDW\ReleaseManager\Migrations\DesiredOptionsMigration;
 $option = 'zdw_release_manager_integration_option';
 $integerOption = 'zdw_release_manager_integration_integer_option';
 $defaultOption = 'zdw_release_manager_integration_default_option';
+$filteredAddOption = 'zdw_release_manager_integration_filtered_add';
 delete_option($option);
 delete_option($integerOption);
 delete_option($defaultOption);
+delete_option($filteredAddOption);
 
 try {
     $store = new WordPressOptionStore();
@@ -81,10 +83,21 @@ try {
     } finally {
         remove_filter('pre_update_option_' . $option, $rewrite);
     }
+
+    add_filter('sanitize_option_' . $filteredAddOption, $rewrite);
+    try {
+        if ($store->setIfCurrent($filteredAddOption, false, null, 'requested')
+            || $store->has($filteredAddOption)) {
+            throw new RuntimeException('A transformed conditional option add was accepted or left persisted.');
+        }
+    } finally {
+        remove_filter('sanitize_option_' . $filteredAddOption, $rewrite);
+    }
 } finally {
     delete_option($option);
     delete_option($integerOption);
     delete_option($defaultOption);
+    delete_option($filteredAddOption);
 }
 
 echo "WordPressOptionStore integration test passed.\n";
