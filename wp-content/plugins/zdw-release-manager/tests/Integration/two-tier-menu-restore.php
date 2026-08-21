@@ -21,6 +21,37 @@ try {
     zdw_two_tier_menu_release_install_lock($installLock);
 }
 
+$stateLock = zdw_two_tier_menu_acquire_state_lock();
+if (!is_string($stateLock)) {
+    throw new RuntimeException('The header-state lock could not be acquired.');
+}
+$menuSnapshots = [];
+foreach (zdw_two_tier_menu_names() as $languages) {
+    foreach ($languages as $name) {
+        $menu = wp_get_nav_menu_object($name);
+        if ($menu) {
+            $menuSnapshots[(int) $menu->term_id] = zdw_two_tier_menu_snapshot_items((int) $menu->term_id);
+        }
+    }
+}
+try {
+    if (null !== zdw_two_tier_menu_install_menus(true)) {
+        throw new RuntimeException('Menu replacement began while another request owned the header-state lock.');
+    }
+    foreach ($menuSnapshots as $menuId => $snapshot) {
+        if ($snapshot !== zdw_two_tier_menu_snapshot_items($menuId)) {
+            throw new RuntimeException('State-lock contention allowed menu mutation before serialization.');
+        }
+    }
+} finally {
+    zdw_two_tier_menu_release_state_lock($stateLock);
+}
+$releasedInstallLock = zdw_two_tier_menu_acquire_install_lock();
+if (!is_string($releasedInstallLock)) {
+    throw new RuntimeException('State-lock contention leaked the installation lock.');
+}
+zdw_two_tier_menu_release_install_lock($releasedInstallLock);
+
 $menuName = 'ZDW rollback integration ' . wp_generate_uuid4();
 $menuId = wp_create_nav_menu($menuName);
 if (is_wp_error($menuId)) {

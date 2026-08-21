@@ -475,9 +475,10 @@ function zdw_two_tier_menu_menu_matches_blueprint( $menu_id, $blueprint ) {
  *
  * @param array<int, array<string, mixed>> $affected Modified menus.
  * @param array<int, int>                  $created_menu_ids Menus created by the failed installation.
+ * @param bool                             $state_locked Whether the caller owns the header-state lock.
  * @return bool Whether every snapshot was restored and every new menu removed.
  */
-function zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids = array() ) {
+function zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids = array(), $state_locked = false ) {
 	$created_lookup = array_fill_keys( array_map( 'intval', $created_menu_ids ), true );
 	$success        = true;
 	foreach ( $affected as $menu ) {
@@ -494,7 +495,11 @@ function zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids = arra
 	}
 
 	if ( ! $success ) {
-		zdw_two_tier_menu_record_install_failure();
+		if ( $state_locked ) {
+			zdw_two_tier_menu_record_install_failure_unlocked();
+		} else {
+			zdw_two_tier_menu_record_install_failure();
+		}
 	}
 
 	return $success;
@@ -504,9 +509,10 @@ function zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids = arra
  * Create the four editable menus, optionally replacing their seeded content.
  *
  * @param bool $replace Whether existing items should be replaced.
+ * @param bool $state_locked Whether the caller owns the header-state lock.
  * @return bool Whether all four menus were installed completely.
  */
-function zdw_two_tier_menu_install_menus_unlocked( $replace = false ) {
+function zdw_two_tier_menu_install_menus_unlocked( $replace = false, $state_locked = false ) {
 	$names      = zdw_two_tier_menu_names();
 	$blueprints = zdw_two_tier_menu_blueprints();
 	if ( ! zdw_two_tier_menu_blueprints_resolvable() ) {
@@ -523,7 +529,7 @@ function zdw_two_tier_menu_install_menus_unlocked( $replace = false ) {
 			} else {
 				$created = wp_create_nav_menu( $name );
 				if ( is_wp_error( $created ) || ! $created ) {
-					zdw_two_tier_menu_rollback_install( array(), $created_menu_ids );
+					zdw_two_tier_menu_rollback_install( array(), $created_menu_ids, $state_locked );
 
 					return false;
 				}
@@ -543,7 +549,7 @@ function zdw_two_tier_menu_install_menus_unlocked( $replace = false ) {
 		foreach ( $menus as $menu ) {
 			if ( ! empty( $menu['snapshot'] ) ) {
 				if ( ! zdw_two_tier_menu_menu_matches_blueprint( $menu['id'], $menu['blueprint'] ) ) {
-					zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids );
+					zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids, $state_locked );
 
 					return false;
 				}
@@ -552,13 +558,13 @@ function zdw_two_tier_menu_install_menus_unlocked( $replace = false ) {
 			$affected[] = $menu;
 			foreach ( $menu['blueprint'] as $item ) {
 				if ( ! zdw_two_tier_menu_insert_blueprint_item( $menu['id'], $item ) ) {
-					zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids );
+					zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids, $state_locked );
 
 					return false;
 				}
 			}
 			if ( ! zdw_two_tier_menu_menu_matches_blueprint( $menu['id'], $menu['blueprint'] ) ) {
-				zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids );
+				zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids, $state_locked );
 
 				return false;
 			}
@@ -582,7 +588,7 @@ function zdw_two_tier_menu_install_menus_unlocked( $replace = false ) {
 		}
 
 		if ( ! $success ) {
-			zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids );
+			zdw_two_tier_menu_rollback_install( $affected, $created_menu_ids, $state_locked );
 
 			return false;
 		}
@@ -602,12 +608,32 @@ function zdw_two_tier_menu_install_menus( $replace = false ) {
 	if ( null === $lock_token ) {
 		return null;
 	}
+	$state_lock_token = zdw_two_tier_menu_acquire_state_lock( true );
+	if ( null === $state_lock_token ) {
+		zdw_two_tier_menu_release_install_lock( $lock_token );
+
+		return null;
+	}
 
 	try {
-		return zdw_two_tier_menu_install_menus_unlocked( $replace );
+		return zdw_two_tier_menu_install_menus_unlocked( $replace, true );
 	} finally {
+		zdw_two_tier_menu_release_state_lock( $state_lock_token );
 		zdw_two_tier_menu_release_install_lock( $lock_token );
 	}
+}
+
+/** Record a failed installation while the caller owns the header-state lock. */
+function zdw_two_tier_menu_record_install_failure_unlocked() {
+	$enabled = get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, null );
+	$pending = get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, '0' );
+	if ( null === $enabled || '0' !== (string) $enabled || '1' === (string) $pending ) {
+		update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0' );
+		update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, '1' );
+	}
+	delete_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION );
+
+	return true;
 }
 
 /**
@@ -620,15 +646,7 @@ function zdw_two_tier_menu_record_install_failure() {
 	}
 
 	try {
-		$enabled = get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, null );
-		$pending = get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, '0' );
-		if ( null === $enabled || '0' !== (string) $enabled || '1' === (string) $pending ) {
-			update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0' );
-			update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, '1' );
-		}
-		delete_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION );
-
-		return true;
+		return zdw_two_tier_menu_record_install_failure_unlocked();
 	} finally {
 		zdw_two_tier_menu_release_state_lock( $lock_token );
 	}
