@@ -33,7 +33,7 @@ final class WordPressHeroBackgroundTransformer implements HeroBackgroundTransfor
             $background->url()
         );
         foreach (($blocks[$index]['innerContent'] ?? []) as $contentIndex => $fragment) {
-            if (is_string($fragment)) {
+            if (is_string($fragment) && 1 === preg_match('/^\s*<div\b/is', $fragment)) {
                 $blocks[$index]['innerContent'][$contentIndex] = $this->rewriteSavedMarkup(
                     $fragment,
                     $background->url()

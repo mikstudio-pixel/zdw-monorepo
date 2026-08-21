@@ -89,6 +89,33 @@ $legacyAccreditation = '<!-- wp:group --><div class="wp-block-group"><!-- wp:col
     . '<!-- wp:column --><div class="wp-block-column"><!-- wp:heading {"level":4} --><h4></h4><!-- /wp:heading --></div><!-- /wp:column -->'
     . '<!-- wp:column --><div class="wp-block-column"><!-- wp:heading {"level":4} --><h4></h4><!-- /wp:heading --></div><!-- /wp:column -->'
     . '</div><!-- /wp:columns --></div><!-- /wp:group -->';
+$overlappingAccreditation = str_replace(
+    '<!-- /wp:button -->',
+    '<!-- /wp:button --><!-- wp:acf/contact-person {"name":"acf/contact-person"} /-->',
+    $legacyAccreditation
+);
+$overlapResult = $transformer->pressPage($overlappingAccreditation, $eva);
+if (1 !== substr_count($overlapResult, 'wp:zdw/contacts')) {
+    throw new RuntimeException('An overlapping accreditation/contact group was removed without replacement.');
+}
+
+$groupClosing = '</div><!-- /wp:group -->';
+$unsafeAccreditation = substr($legacyAccreditation, 0, -strlen($groupClosing))
+    . '<!-- wp:paragraph --><p>Retained accreditation note</p><!-- /wp:paragraph -->'
+    . $groupClosing;
+$unsafeAccreditationResult = $transformer->pressPage($syntheticPress . $unsafeAccreditation, $eva);
+if (!str_contains($unsafeAccreditationResult, 'Retained accreditation note')) {
+    throw new RuntimeException('Accreditation cleanup removed an unrelated sibling block.');
+}
+
+$rawAccreditation = substr($legacyAccreditation, 0, -strlen($groupClosing))
+    . 'Retained raw accreditation note'
+    . $groupClosing;
+$rawAccreditationResult = $transformer->pressPage($syntheticPress . $rawAccreditation, $eva);
+if (!str_contains($rawAccreditationResult, 'Retained raw accreditation note')) {
+    throw new RuntimeException('Accreditation cleanup removed unrelated raw content.');
+}
+
 $safePress = $syntheticPress . $unrelatedAccreditation . $legacyAccreditation;
 $safeResult = $transformer->pressPage($safePress, $eva);
 if (false === strpos($safeResult, 'Akreditace novinářů bude otevřena později')) {

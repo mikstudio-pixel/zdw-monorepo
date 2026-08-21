@@ -22,8 +22,14 @@ final class InMemoryPostStore implements PostStore
     /** @var array<int, list<int>> */
     public array $throwOnUpdateAttempts = [];
 
+    /** @var array<int, list<int>> */
+    public array $throwOnFindAttempts = [];
+
     /** @var array<int, int> */
     private array $updateAttempts = [];
+
+    /** @var array<int, int> */
+    private array $findAttempts = [];
 
     /** @param list<PostRecord> $posts */
     public function __construct(array $posts = [])
@@ -36,6 +42,12 @@ final class InMemoryPostStore implements PostStore
 
     public function find(int $postId): ?PostRecord
     {
+        $attempt = ($this->findAttempts[$postId] ?? 0) + 1;
+        $this->findAttempts[$postId] = $attempt;
+        if (in_array($attempt, $this->throwOnFindAttempts[$postId] ?? [], true)) {
+            throw new RuntimeException(sprintf('Post ID %d lookup failed.', $postId));
+        }
+
         return $this->posts[$postId] ?? null;
     }
 

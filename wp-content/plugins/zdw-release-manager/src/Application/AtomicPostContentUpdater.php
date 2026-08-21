@@ -34,7 +34,11 @@ final class AtomicPostContentUpdater
         } catch (Throwable $error) {
             $rollbackFailure = null;
             foreach (array_reverse($attemptedPostIds) as $postId) {
-                $current = $this->posts->find($postId);
+                try {
+                    $current = $this->posts->find($postId);
+                } catch (Throwable) {
+                    $current = null;
+                }
                 if ($current instanceof PostRecord && $originals[$postId] === $current->content()) {
                     continue;
                 }
@@ -42,7 +46,11 @@ final class AtomicPostContentUpdater
                 try {
                     $this->posts->updateContent($postId, $originals[$postId]);
                 } catch (Throwable $rollbackError) {
-                    $restored = $this->posts->find($postId);
+                    try {
+                        $restored = $this->posts->find($postId);
+                    } catch (Throwable) {
+                        $restored = null;
+                    }
                     if ($restored instanceof PostRecord && $originals[$postId] === $restored->content()) {
                         continue;
                     }

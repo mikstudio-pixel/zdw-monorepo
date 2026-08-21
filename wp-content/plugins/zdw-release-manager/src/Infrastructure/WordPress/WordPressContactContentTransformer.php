@@ -21,7 +21,7 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
         $skipBlankTail = false;
 
         foreach ($blocks as $index => $block) {
-            if ($accreditationIndex === $index) {
+            if ($accreditationIndex === $index && $contactIndex !== $index) {
                 $last = end($updated);
                 if (is_array($last) && 'core/spacer' === ($last['blockName'] ?? null)) {
                     array_pop($updated);
@@ -161,11 +161,7 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
     /** @param array<string, mixed> $block */
     private function isDedicatedLegacyContactGroup(array $block): bool
     {
-        $rawContent = implode('', array_filter(
-            $block['innerContent'] ?? [],
-            static fn (mixed $fragment): bool => is_string($fragment)
-        ));
-        if ('' !== trim(wp_strip_all_tags($rawContent))) {
+        if ($this->containsRawText($block)) {
             return false;
         }
 
@@ -221,17 +217,17 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
             return false;
         }
 
-        $columnsBlocks = array_values(array_filter(
-            $block['innerBlocks'] ?? [],
-            static fn (mixed $innerBlock): bool => is_array($innerBlock)
-                && 'core/columns' === ($innerBlock['blockName'] ?? null)
-        ));
-        if (1 !== count($columnsBlocks)) {
+        $innerBlocks = $block['innerBlocks'] ?? [];
+        if (!is_array($innerBlocks)
+            || 1 !== count($innerBlocks)
+            || !is_array($innerBlocks[0])
+            || 'core/columns' !== ($innerBlocks[0]['blockName'] ?? null)
+            || $this->containsRawText($block)) {
             return false;
         }
 
         $columns = array_values(array_filter(
-            $columnsBlocks[0]['innerBlocks'] ?? [],
+            $innerBlocks[0]['innerBlocks'] ?? [],
             static fn (mixed $innerBlock): bool => is_array($innerBlock)
                 && 'core/column' === ($innerBlock['blockName'] ?? null)
         ));
@@ -247,6 +243,17 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
             && $this->containsBlock($columns[0], 'core/button')
             && '' === $this->plainText($columns[1])
             && '' === $this->plainText($columns[2]);
+    }
+
+    /** @param array<string, mixed> $block */
+    private function containsRawText(array $block): bool
+    {
+        $rawContent = implode('', array_filter(
+            $block['innerContent'] ?? [],
+            static fn (mixed $fragment): bool => is_string($fragment)
+        ));
+
+        return '' !== trim(wp_strip_all_tags($rawContent));
     }
 
     /** @param array<string, mixed> $block
