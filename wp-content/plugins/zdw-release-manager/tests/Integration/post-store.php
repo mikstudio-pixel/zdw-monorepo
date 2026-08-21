@@ -58,6 +58,78 @@ try {
             || $pageStore->setTranslationsIfCurrent([(int) $publishedPage => []], $desiredTranslations)) {
             throw new RuntimeException('Conditional translation write did not enforce its locked expectations.');
         }
+
+        $translationTerms = wp_get_object_terms(
+            (int) $publishedPage,
+            'post_translations',
+            ['fields' => 'all']
+        );
+        $translationTerm = is_array($translationTerms) ? reset($translationTerms) : false;
+        if (!$translationTerm instanceof WP_Term) {
+            throw new RuntimeException('A translation term fixture is required for the cache-lock test.');
+        }
+        global $wpdb;
+        $termTaxonomyId = (int) $translationTerm->term_taxonomy_id;
+        $originalDescription = (string) $wpdb->get_var($wpdb->prepare(
+            "SELECT description FROM {$wpdb->term_taxonomy} WHERE term_taxonomy_id = %d",
+            $termTaxonomyId
+        ));
+        $translationLanguages = array_keys($desiredTranslations);
+        $translationPageIds = array_values($desiredTranslations);
+        $editorTranslations = [
+            $translationLanguages[0] => $translationPageIds[1],
+            $translationLanguages[1] => $translationPageIds[0],
+        ];
+        try {
+            if (1 !== $wpdb->update(
+                $wpdb->term_taxonomy,
+                ['description' => serialize($editorTranslations)],
+                ['term_taxonomy_id' => $termTaxonomyId],
+                ['%s'],
+                ['%d']
+            )) {
+                throw new RuntimeException('The translation cache fixture could not emulate an editor write.');
+            }
+            if ($pageStore->setTranslationsIfCurrent(
+                array_fill_keys(array_values($desiredTranslations), $desiredTranslations),
+                $desiredTranslations
+            )) {
+                throw new RuntimeException('A cached translation term hid a newer editor mapping.');
+            }
+        } finally {
+            $wpdb->update(
+                $wpdb->term_taxonomy,
+                ['description' => $originalDescription],
+                ['term_taxonomy_id' => $termTaxonomyId],
+                ['%s'],
+                ['%d']
+            );
+            clean_term_cache([(int) $translationTerm->term_id], 'post_translations', false);
+            clean_object_term_cache(array_values($desiredTranslations), 'post');
+        }
+
+        $lockedWrite = new ReflectionMethod($pageStore, 'withPolylangWriteLock');
+        $originalExcerpt = (string) get_post_field('post_excerpt', (int) $publishedPage, 'raw');
+        $lockedResult = $lockedWrite->invoke(
+            $pageStore,
+            [(int) $publishedPage],
+            static function () use ($wpdb, $publishedPage): bool {
+                $wpdb->update(
+                    $wpdb->posts,
+                    ['post_excerpt' => 'uncommitted-lock-fixture'],
+                    ['ID' => (int) $publishedPage],
+                    ['%s'],
+                    ['%d']
+                );
+
+                return false;
+            }
+        );
+        clean_post_cache((int) $publishedPage);
+        if (false !== $lockedResult
+            || $originalExcerpt !== (string) get_post_field('post_excerpt', (int) $publishedPage, 'raw')) {
+            throw new RuntimeException('A failed locked Polylang callback committed its partial database write.');
+        }
     }
     $postUpdatedCalls = 0;
     $postUpdated = static function (int $postId) use ($publishedPage, &$postUpdatedCalls): void {

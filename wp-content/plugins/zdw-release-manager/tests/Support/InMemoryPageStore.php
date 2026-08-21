@@ -75,6 +75,11 @@ final class InMemoryPageStore implements PageStore
     /** @var array<string, int>|null */
     public ?array $replaceTranslationsBeforeConditionalSet = null;
 
+    /** @var array<int, array<string, int>> */
+    public array $replaceTranslationsBeforeReadAttempts = [];
+
+    private int $translationReadAttempts = 0;
+
     /** @param list<PostRecord> $pages
      *  @param array<int, string> $attachments
      *  @param array<string, list<int>> $unpublishedSlugOwners
@@ -223,6 +228,13 @@ final class InMemoryPageStore implements PageStore
 
     public function translations(int $postId): array
     {
+        ++$this->translationReadAttempts;
+        if (isset($this->replaceTranslationsBeforeReadAttempts[$this->translationReadAttempts])) {
+            $this->replaceTranslationGroup(
+                $this->replaceTranslationsBeforeReadAttempts[$this->translationReadAttempts]
+            );
+        }
+
         return $this->translationGroupsByPost[$postId] ?? [];
     }
 

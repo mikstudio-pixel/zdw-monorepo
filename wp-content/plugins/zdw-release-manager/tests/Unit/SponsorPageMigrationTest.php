@@ -300,6 +300,31 @@ final class SponsorPageMigrationTest extends TestCase
         }
     }
 
+    public function test_translation_snapshot_is_not_refreshed_after_validation(): void
+    {
+        $store = new InMemoryPageStore(
+            [
+                new PostRecord(42, 'sponzori', 'original-cs'),
+                new PostRecord(43, 'partners', 'original-en'),
+            ],
+            [10 => 'one.svg'],
+            [],
+            [42 => 'cs', 43 => 'en'],
+            ['cs' => 42, 'en' => 43]
+        );
+        $store->replaceTranslationsBeforeReadAttempts = [3 => ['cs' => 42, 'en' => 99]];
+
+        try {
+            (new SponsorPageMigration($store, [10 => 'one.svg'], 'desired'))->apply();
+            self::fail('A concurrent translation change should abort the migration.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('mezitím', $error->getMessage());
+            self::assertSame(['cs' => 42, 'en' => 99], $store->translations(42));
+            self::assertSame('original-cs', $store->find(42)?->content());
+            self::assertSame('original-en', $store->find(43)?->content());
+        }
+    }
+
     public function test_translation_failure_restores_a_page_without_a_language(): void
     {
         $store = new InMemoryPageStore(

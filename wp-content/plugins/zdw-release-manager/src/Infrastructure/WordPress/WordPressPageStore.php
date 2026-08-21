@@ -246,8 +246,14 @@ final class WordPressPageStore implements PageStore
 
         global $wpdb;
         $ownsTransaction = 1 !== (int) $wpdb->get_var('SELECT @@in_transaction');
-        if ($ownsTransaction && false === $wpdb->query('START TRANSACTION')) {
-            throw new RuntimeException('Nelze zahájit transakci pro Polylang zápis.');
+        static $savepointSequence = 0;
+        $savepoint = sprintf('zdw_polylang_%d', ++$savepointSequence);
+        if ($ownsTransaction) {
+            if (false === $wpdb->query('START TRANSACTION')) {
+                throw new RuntimeException('Nelze zahájit transakci pro Polylang zápis.');
+            }
+        } elseif (false === $wpdb->query("SAVEPOINT {$savepoint}")) {
+            throw new RuntimeException('Nelze vytvořit bod obnovy pro Polylang zápis.');
         }
 
         try {
@@ -261,7 +267,7 @@ final class WordPressPageStore implements PageStore
                 ...$postIds
             ));
             $taxonomyLocks = $wpdb->get_results(
-                "SELECT term_taxonomy_id
+                "SELECT term_taxonomy_id, term_id, taxonomy
                 FROM {$wpdb->term_taxonomy}
                 WHERE taxonomy IN ('language', 'post_translations')
                 ORDER BY term_taxonomy_id
@@ -271,20 +277,75 @@ final class WordPressPageStore implements PageStore
                 throw new RuntimeException('Nelze uzamknout Polylang vazby pro podmíněný zápis.');
             }
 
-            clean_object_term_cache($postIds, 'post');
+            $this->cleanPolylangCaches($postIds, $taxonomyLocks);
             $result = (bool) $callback();
-            if ($ownsTransaction && false === $wpdb->query('COMMIT')) {
-                throw new RuntimeException('Nelze potvrdit podmíněný Polylang zápis.');
+            if (!$result) {
+                $this->rollbackPolylangWrite($ownsTransaction, $savepoint);
+                $this->cleanPolylangCaches($postIds, $taxonomyLocks);
+
+                return false;
+            }
+            if ($ownsTransaction) {
+                if (false === $wpdb->query('COMMIT')) {
+                    throw new RuntimeException('Nelze potvrdit podmíněný Polylang zápis.');
+                }
+            } elseif (false === $wpdb->query("RELEASE SAVEPOINT {$savepoint}")) {
+                throw new RuntimeException('Nelze uvolnit bod obnovy pro Polylang zápis.');
             }
 
-            return $result;
+            return true;
         } catch (Throwable $error) {
-            if ($ownsTransaction) {
-                $wpdb->query('ROLLBACK');
+            try {
+                $this->rollbackPolylangWrite($ownsTransaction, $savepoint);
+            } catch (Throwable $rollbackError) {
+                $error = new RuntimeException(
+                    sprintf('%s Obnova Polylang zápisu selhala: %s', $error->getMessage(), $rollbackError->getMessage()),
+                    0,
+                    $error
+                );
             }
-            clean_object_term_cache($postIds, 'post');
+            $this->cleanPolylangCaches($postIds, $taxonomyLocks ?? []);
 
             throw $error;
+        }
+    }
+
+    /** @param list<int> $postIds
+     *  @param array<int, object> $taxonomyLocks
+     */
+    private function cleanPolylangCaches(array $postIds, array $taxonomyLocks): void
+    {
+        clean_object_term_cache($postIds, 'post');
+
+        $termIdsByTaxonomy = [];
+        foreach ($taxonomyLocks as $term) {
+            $taxonomy = isset($term->taxonomy) ? (string) $term->taxonomy : '';
+            $termId = isset($term->term_id) ? (int) $term->term_id : 0;
+            if ('' !== $taxonomy && $termId > 0) {
+                $termIdsByTaxonomy[$taxonomy][] = $termId;
+            }
+        }
+        foreach ($termIdsByTaxonomy as $taxonomy => $termIds) {
+            clean_term_cache(array_values(array_unique($termIds)), $taxonomy, false);
+        }
+    }
+
+    private function rollbackPolylangWrite(bool $ownsTransaction, string $savepoint): void
+    {
+        global $wpdb;
+        if ($ownsTransaction) {
+            if (false === $wpdb->query('ROLLBACK')) {
+                throw new RuntimeException('Nelze vrátit podmíněný Polylang zápis.');
+            }
+
+            return;
+        }
+
+        if (false === $wpdb->query("ROLLBACK TO SAVEPOINT {$savepoint}")) {
+            throw new RuntimeException('Nelze vrátit Polylang zápis k bodu obnovy.');
+        }
+        if (false === $wpdb->query("RELEASE SAVEPOINT {$savepoint}")) {
+            throw new RuntimeException('Nelze uvolnit bod obnovy po vrácení Polylang zápisu.');
         }
     }
 

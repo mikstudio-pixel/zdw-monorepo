@@ -116,13 +116,30 @@ final class SponsorPageMigration implements Migration
                         $pageId
                     ));
                 }
-                if ($language !== $currentLanguage
-                    && !$this->store->setLanguageIfCurrent($pageId, $currentLanguage, $language)) {
-                    throw new RuntimeException(sprintf('Jazyk stránky ID %d mezitím změnil jiný požadavek.', $pageId));
+                if ($language !== $currentLanguage) {
+                    if (!$this->store->setLanguageIfCurrent($pageId, $currentLanguage, $language)) {
+                        throw new RuntimeException(sprintf(
+                            'Jazyk stránky ID %d mezitím změnil jiný požadavek.',
+                            $pageId
+                        ));
+                    }
+
+                    $currentTranslations = $this->store->translations($pageId);
+                    ksort($currentTranslations);
+                    $selfTranslation = [$language => $pageId];
+                    if ($currentTranslations !== $expectedTranslations
+                        && ([] !== $expectedTranslations || $currentTranslations !== $selfTranslation)) {
+                        throw new RuntimeException(sprintf(
+                            'Překladové vazby stránky ID %d mezitím změnil jiný požadavek.',
+                            $pageId
+                        ));
+                    }
+                    $translationExpectations[$pageId] = $currentTranslations;
+                } else {
+                    // Preserve the snapshot validated before any migration writes. A fresh read here
+                    // could turn a concurrent editorial change into the CAS expectation itself.
+                    $translationExpectations[$pageId] = $expectedTranslations;
                 }
-                $currentTranslations = $this->store->translations($pageId);
-                ksort($currentTranslations);
-                $translationExpectations[$pageId] = $currentTranslations;
                 if (isset($created[$pageId])) {
                     $created[$pageId]['translations'][] = $currentTranslations;
                     $created[$pageId]['translations'][] = [$language => $pageId];
