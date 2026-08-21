@@ -50,11 +50,22 @@
 		<?php if ( function_exists( 'zdw_two_tier_menu_is_active' ) && zdw_two_tier_menu_is_active() ) : ?>
 			<?php zdw_two_tier_menu_render_header(); ?>
 		<?php else : ?>
+			<?php
+			$legacy_home_url = home_url( '/' );
+			if ( function_exists( 'zdw_two_tier_menu_home_url' ) && function_exists( 'zdw_two_tier_menu_language' ) ) {
+				$legacy_home_url = zdw_two_tier_menu_home_url( zdw_two_tier_menu_language() );
+			} elseif ( function_exists( 'pll_home_url' ) ) {
+				$localized_home_url = pll_home_url();
+				if ( is_string( $localized_home_url ) && '' !== $localized_home_url ) {
+					$legacy_home_url = $localized_home_url;
+				}
+			}
+			?>
 			<header class="header" role="banner">
 				<div class="container container--flex container--align-items-center container--space-between">
 					<div style="display:flex;align-items:center">
 						<div class="logo">
-							<a href="<?php echo esc_url( home_url() ); ?>">
+							<a href="<?php echo esc_url( $legacy_home_url ); ?>">
 								<img src="<?php echo esc_url( get_template_directory_uri() . '/img/logo-white.svg' ); ?>" alt="<?php echo esc_attr( get_bloginfo( 'name', 'display' ) ); ?>" class="logo-img">
 							</a>
 						</div>

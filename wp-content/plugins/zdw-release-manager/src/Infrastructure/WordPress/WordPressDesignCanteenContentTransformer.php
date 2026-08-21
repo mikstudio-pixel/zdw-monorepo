@@ -41,6 +41,10 @@ final class WordPressDesignCanteenContentTransformer implements DesignCanteenCon
         if ('core/spacer' === ($innerBlocks[$accordionIndex + 1]['blockName'] ?? null)) {
             ++$lastRetained;
         }
+        $trailingBlocks = array_slice($innerBlocks, $lastRetained + 1);
+        if ([] !== $trailingBlocks && !$this->isKnownObsoleteProgramme($trailingBlocks)) {
+            throw new RuntimeException('Sekce Design Canteen obsahuje další redakční blok, který nelze bezpečně odstranit.');
+        }
         $section['innerBlocks'] = array_slice($innerBlocks, 0, $lastRetained + 1);
         $section['innerContent'] = $this->innerContent(
             $section['innerContent'] ?? [],
@@ -96,6 +100,43 @@ final class WordPressDesignCanteenContentTransformer implements DesignCanteenCon
         }
 
         return 1 === count($matches) ? $matches[0] : null;
+    }
+
+    /** @param list<array<string, mixed>> $blocks */
+    private function isKnownObsoleteProgramme(array $blocks): bool
+    {
+        $expectedNames = [
+            'core/heading',
+            'core/columns',
+            'core/columns',
+            'core/spacer',
+            'core/heading',
+            'core/columns',
+            'core/spacer',
+            'core/columns',
+            'core/spacer',
+            'core/heading',
+            'core/columns',
+            'core/spacer',
+        ];
+        if ($expectedNames !== array_column($blocks, 'blockName')) {
+            return false;
+        }
+
+        $serialized = serialize_blocks($blocks);
+        foreach ([
+            'What will we serve you at ZlIn Castle this year?',
+            'THURSDAY, 7 MAY',
+            'FRIDAY, 8 MAY',
+            'SATURDAY, 9 MAY',
+            'SUNDAY, 10 MAY',
+        ] as $marker) {
+            if (!str_contains($serialized, $marker)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** @param list<mixed> $original

@@ -18,6 +18,7 @@ final class WordPressNavigationStore implements NavigationStore
             && function_exists('zdw_two_tier_menu_blueprints_resolvable')
             && function_exists('zdw_two_tier_menu_menu_matches_blueprint')
             && function_exists('zdw_two_tier_menu_enable_completed_install')
+            && function_exists('zdw_two_tier_menu_complete_install_state_unlocked')
             && function_exists('zdw_two_tier_menu_install_menus')
             && function_exists('zdw_two_tier_menu_install_menus_unlocked')
             && function_exists('zdw_two_tier_menu_snapshot_items')
@@ -91,10 +92,7 @@ final class WordPressNavigationStore implements NavigationStore
             $this->assertNavigationLocks($installLock, $stateLock);
             $this->ensureLegacySponsorItem($sponsorPageIds);
             $this->assertNavigationLocks($installLock, $stateLock);
-            update_option('zdw_two_tier_menu_enabled', '1');
-            delete_option('zdw_two_tier_menu_enable_after_install');
-            update_option('zdw_two_tier_menu_db_version', ZDW_TWO_TIER_MENU_DB_VERSION);
-            if ('1' !== (string) get_option('zdw_two_tier_menu_enabled', '0')) {
+            if (!zdw_two_tier_menu_complete_install_state_unlocked(true)) {
                 throw new RuntimeException('Víceúrovňovou navigaci se nepodařilo bezpečně zapnout.');
             }
         } catch (Throwable $error) {
@@ -229,7 +227,9 @@ final class WordPressNavigationStore implements NavigationStore
 
     public function matchesDesiredNavigation(array $sponsorPageIds): bool
     {
-        if (!$this->isAvailable() || '1' !== (string) get_option('zdw_two_tier_menu_enabled', '0')) {
+        if (!$this->isAvailable()
+            || ZDW_TWO_TIER_MENU_DB_VERSION !== get_option('zdw_two_tier_menu_db_version')
+            || '1' !== (string) get_option('zdw_two_tier_menu_enabled', '0')) {
             return false;
         }
 

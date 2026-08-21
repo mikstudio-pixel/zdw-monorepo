@@ -943,10 +943,15 @@ function zdw_two_tier_menu_release_upgrade_lock( $token ) {
  * @return string|null
  */
 function zdw_two_tier_menu_acquire_install_lock() {
-	return zdw_two_tier_menu_acquire_owned_lock(
+	$token = zdw_two_tier_menu_acquire_owned_lock(
 		ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK,
 		ZDW_TWO_TIER_MENU_UPGRADE_LOCK_TTL
 	);
+	if ( null !== $token ) {
+		$GLOBALS['zdw_two_tier_menu_install_lock_token'] = $token;
+	}
+
+	return $token;
 }
 
 /**
@@ -956,7 +961,44 @@ function zdw_two_tier_menu_acquire_install_lock() {
  */
 function zdw_two_tier_menu_release_install_lock( $token ) {
 	zdw_two_tier_menu_release_owned_lock( ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK, $token );
+	if ( ( $GLOBALS['zdw_two_tier_menu_install_lock_token'] ?? null ) === $token ) {
+		unset( $GLOBALS['zdw_two_tier_menu_install_lock_token'] );
+	}
 }
+
+/** Return whether a different request currently owns the menu-mutation lock. */
+function zdw_two_tier_menu_native_menu_writes_blocked() {
+	$claim = get_option( ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK, false );
+	if ( ! is_array( $claim ) || ! is_string( $claim['token'] ?? null ) ) {
+		return false;
+	}
+
+	$request_token = $GLOBALS['zdw_two_tier_menu_install_lock_token'] ?? null;
+
+	return ! is_string( $request_token ) || ! hash_equals( $claim['token'], $request_token );
+}
+
+/** Block native menu saves while a release rebuild owns the menu snapshot. */
+function zdw_two_tier_menu_guard_native_menu_save() {
+	if ( ! zdw_two_tier_menu_native_menu_writes_blocked() ) {
+		return;
+	}
+
+	wp_die(
+		esc_html__( 'Navigace se právě bezpečně aktualizuje. Zkuste změnu uložit znovu za chvíli.', 'zdw-two-tier-menu' ),
+		esc_html__( 'Navigaci nelze nyní uložit', 'zdw-two-tier-menu' ),
+		array( 'response' => 409 )
+	);
+}
+
+/** Guard the classic menu editor only for write requests. */
+function zdw_two_tier_menu_guard_native_menu_admin_request() {
+	if ( 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) ) {
+		zdw_two_tier_menu_guard_native_menu_save();
+	}
+}
+add_action( 'load-nav-menus.php', 'zdw_two_tier_menu_guard_native_menu_admin_request', 0 );
+add_action( 'customize_save', 'zdw_two_tier_menu_guard_native_menu_save', 0 );
 
 /** Renew the menu discovery/mutation lock. */
 function zdw_two_tier_menu_renew_install_lock( $token ) {

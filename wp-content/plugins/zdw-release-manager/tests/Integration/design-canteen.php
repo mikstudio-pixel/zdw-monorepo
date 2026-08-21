@@ -69,4 +69,38 @@ if (!$nestedRawRejected) {
     throw new RuntimeException('Design Canteen transform accepted raw content inside the retained section.');
 }
 
+$namedBlocks = parse_blocks($desired);
+$namedFixtureCreated = false;
+$paragraph = array_values(array_filter(
+    parse_blocks('<!-- wp:paragraph --><p>New editorial note</p><!-- /wp:paragraph -->'),
+    static fn (array $block): bool => null !== ($block['blockName'] ?? null)
+))[0];
+foreach ($namedBlocks as &$block) {
+    if ('core/group' !== ($block['blockName'] ?? null)
+        || !str_contains(serialize_block($block), 'is-style-with-vertical-lines')
+        || !str_contains(serialize_block($block), 'wp:esab/accordion')) {
+        continue;
+    }
+    $block['innerBlocks'][] = $paragraph;
+    array_splice($block['innerContent'], -1, 0, ["\n\n", null]);
+    $namedFixtureCreated = true;
+    break;
+}
+unset($block);
+if (!$namedFixtureCreated) {
+    throw new RuntimeException('Design Canteen named-block fixture could not be created.');
+}
+$namedBlockRejected = false;
+try {
+    $transformer->desiredPageContent(serialize_blocks($namedBlocks));
+} catch (RuntimeException $error) {
+    if (!str_contains($error->getMessage(), 'další redakční blok')) {
+        throw $error;
+    }
+    $namedBlockRejected = true;
+}
+if (!$namedBlockRejected) {
+    throw new RuntimeException('Design Canteen transform accepted a new named editorial block.');
+}
+
 echo "WordPressDesignCanteenContentTransformer integration test passed.\n";

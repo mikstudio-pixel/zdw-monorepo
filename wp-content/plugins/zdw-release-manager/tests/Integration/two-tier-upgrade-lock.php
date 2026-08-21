@@ -65,6 +65,27 @@ try {
     delete_option(ZDW_TWO_TIER_MENU_OPTION_STATE_LOCK);
 }
 
+delete_option(ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK);
+try {
+    $installToken = zdw_two_tier_menu_acquire_install_lock();
+    if (!is_string($installToken) || zdw_two_tier_menu_native_menu_writes_blocked()) {
+        throw new RuntimeException('The install-lock owner was blocked from its own menu writes.');
+    }
+    update_option(ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK, [
+        'token' => 'competing-request',
+        'claimed_at' => time(),
+    ], false);
+    if (!zdw_two_tier_menu_native_menu_writes_blocked()) {
+        throw new RuntimeException('A native menu write was not blocked behind another request\'s rebuild.');
+    }
+} finally {
+    if (isset($installToken) && is_string($installToken)) {
+        zdw_two_tier_menu_release_install_lock($installToken);
+    }
+    delete_option(ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK);
+    unset($GLOBALS['zdw_two_tier_menu_install_lock_token']);
+}
+
 $previousEnabled = get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, false);
 $previousVersion = get_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, false);
 try {

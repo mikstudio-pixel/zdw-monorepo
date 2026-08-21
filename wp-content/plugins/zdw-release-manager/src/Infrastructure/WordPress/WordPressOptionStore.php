@@ -27,11 +27,9 @@ final class WordPressOptionStore implements OptionStore
 
     public function set(string $name, mixed $value): void
     {
-        if (update_option($name, $value, $this->autoload)) {
-            return;
-        }
+        update_option($name, $value, $this->autoload);
 
-        if ($this->get($name) === $value) {
+        if ($this->valuesMatch($this->get($name), $value)) {
             return;
         }
 
@@ -45,5 +43,11 @@ final class WordPressOptionStore implements OptionStore
         }
 
         throw new RuntimeException(sprintf('Nepodařilo se odstranit nastavení %s.', $name));
+    }
+
+    private function valuesMatch(mixed $actual, mixed $expected): bool
+    {
+        return $actual === $expected
+            || (is_scalar($actual) && is_scalar($expected) && (string) $actual === (string) $expected);
     }
 }
