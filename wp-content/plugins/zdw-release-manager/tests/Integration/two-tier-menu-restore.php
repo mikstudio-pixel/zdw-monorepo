@@ -142,6 +142,14 @@ try {
         $parentId === (int) $post->ID ? false : $delete;
     add_filter('pre_delete_post', $rejectParentDeletion, 10, 2);
     try {
+        $changedParent = wp_update_post([
+            'ID' => $parentId,
+            'post_title' => 'Changed surviving parent',
+            'post_excerpt' => 'Changed excerpt',
+        ], true);
+        if (is_wp_error($changedParent)) {
+            throw new RuntimeException($changedParent->get_error_message());
+        }
         if (zdw_two_tier_menu_clear_items((int) $menuId)) {
             throw new RuntimeException('A rejected item deletion unexpectedly reported success.');
         }
@@ -155,6 +163,8 @@ try {
         remove_filter('pre_delete_post', $rejectParentDeletion, 10);
     }
     if (!get_post($parentId) || !get_post($childId)
+        || 'Original parent' !== (string) get_post($parentId)?->post_title
+        || '' !== (string) get_post($parentId)?->post_excerpt
         || ['first', 'second'] !== get_post_meta($parentId, '_zdw_rollback_test')
         || $parentId !== (int) get_post_meta($childId, '_zdw_related_menu_item', true)
         || $slashes !== get_post_meta($childId, '_zdw_rollback_slashes', true)

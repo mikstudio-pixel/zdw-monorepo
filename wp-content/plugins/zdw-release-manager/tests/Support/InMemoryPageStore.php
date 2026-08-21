@@ -49,6 +49,8 @@ final class InMemoryPageStore implements PageStore
     /** @var list<array<string, int>> */
     public array $translationWrites = [];
 
+    public bool $ignoreTranslationWrites = false;
+
     /** @param list<PostRecord> $pages
      *  @param array<int, string> $attachments
      *  @param array<string, list<int>> $unpublishedSlugOwners
@@ -154,11 +156,14 @@ final class InMemoryPageStore implements PageStore
     public function setTranslations(array $translations): void
     {
         ++$this->translationAttempts;
+        $this->translationWrites[] = $translations;
+        if ($this->ignoreTranslationWrites) {
+            return;
+        }
         foreach ($translations as $postId) {
             $this->detachTranslation($postId);
         }
         $this->translations = $translations;
-        $this->translationWrites[] = $translations;
         foreach ($translations as $postId) {
             $this->translationGroupsByPost[$postId] = $translations;
         }

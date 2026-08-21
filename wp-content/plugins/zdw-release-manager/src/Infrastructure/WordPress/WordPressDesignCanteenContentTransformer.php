@@ -94,6 +94,11 @@ final class WordPressDesignCanteenContentTransformer implements DesignCanteenCon
         if ([] === $original || !is_string($original[0]) || !is_string($original[array_key_last($original)])) {
             throw new RuntimeException('Obal sekce Design Canteen nelze bezpečně zachovat.');
         }
+        foreach (array_slice($original, 1, -1) as $fragment) {
+            if (is_string($fragment) && '' !== trim($fragment)) {
+                throw new RuntimeException('Sekce Design Canteen obsahuje raw obsah, který nelze bezpečně odstranit.');
+            }
+        }
 
         $rebuilt = [$original[0]];
         for ($index = 0; $index < $blockCount; ++$index) {

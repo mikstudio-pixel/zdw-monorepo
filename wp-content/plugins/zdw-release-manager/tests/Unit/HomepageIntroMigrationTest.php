@@ -242,7 +242,7 @@ final class HomepageIntroMigrationTest extends TestCase
             new PostRecord(93, 'zdw-en', 'homepage-en'),
         ]);
         $posts->throwAfterUpdateId = 93;
-        $posts->replaceContentBeforeConditionalUpdate = [93 => 'editor-after-read'];
+        $posts->replaceContentBeforeConditionalUpdateAttempts = [93 => [2 => 'editor-after-read']];
         $migration = new HomepageIntroMigration(
             $posts,
             new FakeMediaStore(

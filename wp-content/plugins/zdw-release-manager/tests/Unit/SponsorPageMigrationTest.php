@@ -206,4 +206,28 @@ final class SponsorPageMigrationTest extends TestCase
         self::assertSame(['cs' => 42, 'en' => 43], $store->translations(43));
         self::assertSame('pass', $migration->verify()[0]->severity());
     }
+
+    public function test_silent_translation_failure_rolls_back_page_content(): void
+    {
+        $store = new InMemoryPageStore(
+            [
+                new PostRecord(42, 'sponzori', 'original-cs'),
+                new PostRecord(43, 'partners', 'original-en'),
+            ],
+            [10 => 'one.svg'],
+            [],
+            [42 => 'cs', 43 => 'en']
+        );
+        $store->ignoreTranslationWrites = true;
+        $migration = new SponsorPageMigration($store, [10 => 'one.svg'], 'desired');
+
+        try {
+            $migration->apply();
+            self::fail('A silent translation failure should abort the migration.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Propojení překladů', $error->getMessage());
+            self::assertSame('original-cs', $store->find(42)?->content());
+            self::assertSame('original-en', $store->find(43)?->content());
+        }
+    }
 }

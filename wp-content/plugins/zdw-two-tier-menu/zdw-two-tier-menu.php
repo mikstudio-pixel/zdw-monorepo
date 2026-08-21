@@ -387,6 +387,15 @@ function zdw_two_tier_menu_restore_items( $menu_id, $snapshot, $heartbeat = null
 			}
 		}
 
+		$restored_post       = $item['post'];
+		$restored_post['ID'] = $original_id;
+		unset( $restored_post['import_id'] );
+		$result = wp_update_post( wp_slash( $restored_post ), true );
+		if ( is_wp_error( $result ) || $original_id !== (int) $result ) {
+			$success = false;
+			continue;
+		}
+
 		$terms = wp_set_object_terms( $original_id, array( (int) $menu_id ), 'nav_menu', false );
 		if ( is_wp_error( $terms ) ) {
 			$success = false;
@@ -712,13 +721,8 @@ function zdw_two_tier_menu_record_install_success() {
 	try {
 		$enabled = get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, null );
 		$pending = '1' === (string) get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, '0' );
-		if ( $pending || null === $enabled ) {
-			update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1' );
-		}
-		delete_option( ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL );
-		update_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, ZDW_TWO_TIER_MENU_DB_VERSION );
 
-		return true;
+		return zdw_two_tier_menu_complete_install_state_unlocked( $pending || null === $enabled );
 	} finally {
 		zdw_two_tier_menu_release_state_lock( $lock_token );
 	}
@@ -736,14 +740,55 @@ function zdw_two_tier_menu_enable_completed_install() {
 	}
 
 	try {
-		update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1' );
-		delete_option( ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL );
-		update_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, ZDW_TWO_TIER_MENU_DB_VERSION );
-
-		return true;
+		return zdw_two_tier_menu_complete_install_state_unlocked( true );
 	} finally {
 		zdw_two_tier_menu_release_state_lock( $lock_token );
 	}
+}
+
+/**
+ * Persist and verify the completed installation state while owning its lock.
+ *
+ * @param bool $enable Whether the multi-level header must be enabled.
+ * @return bool
+ */
+function zdw_two_tier_menu_complete_install_state_unlocked( $enable ) {
+	if ( $enable ) {
+		update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1' );
+		if ( '1' !== (string) get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0' ) ) {
+			zdw_two_tier_menu_record_install_failure_unlocked();
+
+			return false;
+		}
+	}
+
+	delete_option( ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL );
+	if ( zdw_two_tier_menu_option_exists( ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL ) ) {
+		zdw_two_tier_menu_record_install_failure_unlocked();
+
+		return false;
+	}
+
+	update_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, ZDW_TWO_TIER_MENU_DB_VERSION );
+	if ( ZDW_TWO_TIER_MENU_DB_VERSION !== get_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION ) ) {
+		zdw_two_tier_menu_record_install_failure_unlocked();
+
+		return false;
+	}
+
+	return true;
+}
+
+/** Return whether an option row exists without applying registered defaults. */
+function zdw_two_tier_menu_option_exists( $option_name ) {
+	global $wpdb;
+
+	return null !== $wpdb->get_var(
+		$wpdb->prepare(
+			"SELECT option_id FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+			$option_name
+		)
+	);
 }
 
 /**

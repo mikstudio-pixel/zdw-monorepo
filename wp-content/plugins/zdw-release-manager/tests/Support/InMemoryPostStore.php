@@ -37,6 +37,12 @@ final class InMemoryPostStore implements PostStore
     /** @var array<int, string> */
     public array $replaceContentBeforeConditionalUpdate = [];
 
+    /** @var array<int, array<int, string>> */
+    public array $replaceContentBeforeConditionalUpdateAttempts = [];
+
+    /** @var array<int, int> */
+    private array $conditionalUpdateAttempts = [];
+
     /** @param list<PostRecord> $posts */
     public function __construct(array $posts = [])
     {
@@ -86,12 +92,17 @@ final class InMemoryPostStore implements PostStore
 
     public function updateContentIfCurrent(int $postId, string $expectedContent, string $content): bool
     {
-        if (isset($this->replaceContentBeforeConditionalUpdate[$postId], $this->posts[$postId])) {
+        $attempt = ($this->conditionalUpdateAttempts[$postId] ?? 0) + 1;
+        $this->conditionalUpdateAttempts[$postId] = $attempt;
+        $replacement = $this->replaceContentBeforeConditionalUpdateAttempts[$postId][$attempt]
+            ?? $this->replaceContentBeforeConditionalUpdate[$postId]
+            ?? null;
+        if (is_string($replacement) && isset($this->posts[$postId])) {
             $post = $this->posts[$postId];
             $this->posts[$postId] = new PostRecord(
                 $post->id(),
                 $post->slug(),
-                $this->replaceContentBeforeConditionalUpdate[$postId]
+                $replacement
             );
             unset($this->replaceContentBeforeConditionalUpdate[$postId]);
         }

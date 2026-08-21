@@ -77,6 +77,25 @@ final class DesiredPostContentMigrationTest extends TestCase
         }
     }
 
+    public function test_apply_does_not_overwrite_an_edit_made_after_planning(): void
+    {
+        $store = new InMemoryPostStore([
+            new PostRecord(17, 'kontakty', 'old-czech'),
+            new PostRecord(179, 'contacts', 'old-english'),
+        ]);
+        $store->replaceContentBeforeConditionalUpdate = [17 => 'editor-change'];
+        $migration = $this->migration($store);
+
+        try {
+            $migration->apply();
+            self::fail('A concurrent edit should abort the migration.');
+        } catch (RuntimeException) {
+            self::assertSame('editor-change', $store->find(17)?->content());
+            self::assertSame('old-english', $store->find(179)?->content());
+            self::assertSame([], $store->writes);
+        }
+    }
+
     private function migration(InMemoryPostStore $store): DesiredPostContentMigration
     {
         return new DesiredPostContentMigration(

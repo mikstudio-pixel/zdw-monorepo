@@ -35,4 +35,34 @@ if (!str_contains($rawResult, $rawMarker)) {
     throw new RuntimeException('Design Canteen transform removed unrelated top-level raw content.');
 }
 
+$nestedBlocks = parse_blocks((string) $post->post_content);
+$nestedFixtureCreated = false;
+foreach ($nestedBlocks as &$block) {
+    if ('core/group' !== ($block['blockName'] ?? null)
+        || !str_contains(serialize_block($block), 'is-style-with-vertical-lines')
+        || !str_contains(serialize_block($block), 'wp:esab/accordion')) {
+        continue;
+    }
+    foreach (($block['innerContent'] ?? []) as $contentIndex => $fragment) {
+        if ($contentIndex > 0 && is_string($fragment) && '' === trim($fragment)) {
+            $block['innerContent'][$contentIndex] = '<aside>Nested editorial raw marker</aside>';
+            $nestedFixtureCreated = true;
+            break 2;
+        }
+    }
+}
+unset($block);
+if (!$nestedFixtureCreated) {
+    throw new RuntimeException('Design Canteen retained-section fixture could not be created.');
+}
+$nestedRawContent = serialize_blocks($nestedBlocks);
+try {
+    $transformer->desiredPageContent($nestedRawContent);
+    throw new RuntimeException('Design Canteen transform accepted raw content inside the retained section.');
+} catch (RuntimeException $error) {
+    if (!str_contains($error->getMessage(), 'raw obsah')) {
+        throw $error;
+    }
+}
+
 echo "WordPressDesignCanteenContentTransformer integration test passed.\n";

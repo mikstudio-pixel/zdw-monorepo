@@ -29,7 +29,12 @@ final class AtomicPostContentUpdater
         try {
             foreach ($updates as $postId => $desired) {
                 $attemptedPostIds[] = $postId;
-                $this->posts->updateContent($postId, $desired);
+                if (!$this->posts->updateContentIfCurrent($postId, $originals[$postId], $desired)) {
+                    throw new RuntimeException(sprintf(
+                        'Obsah stránky ID %d mezitím změnil jiný požadavek.',
+                        $postId
+                    ));
+                }
             }
         } catch (Throwable $error) {
             $rollbackFailure = null;

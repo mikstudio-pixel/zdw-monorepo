@@ -93,6 +93,9 @@ final class SponsorPageMigration implements Migration
 
             $translationsAttempted = true;
             $this->store->setTranslations($translations);
+            if (!$this->pagesMatch()) {
+                throw new RuntimeException('Propojení překladů stránek Sponzoři a Partners nebylo uloženo.');
+            }
         } catch (Throwable $error) {
             $rollbackFailure = $this->rollback($created, $originals, $translationsAttempted);
             if (null !== $rollbackFailure) {
