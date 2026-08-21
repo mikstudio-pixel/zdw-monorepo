@@ -24,6 +24,9 @@ final class InMemoryPageStore implements PageStore
     /** @var array<string, int> */
     private array $translations = [];
 
+    /** @var array<int, array<string, int>> */
+    private array $translationGroupsByPost = [];
+
     /** @var list<int> */
     public array $writes = [];
 
@@ -69,6 +72,9 @@ final class InMemoryPageStore implements PageStore
         $this->unpublishedSlugOwners = $unpublishedSlugOwners;
         $this->languages = $languages;
         $this->translations = $translations;
+        foreach ($translations as $postId) {
+            $this->translationGroupsByPost[$postId] = $translations;
+        }
     }
 
     public function find(int $postId): ?PostRecord
@@ -104,6 +110,7 @@ final class InMemoryPageStore implements PageStore
 
     public function deletePage(int $postId): void
     {
+        $this->detachTranslation($postId);
         unset($this->pages[$postId], $this->languages[$postId]);
         $this->deleted[] = $postId;
     }
@@ -130,14 +137,20 @@ final class InMemoryPageStore implements PageStore
 
     public function translations(int $postId): array
     {
-        return in_array($postId, $this->translations, true) ? $this->translations : [];
+        return $this->translationGroupsByPost[$postId] ?? [];
     }
 
     public function setTranslations(array $translations): void
     {
         ++$this->translationAttempts;
+        foreach ($translations as $postId) {
+            $this->detachTranslation($postId);
+        }
         $this->translations = $translations;
         $this->translationWrites[] = $translations;
+        foreach ($translations as $postId) {
+            $this->translationGroupsByPost[$postId] = $translations;
+        }
         if (in_array($this->translationAttempts, $this->throwOnTranslationAttempts, true)) {
             throw new \RuntimeException('Translation write failed.');
         }
@@ -157,5 +170,22 @@ final class InMemoryPageStore implements PageStore
     public function attachmentFilename(int $attachmentId): ?string
     {
         return $this->attachments[$attachmentId] ?? null;
+    }
+
+    private function detachTranslation(int $postId): void
+    {
+        $group = $this->translationGroupsByPost[$postId] ?? [];
+        if ([] === $group) {
+            return;
+        }
+
+        unset($this->translationGroupsByPost[$postId]);
+        $remaining = array_filter(
+            $group,
+            static fn (int $translationId): bool => $translationId !== $postId
+        );
+        foreach ($remaining as $translationId) {
+            $this->translationGroupsByPost[$translationId] = $remaining;
+        }
     }
 }

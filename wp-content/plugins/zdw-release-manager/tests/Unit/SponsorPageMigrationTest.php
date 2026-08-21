@@ -144,7 +144,8 @@ final class SponsorPageMigrationTest extends TestCase
         } catch (\RuntimeException) {
             self::assertSame('original-cs', $store->find(42)?->content());
             self::assertSame('original-en', $store->find(43)?->content());
-            self::assertSame(['en' => 43], $store->translationGroup());
+            self::assertSame(['cs' => 42], $store->translations(42));
+            self::assertSame(['en' => 43], $store->translations(43));
             self::assertSame([
                 ['cs' => 42, 'en' => 43],
                 ['cs' => 42],
@@ -173,7 +174,8 @@ final class SponsorPageMigrationTest extends TestCase
         } catch (\RuntimeException) {
             self::assertSame('original-cs', $store->find(42)?->content());
             self::assertSame('original-en', $store->find(43)?->content());
-            self::assertSame(['en' => 43], $store->translationGroup());
+            self::assertSame(['cs' => 42], $store->translations(42));
+            self::assertSame(['en' => 43], $store->translations(43));
             self::assertSame([
                 ['cs' => 42, 'en' => 43],
                 ['cs' => 42],
