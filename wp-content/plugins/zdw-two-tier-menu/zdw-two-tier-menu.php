@@ -277,8 +277,14 @@ function zdw_two_tier_menu_insert_blueprint_item( $menu_id, $item, $parent_id = 
 function zdw_two_tier_menu_snapshot_items( $menu_id ) {
 	$snapshot = array();
 	foreach ( (array) wp_get_nav_menu_items( $menu_id ) as $item ) {
+		$post = get_post( $item->ID, ARRAY_A );
+		if ( ! is_array( $post ) ) {
+			continue;
+		}
 		$snapshot[] = array(
 			'original_id' => (int) $item->ID,
+			'post'        => $post,
+			'meta'        => get_post_meta( $item->ID ),
 			'title'       => (string) $item->title,
 			'description' => (string) $item->description,
 			'attr_title'  => (string) $item->attr_title,
@@ -296,31 +302,6 @@ function zdw_two_tier_menu_snapshot_items( $menu_id ) {
 	}
 
 	return $snapshot;
-}
-
-/**
- * Convert one snapshot row to wp_update_nav_menu_item() arguments.
- *
- * @param array<string, mixed> $item Snapshot row.
- * @param int                  $parent_id Restored parent item ID.
- * @return array<string, mixed>
- */
-function zdw_two_tier_menu_snapshot_item_args( $item, $parent_id ) {
-	return array(
-		'menu-item-title'       => (string) $item['title'],
-		'menu-item-description' => (string) $item['description'],
-		'menu-item-attr-title'  => (string) $item['attr_title'],
-		'menu-item-target'      => (string) $item['target'],
-		'menu-item-classes'     => (string) $item['classes'],
-		'menu-item-xfn'         => (string) $item['xfn'],
-		'menu-item-url'         => (string) $item['url'],
-		'menu-item-status'      => (string) $item['status'],
-		'menu-item-type'        => (string) $item['type'],
-		'menu-item-object'      => (string) $item['object'],
-		'menu-item-object-id'   => (int) $item['object_id'],
-		'menu-item-parent-id'   => $parent_id,
-		'menu-item-position'    => (int) $item['position'],
-	);
 }
 
 /**
@@ -351,34 +332,32 @@ function zdw_two_tier_menu_restore_items( $menu_id, $snapshot ) {
 		return false;
 	}
 
-	$restored_ids = array();
 	foreach ( $snapshot as $item ) {
-		$result = wp_update_nav_menu_item(
-			$menu_id,
-			0,
-			zdw_two_tier_menu_snapshot_item_args( $item, 0 )
-		);
-		if ( is_wp_error( $result ) || ! $result ) {
+		if ( empty( $item['original_id'] ) || empty( $item['post'] ) || ! is_array( $item['post'] ) ) {
 			return false;
 		}
-		$restored_ids[ (int) $item['original_id'] ] = (int) $result;
-	}
 
-	foreach ( $snapshot as $item ) {
-		$original_parent = (int) $item['parent_id'];
-		if ( 0 === $original_parent ) {
-			continue;
-		}
-		if ( ! isset( $restored_ids[ $original_parent ], $restored_ids[ (int) $item['original_id'] ] ) ) {
+		$post = $item['post'];
+		unset( $post['ID'] );
+		$post['import_id'] = (int) $item['original_id'];
+		$post['post_type'] = 'nav_menu_item';
+		$result            = wp_insert_post( wp_slash( $post ), true );
+		if ( is_wp_error( $result ) || (int) $item['original_id'] !== (int) $result ) {
 			return false;
 		}
-		$result = wp_update_nav_menu_item(
-			$menu_id,
-			$restored_ids[ (int) $item['original_id'] ],
-			zdw_two_tier_menu_snapshot_item_args( $item, $restored_ids[ $original_parent ] )
-		);
-		if ( is_wp_error( $result ) || ! $result ) {
+
+		$terms = wp_set_object_terms( (int) $result, array( (int) $menu_id ), 'nav_menu', false );
+		if ( is_wp_error( $terms ) ) {
 			return false;
+		}
+
+		foreach ( (array) ( $item['meta'] ?? array() ) as $key => $values ) {
+			delete_post_meta( (int) $result, (string) $key );
+			foreach ( (array) $values as $value ) {
+				if ( false === add_post_meta( (int) $result, (string) $key, $value ) ) {
+					return false;
+				}
+			}
 		}
 	}
 

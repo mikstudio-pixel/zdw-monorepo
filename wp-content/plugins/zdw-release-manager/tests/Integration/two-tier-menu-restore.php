@@ -73,6 +73,9 @@ try {
     if (!$parentId || !$childId) {
         throw new RuntimeException('Failed to create the rollback fixture menu.');
     }
+    add_post_meta($parentId, '_zdw_rollback_test', 'first');
+    add_post_meta($parentId, '_zdw_rollback_test', 'second');
+    update_post_meta($childId, '_zdw_related_menu_item', $parentId);
 
     $blueprint = [
         [
@@ -121,7 +124,11 @@ try {
     if (2 !== count($restored)
         || 'Original parent' !== (string) $restored[0]->title
         || 'Original child' !== (string) $restored[1]->title
-        || (int) $restored[0]->ID !== (int) $restored[1]->menu_item_parent) {
+        || (int) $restored[0]->ID !== $parentId
+        || (int) $restored[1]->ID !== $childId
+        || (int) $restored[0]->ID !== (int) $restored[1]->menu_item_parent
+        || ['first', 'second'] !== get_post_meta($parentId, '_zdw_rollback_test')
+        || $parentId !== (int) get_post_meta($childId, '_zdw_related_menu_item', true)) {
         throw new RuntimeException('The restored menu hierarchy does not match the snapshot.');
     }
 
