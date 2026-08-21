@@ -42,30 +42,12 @@ final class WordPressPageStore implements PageStore
             throw new RuntimeException(sprintf('Aktuální účet nemůže upravit stránku ID %d.', $postId));
         }
 
-        global $wpdb;
-        $updated = $wpdb->query(
-            $wpdb->prepare(
-                "UPDATE {$wpdb->posts}
-                SET post_content = %s, post_modified = %s, post_modified_gmt = %s
-                WHERE ID = %d AND post_type = 'page' AND post_status = 'publish'
-                    AND CAST(post_content AS BINARY) = CAST(%s AS BINARY)",
-                $content,
-                current_time('mysql'),
-                current_time('mysql', true),
-                $postId,
-                $expectedContent
-            )
+        return WordPressConditionalPostContentUpdater::update(
+            $postId,
+            $expectedContent,
+            $content,
+            'Podmíněná obnova stránky ID %d selhala.'
         );
-        if (false === $updated) {
-            throw new RuntimeException(sprintf('Podmíněná obnova stránky ID %d selhala.', $postId));
-        }
-        if (1 === $updated) {
-            clean_post_cache($postId);
-
-            return true;
-        }
-
-        return false;
     }
 
     public function findPageIdsBySlug(string $slug): array

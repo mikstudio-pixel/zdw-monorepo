@@ -43,13 +43,14 @@ try {
     add_filter('pre_update_option_' . ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, $rejectPending, 10, 2);
     try {
         if (zdw_two_tier_menu_record_install_failure()
-            || '0' !== (string) get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1')
+            || '1' !== (string) get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0')
             || zdw_two_tier_menu_option_exists(ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL)) {
-            throw new RuntimeException('A rejected retry-marker write was incorrectly reported as successful.');
+            throw new RuntimeException('A rejected retry-marker write left the header disabled without a recovery marker.');
         }
     } finally {
         remove_filter('pre_update_option_' . ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, $rejectPending, 10);
     }
+    update_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0');
     update_option(ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, '1');
 
     $rejectEnable = static fn ($value, $oldValue) => '1' === (string) $value ? $oldValue : $value;

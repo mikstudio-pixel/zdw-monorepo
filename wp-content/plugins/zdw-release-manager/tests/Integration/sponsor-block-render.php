@@ -49,6 +49,7 @@ try {
             ],
         ],
     ]);
+    update_post_meta((int) $attachmentId, 'url', 'https://example.com/sponsor');
 
     $html = do_blocks(sprintf(
         '<!-- wp:zdw/sponsors %s /-->',
@@ -59,6 +60,10 @@ try {
     ));
     if (!str_contains($html, $filename) || str_contains($html, '-500x500.png')) {
         throw new RuntimeException('Sponsor render selected a missing generated thumbnail instead of the original logo.');
+    }
+    if (!str_contains($html, '<a href="https://example.com/sponsor"')
+        || !str_contains($html, 'alt="ZDW sponsor full-size integration fixture"')) {
+        throw new RuntimeException('Linked sponsor logo does not have an accessible attachment-title fallback.');
     }
 } finally {
     wp_delete_attachment((int) $attachmentId, true);

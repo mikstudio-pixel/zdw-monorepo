@@ -15,6 +15,27 @@ if (!$sponsorPage instanceof WP_Post || !$partnerPage instanceof WP_Post) {
 }
 $sponsorPageIds = ['cs' => (int) $sponsorPage->ID, 'en' => (int) $partnerPage->ID];
 
+if (!function_exists('pll_set_post_language')) {
+    throw new RuntimeException('Polylang language API is unavailable.');
+}
+$languageFixture = wp_insert_post([
+    'post_type' => 'page',
+    'post_status' => 'publish',
+    'post_title' => 'Navigation language fixture',
+]);
+if (is_wp_error($languageFixture)) {
+    throw new RuntimeException('Navigation language fixture could not be created.');
+}
+pll_set_post_language((int) $languageFixture, 'cs');
+try {
+    if (!zdw_two_tier_menu_blueprint_item_resolvable(['page' => (int) $languageFixture, 'title' => 'Fixture'], 'cs')
+        || zdw_two_tier_menu_blueprint_item_resolvable(['page' => (int) $languageFixture, 'title' => 'Fixture'], 'en')) {
+        throw new RuntimeException('Navigation blueprint accepted a page from the wrong language.');
+    }
+} finally {
+    wp_delete_post((int) $languageFixture, true);
+}
+
 $store = new WordPressNavigationStore();
 if (!$store->isAvailable()) {
     throw new RuntimeException('Navigation API is unavailable.');

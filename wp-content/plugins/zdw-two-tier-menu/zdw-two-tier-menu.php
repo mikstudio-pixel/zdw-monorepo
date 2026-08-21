@@ -163,9 +163,10 @@ function zdw_two_tier_menu_blueprints() {
  * Verify one item before any existing menu is replaced.
  *
  * @param array<string, mixed> $item Menu item blueprint.
+ * @param string               $language Expected Polylang language slug.
  * @return bool
  */
-function zdw_two_tier_menu_blueprint_item_resolvable( $item ) {
+function zdw_two_tier_menu_blueprint_item_resolvable( $item, $language ) {
 	if ( empty( $item['title'] ) || ! is_string( $item['title'] ) ) {
 		return false;
 	}
@@ -177,12 +178,19 @@ function zdw_two_tier_menu_blueprint_item_resolvable( $item ) {
 
 	if ( isset( $item['page'] ) ) {
 		$page = get_post( (int) $item['page'] );
-		if ( ! $page instanceof WP_Post || 'page' !== $page->post_type || 'publish' !== $page->post_status ) {
+		if ( ! $page instanceof WP_Post
+			|| 'page' !== $page->post_type
+			|| 'publish' !== $page->post_status
+			|| ! function_exists( 'pll_get_post_language' )
+			|| $language !== pll_get_post_language( $page->ID, 'slug' ) ) {
 			return false;
 		}
 	} elseif ( isset( $item['slug'] ) ) {
 		$page = get_page_by_path( (string) $item['slug'], OBJECT, 'page' );
-		if ( ! $page instanceof WP_Post || 'publish' !== $page->post_status ) {
+		if ( ! $page instanceof WP_Post
+			|| 'publish' !== $page->post_status
+			|| ! function_exists( 'pll_get_post_language' )
+			|| $language !== pll_get_post_language( $page->ID, 'slug' ) ) {
 			return false;
 		}
 	} elseif ( ! is_string( $item['path'] ) || '/' !== substr( $item['path'], 0, 1 ) ) {
@@ -194,7 +202,7 @@ function zdw_two_tier_menu_blueprint_item_resolvable( $item ) {
 			return false;
 		}
 		foreach ( $item['children'] as $child ) {
-			if ( ! is_array( $child ) || ! zdw_two_tier_menu_blueprint_item_resolvable( $child ) ) {
+			if ( ! is_array( $child ) || ! zdw_two_tier_menu_blueprint_item_resolvable( $child, $language ) ) {
 				return false;
 			}
 		}
@@ -219,7 +227,7 @@ function zdw_two_tier_menu_blueprints_resolvable() {
 				return false;
 			}
 			foreach ( $blueprints[ $row ][ $language ] as $item ) {
-				if ( ! is_array( $item ) || ! zdw_two_tier_menu_blueprint_item_resolvable( $item ) ) {
+				if ( ! is_array( $item ) || ! zdw_two_tier_menu_blueprint_item_resolvable( $item, $language ) ) {
 					return false;
 				}
 			}
@@ -691,8 +699,13 @@ function zdw_two_tier_menu_record_install_failure_unlocked() {
 	$enabled = get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, null );
 	$pending = get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, '0' );
 	if ( null === $enabled || '0' !== (string) $enabled || '1' === (string) $pending ) {
-		update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0' );
 		update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, '1' );
+		if ( '1' !== (string) get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, '0' ) ) {
+			delete_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION );
+
+			return false;
+		}
+		update_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0' );
 	}
 	delete_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION );
 

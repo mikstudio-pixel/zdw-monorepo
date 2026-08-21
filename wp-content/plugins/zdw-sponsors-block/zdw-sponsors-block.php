@@ -114,7 +114,12 @@ function zdw_sponsors_block_render( $attributes ) {
 				continue;
 			}
 
+			$url   = zdw_sponsors_block_attachment_field( 'url', $attachment_id );
+			$label = zdw_sponsors_block_attachment_field( 'label', $attachment_id );
 			$alt   = trim( wp_strip_all_tags( (string) get_post_meta( $attachment_id, '_wp_attachment_image_alt', true ) ) );
+			if ( $url && '' === $alt ) {
+				$alt = trim( wp_strip_all_tags( (string) ( $label ?: get_the_title( $attachment_id ) ) ) );
+			}
 			$image = sprintf(
 				'<img src="%1$s" %2$s class="zdw-sponsors__image" alt="%3$s" loading="lazy" decoding="async">',
 				esc_url( $image_source[0] ),
@@ -122,8 +127,6 @@ function zdw_sponsors_block_render( $attributes ) {
 				esc_attr( $alt )
 			);
 
-			$url   = zdw_sponsors_block_attachment_field( 'url', $attachment_id );
-			$label = zdw_sponsors_block_attachment_field( 'label', $attachment_id );
 			$logo  = '';
 
 			if ( $label ) {
@@ -132,7 +135,7 @@ function zdw_sponsors_block_render( $attributes ) {
 
 			$logo .= $image;
 
-			if ( $url ) {
+			if ( $url && '' !== $alt ) {
 				$logo = '<a href="' . esc_url( $url ) . '" target="_blank" rel="noopener noreferrer">' . $logo . '</a>';
 			}
 

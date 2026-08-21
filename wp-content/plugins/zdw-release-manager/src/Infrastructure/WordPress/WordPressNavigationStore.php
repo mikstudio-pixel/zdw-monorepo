@@ -338,15 +338,17 @@ final class WordPressNavigationStore implements NavigationStore
             ];
         }
 
-        $missing = new \stdClass();
         $options = [];
         foreach ([
             'zdw_two_tier_menu_enabled',
             'zdw_two_tier_menu_enable_after_install',
             'zdw_two_tier_menu_db_version',
         ] as $option) {
-            $value = get_option($option, $missing);
-            $options[$option] = ['exists' => $missing !== $value, 'value' => $value];
+            $exists = zdw_two_tier_menu_option_exists($option);
+            $options[$option] = [
+                'exists' => $exists,
+                'value' => $exists ? get_option($option) : null,
+            ];
         }
 
         return ['menus' => $menus, 'options' => $options];

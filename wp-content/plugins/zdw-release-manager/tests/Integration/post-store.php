@@ -26,8 +26,33 @@ try {
     if (null !== $store->find((int) $draftPage) || null !== $store->find((int) $publishedPost)) {
         throw new RuntimeException('Draft page or non-page migration target was accepted.');
     }
-    if (!$store->updateContentIfCurrent((int) $publishedPage, '', 'conditional-restore')) {
+    $postUpdatedCalls = 0;
+    $postUpdated = static function (int $postId) use ($publishedPage, &$postUpdatedCalls): void {
+        if ((int) $publishedPage === $postId) {
+            ++$postUpdatedCalls;
+        }
+    };
+    add_action('post_updated', $postUpdated, 10, 1);
+    try {
+        $updated = $store->updateContentIfCurrent((int) $publishedPage, '', 'conditional-restore');
+    } finally {
+        remove_action('post_updated', $postUpdated, 10);
+    }
+    if (!$updated) {
         throw new RuntimeException('A matching conditional content update was rejected.');
+    }
+    if (1 !== $postUpdatedCalls) {
+        throw new RuntimeException('The conditional update did not dispatch the WordPress post lifecycle.');
+    }
+    $savedOriginal = false;
+    foreach (wp_get_post_revisions((int) $publishedPage) as $revision) {
+        if ('' === (string) $revision->post_content) {
+            $savedOriginal = true;
+            break;
+        }
+    }
+    if (!$savedOriginal) {
+        throw new RuntimeException('The conditional update did not preserve the pre-migration revision.');
     }
     if ($store->updateContentIfCurrent((int) $publishedPage, '', 'stale-overwrite')
         || 'conditional-restore' !== $store->find((int) $publishedPage)?->content()) {
