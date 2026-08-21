@@ -78,6 +78,8 @@ try {
     update_post_meta($childId, '_zdw_related_menu_item', $parentId);
     $slashes = 'C:\\ZDW\\{"path":"a\\/b"}';
     update_post_meta($childId, '_zdw_rollback_slashes', wp_slash($slashes));
+    $arrayMeta = ['alpha', 'beta'];
+    update_post_meta($childId, '_zdw_rollback_array', $arrayMeta);
 
     $blueprint = [
         [
@@ -131,7 +133,8 @@ try {
         || (int) $restored[0]->ID !== (int) $restored[1]->menu_item_parent
         || ['first', 'second'] !== get_post_meta($parentId, '_zdw_rollback_test')
         || $parentId !== (int) get_post_meta($childId, '_zdw_related_menu_item', true)
-        || $slashes !== get_post_meta($childId, '_zdw_rollback_slashes', true)) {
+        || $slashes !== get_post_meta($childId, '_zdw_rollback_slashes', true)
+        || $arrayMeta !== get_post_meta($childId, '_zdw_rollback_array', true)) {
         throw new RuntimeException('The restored menu hierarchy does not match the snapshot.');
     }
 
@@ -154,8 +157,25 @@ try {
     if (!get_post($parentId) || !get_post($childId)
         || ['first', 'second'] !== get_post_meta($parentId, '_zdw_rollback_test')
         || $parentId !== (int) get_post_meta($childId, '_zdw_related_menu_item', true)
-        || $slashes !== get_post_meta($childId, '_zdw_rollback_slashes', true)) {
+        || $slashes !== get_post_meta($childId, '_zdw_rollback_slashes', true)
+        || $arrayMeta !== get_post_meta($childId, '_zdw_rollback_array', true)) {
         throw new RuntimeException('Partial-delete rollback did not preserve the complete original snapshot.');
+    }
+
+    delete_post_meta($parentId, '_zdw_rollback_test');
+    add_post_meta($parentId, '_zdw_rollback_test', 'stale');
+    $rejectMetaDeletion = static fn ($delete, int $objectId, string $metaKey) =>
+        $parentId === $objectId && '_zdw_rollback_test' === $metaKey ? false : $delete;
+    add_filter('delete_post_metadata', $rejectMetaDeletion, 10, 3);
+    try {
+        if (zdw_two_tier_menu_restore_items((int) $menuId, $snapshot)) {
+            throw new RuntimeException('A rejected metadata deletion unexpectedly reported successful rollback.');
+        }
+    } finally {
+        remove_filter('delete_post_metadata', $rejectMetaDeletion, 10);
+    }
+    if (!zdw_two_tier_menu_restore_items((int) $menuId, $snapshot)) {
+        throw new RuntimeException('The rollback fixture could not recover after the metadata deletion failure.');
     }
 
     if (!zdw_two_tier_menu_clear_items((int) $menuId)) {

@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use ZDW\ReleaseManager\Contracts\HeroBackgroundTransformer;
 use ZDW\ReleaseManager\Domain\MediaAsset;
 use ZDW\ReleaseManager\Domain\PostRecord;
+use ZDW\ReleaseManager\Migrations\BestInDesignHeroMarkupMigration;
 use ZDW\ReleaseManager\Migrations\BestInDesignHeroMigration;
 use ZDW\ReleaseManager\Tests\Support\FakeMediaStore;
 use ZDW\ReleaseManager\Tests\Support\InMemoryPostStore;
@@ -34,12 +35,15 @@ final class BestInDesignHeroMigrationTest extends TestCase
             }
         };
         $migration = new BestInDesignHeroMigration($posts, $media, $transformer);
+        $markupMigration = new BestInDesignHeroMarkupMigration($migration);
 
         self::assertSame('warning', $migration->preflight()[0]->severity());
+        self::assertSame('bid.hero_markup.changes', $markupMigration->preflight()[0]->code());
         $migration->apply();
 
         self::assertSame([193], $posts->writes);
         self::assertSame('pass', $migration->verify()[0]->severity());
+        self::assertSame('bid.hero_markup.saved', $markupMigration->verify()[0]->code());
     }
 
     public function test_both_expected_filenames_are_ambiguous_and_blocked(): void
@@ -63,6 +67,9 @@ final class BestInDesignHeroMigrationTest extends TestCase
             }
         );
 
-        self::assertSame('blocker', $migration->preflight()[0]->severity());
+        $check = $migration->preflight()[0];
+
+        self::assertSame('blocker', $check->severity());
+        self::assertStringContainsString('právě jedna fotografie', $check->message());
     }
 }

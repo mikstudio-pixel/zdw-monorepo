@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ZDW\ReleaseManager\Migrations;
 
 use ZDW\ReleaseManager\Contracts\Migration;
+use ZDW\ReleaseManager\Domain\PreflightCheck;
 
 final class BestInDesignHeroMarkupMigration implements Migration
 {
@@ -24,7 +25,7 @@ final class BestInDesignHeroMarkupMigration implements Migration
 
     public function preflight(): array
     {
-        return $this->migration->preflight();
+        return $this->remapChecks($this->migration->preflight());
     }
 
     public function apply(): void
@@ -34,6 +35,19 @@ final class BestInDesignHeroMarkupMigration implements Migration
 
     public function verify(): array
     {
-        return $this->migration->verify();
+        return $this->remapChecks($this->migration->verify());
+    }
+
+    /** @param list<PreflightCheck> $checks
+     *  @return list<PreflightCheck>
+     */
+    private function remapChecks(array $checks): array
+    {
+        return array_map(
+            static fn (PreflightCheck $check): PreflightCheck => $check->withCode(
+                'bid.hero_markup.' . str_replace('bid.hero_', '', $check->code())
+            ),
+            $checks
+        );
     }
 }

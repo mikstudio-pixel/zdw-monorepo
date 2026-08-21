@@ -6,6 +6,7 @@ namespace ZDW\ReleaseManager\Migrations;
 
 use RuntimeException;
 use Throwable;
+use ZDW\ReleaseManager\Application\AtomicPostContentUpdater;
 use ZDW\ReleaseManager\Contracts\ContactContentTransformer;
 use ZDW\ReleaseManager\Contracts\Migration;
 use ZDW\ReleaseManager\Contracts\PostStore;
@@ -65,6 +66,7 @@ final class SecondaryContactsMigration implements Migration
         }
 
         $updates = [];
+        $originals = [];
         foreach (self::POSTS as $postId => $definition) {
             $post = $this->store->find($postId);
             if (null === $post) {
@@ -74,12 +76,11 @@ final class SecondaryContactsMigration implements Migration
             $desired = $this->desiredContent($definition['kind'], $post->content());
             if (!$this->transformer->equivalent($post->content(), $desired)) {
                 $updates[$postId] = $desired;
+                $originals[$postId] = $post->content();
             }
         }
 
-        foreach ($updates as $postId => $desired) {
-            $this->store->updateContent($postId, $desired);
-        }
+        (new AtomicPostContentUpdater($this->store))->apply($updates, $originals, 'Obnovení kontaktů na stránce');
     }
 
     public function verify(): array

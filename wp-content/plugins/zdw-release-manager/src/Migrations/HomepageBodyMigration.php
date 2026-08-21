@@ -6,6 +6,7 @@ namespace ZDW\ReleaseManager\Migrations;
 
 use RuntimeException;
 use Throwable;
+use ZDW\ReleaseManager\Application\AtomicPostContentUpdater;
 use ZDW\ReleaseManager\Contracts\HomepageBodyTransformer;
 use ZDW\ReleaseManager\Contracts\Migration;
 use ZDW\ReleaseManager\Contracts\PostStore;
@@ -59,6 +60,7 @@ final class HomepageBodyMigration implements Migration
     public function apply(): void
     {
         $updates = [];
+        $originals = [];
         foreach ($this->homepages as $postId => $slug) {
             $post = $this->posts->find($postId);
             if (null === $post || $slug !== $post->slug()) {
@@ -68,12 +70,11 @@ final class HomepageBodyMigration implements Migration
             $desired = $this->transformer->desiredPageContent($post->content());
             if (!$this->transformer->equivalent($post->content(), $desired)) {
                 $updates[$post->id()] = $desired;
+                $originals[$post->id()] = $post->content();
             }
         }
 
-        foreach ($updates as $postId => $desired) {
-            $this->posts->updateContent($postId, $desired);
-        }
+        (new AtomicPostContentUpdater($this->posts))->apply($updates, $originals, 'Obnovení těla homepage');
     }
 
     public function verify(): array
@@ -99,4 +100,5 @@ final class HomepageBodyMigration implements Migration
 
         return [PreflightCheck::pass('homepage.body_saved', 'Finální skladba obou homepage byla ověřena.')];
     }
+
 }

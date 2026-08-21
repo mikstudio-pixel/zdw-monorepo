@@ -43,6 +43,15 @@ if (is_wp_error($attachmentId)) {
     throw new RuntimeException($attachmentId->get_error_message());
 }
 update_post_meta((int) $attachmentId, '_wp_attached_file', $relativeFile);
+$heroBlockIndex = static function (array $blocks): int {
+    foreach ($blocks as $index => $block) {
+        if ('zdw/intro-effect' === ($block['blockName'] ?? null)) {
+            return $index;
+        }
+    }
+
+    throw new RuntimeException('Best in Design hero block was not found.');
+};
 
 try {
     $posts = new WordPressPostStore();
@@ -59,7 +68,8 @@ try {
         throw new RuntimeException('Best in Design hero migration verification failed.');
     }
     $savedHeroContent = (string) get_post(193)?->post_content;
-    $savedHeroBlock = parse_blocks($savedHeroContent)[0] ?? [];
+    $savedHeroBlocks = parse_blocks($savedHeroContent);
+    $savedHeroBlock = $savedHeroBlocks[$heroBlockIndex($savedHeroBlocks)];
     $heroAttrs = $savedHeroBlock['attrs'] ?? [];
     if ((int) $attachmentId !== ($heroAttrs['backgroundId'] ?? null) || false !== ($heroAttrs['applyEffect'] ?? null)) {
         throw new RuntimeException('Best in Design hero attributes do not match the local source.');
@@ -72,11 +82,15 @@ try {
     }
 
     $corruptBlocks = parse_blocks($hero->post_content);
-    $corruptBlocks[0]['attrs']['backgroundId'] = (int) $attachmentId;
-    $corruptBlocks[0]['attrs']['backgroundUrl'] = (string) wp_get_attachment_url((int) $attachmentId);
-    $corruptBlocks[0]['attrs']['backgroundAlt'] = '';
-    $corruptBlocks[0]['attrs']['applyEffect'] = false;
-    wp_update_post(['ID' => 193, 'post_content' => wp_slash(serialize_blocks($corruptBlocks))]);
+    $corruptIndex = $heroBlockIndex($corruptBlocks);
+    $corruptBlocks[$corruptIndex]['attrs']['backgroundId'] = (int) $attachmentId;
+    $corruptBlocks[$corruptIndex]['attrs']['backgroundUrl'] = (string) wp_get_attachment_url((int) $attachmentId);
+    $corruptBlocks[$corruptIndex]['attrs']['backgroundAlt'] = '';
+    $corruptBlocks[$corruptIndex]['attrs']['applyEffect'] = false;
+    $corruptResult = wp_update_post(['ID' => 193, 'post_content' => wp_slash(serialize_blocks($corruptBlocks))], true);
+    if (is_wp_error($corruptResult)) {
+        throw new RuntimeException($corruptResult->get_error_message());
+    }
     $markupRepair = new BestInDesignHeroMarkupMigration($heroMigration);
     if ('warning' !== $markupRepair->preflight()[0]->severity()) {
         throw new RuntimeException('Best in Design markup repair did not detect stale saved HTML.');
@@ -107,7 +121,10 @@ try {
         throw new RuntimeException('Czech Design Canteen cleanup removed the retained history section.');
     }
 
-    wp_update_post(['ID' => 12142, 'post_content' => wp_slash($canteen->post_content)]);
+    $canteenRestore = wp_update_post(['ID' => 12142, 'post_content' => wp_slash($canteen->post_content)], true);
+    if (is_wp_error($canteenRestore)) {
+        throw new RuntimeException($canteenRestore->get_error_message());
+    }
     $programCleanup = new DesignCanteenProgramCleanupMigration(
         new DesignCanteenCleanupMigration(
             $posts,
@@ -148,8 +165,16 @@ BLOCKS;
         }
     }
 } finally {
-    wp_update_post(['ID' => 193, 'post_content' => wp_slash($hero->post_content)]);
-    wp_update_post(['ID' => 12142, 'post_content' => wp_slash($canteen->post_content)]);
+    foreach ([193 => $hero->post_content, 12142 => $canteen->post_content] as $restoreId => $restoreContent) {
+        $restored = wp_update_post(['ID' => $restoreId, 'post_content' => wp_slash($restoreContent)], true);
+        if (is_wp_error($restored)) {
+            fwrite(STDERR, sprintf(
+                "Fixture restore for post ID %d failed: %s\n",
+                $restoreId,
+                $restored->get_error_message()
+            ));
+        }
+    }
     delete_post_meta((int) $attachmentId, '_wp_attached_file');
     wp_delete_attachment((int) $attachmentId, true);
 }

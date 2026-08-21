@@ -54,6 +54,22 @@ final class SecondaryContactsMigrationTest extends TestCase
         self::assertSame([], $store->writes);
     }
 
+    public function test_apply_rolls_back_earlier_contacts_when_a_later_write_fails(): void
+    {
+        $store = new InMemoryPostStore($this->posts());
+        $store->throwOnUpdateId = 1330;
+        $migration = new SecondaryContactsMigration($store, new FakeContactContentTransformer());
+
+        try {
+            $migration->apply();
+            self::fail('Later contact write failure should abort the migration.');
+        } catch (\RuntimeException) {
+            self::assertSame('cs press', $store->find(202)?->content());
+            self::assertSame('en press', $store->find(1330)?->content());
+            self::assertSame([202, 202], $store->writes);
+        }
+    }
+
     /** @return list<PostRecord> */
     private function posts(): array
     {

@@ -161,15 +161,24 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
     /** @param array<string, mixed> $block */
     private function isDedicatedLegacyContactGroup(array $block): bool
     {
-        $children = array_values(array_filter(
-            $block['innerBlocks'] ?? [],
-            static fn (mixed $child): bool => is_array($child) && null !== ($child['blockName'] ?? null)
+        $rawContent = implode('', array_filter(
+            $block['innerContent'] ?? [],
+            static fn (mixed $fragment): bool => is_string($fragment)
         ));
-        if ([] === $children) {
+        if ('' !== trim(wp_strip_all_tags($rawContent))) {
+            return false;
+        }
+
+        $children = $block['innerBlocks'] ?? [];
+        if (!is_array($children) || [] === $children) {
             return false;
         }
 
         foreach ($children as $child) {
+            if (!is_array($child) || null === ($child['blockName'] ?? null)) {
+                return false;
+            }
+
             $name = $child['blockName'] ?? null;
             if ('acf/contact-person' === $name || 'core/spacer' === $name) {
                 continue;

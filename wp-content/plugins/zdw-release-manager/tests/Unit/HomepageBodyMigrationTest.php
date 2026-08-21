@@ -103,6 +103,25 @@ final class HomepageBodyMigrationTest extends TestCase
         }
     }
 
+    public function test_apply_rolls_back_an_earlier_homepage_when_a_later_write_fails(): void
+    {
+        $posts = new InMemoryPostStore([
+            new PostRecord(2, 'zdw', 'legacy-czech-body'),
+            new PostRecord(93, 'zdw-en', 'legacy-english-body'),
+        ]);
+        $posts->throwOnUpdateId = 93;
+        $migration = new HomepageBodyMigration($posts, new FakeHomepageBodyTransformer());
+
+        try {
+            $migration->apply();
+            self::fail('English write failure should abort the migration.');
+        } catch (\RuntimeException) {
+            self::assertSame('legacy-czech-body', $posts->find(2)?->content());
+            self::assertSame('legacy-english-body', $posts->find(93)?->content());
+            self::assertSame([2, 2], $posts->writes);
+        }
+    }
+
     private function migration(FakeHomepageBodyTransformer $transformer, string $content): HomepageBodyMigration
     {
         return new HomepageBodyMigration(

@@ -62,7 +62,7 @@ final class WordPressHeroBackgroundTransformer implements HeroBackgroundTransfor
     {
         $replacement = sprintf('background-image:url(%s)', esc_url($backgroundUrl));
 
-        return (string) preg_replace_callback(
+        $rewritten = (string) preg_replace_callback(
             '/^(\s*<div\b)([^>]*)(>)/is',
             static function (array $match) use ($replacement): string {
                 $attributes = (string) preg_replace(
@@ -97,7 +97,13 @@ final class WordPressHeroBackgroundTransformer implements HeroBackgroundTransfor
                 return $match[1] . $attributes . $match[3];
             },
             $markup,
-            1
+            1,
+            $count
         );
+        if (1 !== $count) {
+            throw new RuntimeException('Uložené HTML úvodního bloku Best in Design neobsahuje očekávaný obal <div>.');
+        }
+
+        return $rewritten;
     }
 }

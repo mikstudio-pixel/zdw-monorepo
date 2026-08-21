@@ -60,4 +60,9 @@ final class PreflightCheck
     {
         return self::BLOCKER === $this->severity;
     }
+
+    public function withCode(string $code): self
+    {
+        return new self($this->severity, $code, $this->message);
+    }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ZDW\ReleaseManager\Migrations;
 
 use ZDW\ReleaseManager\Contracts\Migration;
+use ZDW\ReleaseManager\Domain\PreflightCheck;
 
 final class DesignCanteenProgramCleanupMigration implements Migration
 {
@@ -24,7 +25,7 @@ final class DesignCanteenProgramCleanupMigration implements Migration
 
     public function preflight(): array
     {
-        return $this->migration->preflight();
+        return $this->remapChecks($this->migration->preflight());
     }
 
     public function apply(): void
@@ -34,6 +35,19 @@ final class DesignCanteenProgramCleanupMigration implements Migration
 
     public function verify(): array
     {
-        return $this->migration->verify();
+        return $this->remapChecks($this->migration->verify());
+    }
+
+    /** @param list<PreflightCheck> $checks
+     *  @return list<PreflightCheck>
+     */
+    private function remapChecks(array $checks): array
+    {
+        return array_map(
+            static fn (PreflightCheck $check): PreflightCheck => $check->withCode(
+                'canteen.program_cleanup.' . str_replace('canteen.cs_', '', $check->code())
+            ),
+            $checks
+        );
     }
 }

@@ -6,6 +6,7 @@ namespace ZDW\ReleaseManager\Migrations;
 
 use RuntimeException;
 use Throwable;
+use ZDW\ReleaseManager\Application\AtomicPostContentUpdater;
 use ZDW\ReleaseManager\Contracts\IntroContentTransformer;
 use ZDW\ReleaseManager\Contracts\MediaStore;
 use ZDW\ReleaseManager\Contracts\Migration;
@@ -77,43 +78,11 @@ final class HomepageIntroMigration implements Migration
             }
         }
 
-        $attemptedPostIds = [];
-        try {
-            foreach ($updates as $postId => $desired) {
-                $attemptedPostIds[] = $postId;
-                $this->posts->updateContent($postId, $desired);
-            }
-        } catch (Throwable $error) {
-            $rollbackFailure = null;
-            foreach (array_reverse($attemptedPostIds) as $postId) {
-                $current = $this->posts->find($postId);
-                if ($current instanceof PostRecord && $originals[$postId] === $current->content()) {
-                    continue;
-                }
-
-                try {
-                    $this->posts->updateContent($postId, $originals[$postId]);
-                } catch (Throwable $rollbackError) {
-                    $restored = $this->posts->find($postId);
-                    if ($restored instanceof PostRecord && $originals[$postId] === $restored->content()) {
-                        continue;
-                    }
-
-                    $rollbackFailure ??= [$postId, $rollbackError];
-                }
-            }
-
-            if (null !== $rollbackFailure) {
-                [$postId, $rollbackError] = $rollbackFailure;
-                throw new RuntimeException(
-                    sprintf('Obnovení homepage ID %d po neúspěšné migraci selhalo: %s', $postId, $rollbackError->getMessage()),
-                    0,
-                    $error
-                );
-            }
-
-            throw $error;
-        }
+        (new AtomicPostContentUpdater($this->posts))->apply(
+            $updates,
+            $originals,
+            'Obnovení homepage po neúspěšné migraci'
+        );
     }
 
     public function verify(): array
