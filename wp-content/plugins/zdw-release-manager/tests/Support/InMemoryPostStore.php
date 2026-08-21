@@ -17,6 +17,7 @@ final class InMemoryPostStore implements PostStore
     public array $writes = [];
 
     public ?int $throwOnUpdateId = null;
+    public ?int $throwAfterUpdateId = null;
 
     /** @param list<PostRecord> $posts */
     public function __construct(array $posts = [])
@@ -41,5 +42,10 @@ final class InMemoryPostStore implements PostStore
         $post = $this->posts[$postId];
         $this->posts[$postId] = new PostRecord($post->id(), $post->slug(), $content);
         $this->writes[] = $postId;
+
+        if ($postId === $this->throwAfterUpdateId) {
+            $this->throwAfterUpdateId = null;
+            throw new RuntimeException(sprintf('Post ID %d failed after update.', $postId));
+        }
     }
 }

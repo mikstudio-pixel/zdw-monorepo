@@ -77,17 +77,27 @@ final class HomepageIntroMigration implements Migration
             }
         }
 
-        $updatedPostIds = [];
+        $attemptedPostIds = [];
         try {
             foreach ($updates as $postId => $desired) {
+                $attemptedPostIds[] = $postId;
                 $this->posts->updateContent($postId, $desired);
-                $updatedPostIds[] = $postId;
             }
         } catch (Throwable $error) {
-            foreach (array_reverse($updatedPostIds) as $postId) {
+            foreach (array_reverse($attemptedPostIds) as $postId) {
+                $current = $this->posts->find($postId);
+                if ($current instanceof PostRecord && $originals[$postId] === $current->content()) {
+                    continue;
+                }
+
                 try {
                     $this->posts->updateContent($postId, $originals[$postId]);
                 } catch (Throwable $rollbackError) {
+                    $restored = $this->posts->find($postId);
+                    if ($restored instanceof PostRecord && $originals[$postId] === $restored->content()) {
+                        continue;
+                    }
+
                     throw new RuntimeException(
                         sprintf('Obnovení homepage ID %d po neúspěšné migraci selhalo: %s', $postId, $rollbackError->getMessage()),
                         0,
