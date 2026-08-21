@@ -76,6 +76,8 @@ try {
     add_post_meta($parentId, '_zdw_rollback_test', 'first');
     add_post_meta($parentId, '_zdw_rollback_test', 'second');
     update_post_meta($childId, '_zdw_related_menu_item', $parentId);
+    $slashes = 'C:\\ZDW\\{"path":"a\\/b"}';
+    update_post_meta($childId, '_zdw_rollback_slashes', wp_slash($slashes));
 
     $blueprint = [
         [
@@ -128,7 +130,8 @@ try {
         || (int) $restored[1]->ID !== $childId
         || (int) $restored[0]->ID !== (int) $restored[1]->menu_item_parent
         || ['first', 'second'] !== get_post_meta($parentId, '_zdw_rollback_test')
-        || $parentId !== (int) get_post_meta($childId, '_zdw_related_menu_item', true)) {
+        || $parentId !== (int) get_post_meta($childId, '_zdw_related_menu_item', true)
+        || $slashes !== get_post_meta($childId, '_zdw_rollback_slashes', true)) {
         throw new RuntimeException('The restored menu hierarchy does not match the snapshot.');
     }
 
@@ -150,7 +153,8 @@ try {
     }
     if (!get_post($parentId) || !get_post($childId)
         || ['first', 'second'] !== get_post_meta($parentId, '_zdw_rollback_test')
-        || $parentId !== (int) get_post_meta($childId, '_zdw_related_menu_item', true)) {
+        || $parentId !== (int) get_post_meta($childId, '_zdw_related_menu_item', true)
+        || $slashes !== get_post_meta($childId, '_zdw_rollback_slashes', true)) {
         throw new RuntimeException('Partial-delete rollback did not preserve the complete original snapshot.');
     }
 

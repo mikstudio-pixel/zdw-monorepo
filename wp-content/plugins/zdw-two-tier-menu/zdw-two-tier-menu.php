@@ -377,7 +377,7 @@ function zdw_two_tier_menu_restore_items( $menu_id, $snapshot ) {
 		foreach ( (array) ( $item['meta'] ?? array() ) as $key => $values ) {
 			delete_post_meta( $original_id, (string) $key );
 			foreach ( (array) $values as $value ) {
-				if ( false === add_post_meta( $original_id, (string) $key, $value ) ) {
+				if ( false === add_post_meta( $original_id, (string) $key, wp_slash( $value ) ) ) {
 					$success = false;
 				}
 			}
