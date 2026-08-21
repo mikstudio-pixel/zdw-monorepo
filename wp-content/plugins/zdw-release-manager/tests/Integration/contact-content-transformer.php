@@ -160,6 +160,16 @@ if (!str_contains($nestedRawResult, 'Retained nested raw accreditation note')) {
     throw new RuntimeException('Accreditation cleanup removed unrelated nested raw content.');
 }
 
+$nestedMarkupAccreditation = str_replace(
+    '<div class="wp-block-column"><!-- wp:heading {"level":4} -->',
+    '<div class="wp-block-column"><img src="editorial-marker.jpg" alt=""><!-- wp:heading {"level":4} -->',
+    $legacyAccreditation
+);
+$nestedMarkupResult = $transformer->pressPage($syntheticPress . $nestedMarkupAccreditation, $eva);
+if (!str_contains($nestedMarkupResult, 'editorial-marker.jpg')) {
+    throw new RuntimeException('Accreditation cleanup removed unrelated tag-only content.');
+}
+
 $safePress = $syntheticPress . $unrelatedAccreditation . $legacyAccreditation;
 $safeResult = $transformer->pressPage($safePress, $eva);
 if (false === strpos($safeResult, 'Akreditace novinářů bude otevřena později')) {

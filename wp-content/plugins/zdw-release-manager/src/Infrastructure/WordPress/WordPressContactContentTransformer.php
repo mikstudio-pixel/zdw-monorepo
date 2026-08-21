@@ -163,7 +163,7 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
             return true;
         }
 
-        if ($this->containsRawText($block)) {
+        if (WordPressBlockContentGuard::hasUnexpectedContainerContent($block)) {
             return false;
         }
 
@@ -224,7 +224,7 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
             || 1 !== count($innerBlocks)
             || !is_array($innerBlocks[0])
             || 'core/columns' !== ($innerBlocks[0]['blockName'] ?? null)
-            || $this->containsRawText($block)) {
+            || WordPressBlockContentGuard::hasUnexpectedContainerContent($block)) {
             return false;
         }
 
@@ -255,10 +255,7 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
         );
         if (['core/heading', 'core/buttons'] !== $firstNames
             || ['core/heading'] !== $emptyColumnNames($columns[1])
-            || ['core/heading'] !== $emptyColumnNames($columns[2])
-            || $this->containsRawText($columns[0])
-            || $this->containsRawText($columns[1])
-            || $this->containsRawText($columns[2])) {
+            || ['core/heading'] !== $emptyColumnNames($columns[2])) {
             return false;
         }
 
@@ -270,7 +267,7 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
         if (!in_array($buttonNames, [
             ['core/button'],
             ['core/button', 'acf/contact-person'],
-        ], true) || $this->containsRawText($buttons)) {
+        ], true)) {
             return false;
         }
 
@@ -282,17 +279,6 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
             && $this->containsBlock($columns[0], 'core/button')
             && '' === $this->plainText($columns[1])
             && '' === $this->plainText($columns[2]);
-    }
-
-    /** @param array<string, mixed> $block */
-    private function containsRawText(array $block): bool
-    {
-        $rawContent = implode('', array_filter(
-            $block['innerContent'] ?? [],
-            static fn (mixed $fragment): bool => is_string($fragment)
-        ));
-
-        return '' !== trim(wp_strip_all_tags($rawContent));
     }
 
     /** @param array<string, mixed> $block

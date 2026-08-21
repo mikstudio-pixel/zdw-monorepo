@@ -81,18 +81,8 @@ final class WordPressHomepageBodyTransformer implements HomepageBodyTransformer
             return false;
         }
 
-        $innerContent = $block['innerContent'] ?? [];
-        foreach ($innerContent as $fragment) {
-            if (is_string($fragment) && '' !== trim(wp_strip_all_tags($fragment))) {
-                return false;
-            }
-        }
-        foreach ($block['innerBlocks'] ?? [] as $child) {
-            if (is_array($child)
-                && null === ($child['blockName'] ?? null)
-                && '' !== trim((string) ($child['innerHTML'] ?? ''))) {
-                return false;
-            }
+        if (WordPressBlockContentGuard::hasUnexpectedContainerContent($block)) {
+            return false;
         }
 
         $children = array_values(array_filter(

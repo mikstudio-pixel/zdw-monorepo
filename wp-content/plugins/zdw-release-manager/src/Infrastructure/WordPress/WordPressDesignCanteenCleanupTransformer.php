@@ -103,11 +103,7 @@ final class WordPressDesignCanteenCleanupTransformer implements DesignCanteenCle
             return false;
         }
 
-        $rawContent = implode('', array_filter(
-            $block['innerContent'] ?? [],
-            static fn (mixed $fragment): bool => is_string($fragment)
-        ));
-        if ('' !== trim(wp_strip_all_tags($rawContent))) {
+        if (WordPressBlockContentGuard::hasUnexpectedContainerContent($block)) {
             return false;
         }
 

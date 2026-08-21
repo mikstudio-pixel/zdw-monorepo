@@ -105,6 +105,13 @@ final class WordPressDesignCanteenContentTransformer implements DesignCanteenCon
     /** @param list<array<string, mixed>> $blocks */
     private function isKnownObsoleteProgramme(array $blocks): bool
     {
+        if ([] !== array_filter(
+            $blocks,
+            static fn (array $block): bool => WordPressBlockContentGuard::hasUnexpectedContainerContent($block)
+        )) {
+            return false;
+        }
+
         $expectedTrees = [
             'core/heading',
             'core/columns(core/column(core/heading),core/column(core/heading))',

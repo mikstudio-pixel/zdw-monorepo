@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressDesignCanteenContentTransformer;
+use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressDesignCanteenCleanupTransformer;
 
 $wordpressRoot = getenv('WP_ROOT') ?: '/var/www/html';
 require $wordpressRoot . '/wp-load.php';
@@ -145,6 +146,83 @@ try {
 }
 if (!$nestedProgrammeRejected) {
     throw new RuntimeException('Design Canteen transform accepted nested editorial content in the obsolete programme.');
+}
+
+$nestedMarkupBlocks = parse_blocks((string) $legacyRevision->post_content);
+$nestedMarkupFixtureCreated = false;
+foreach ($nestedMarkupBlocks as &$block) {
+    if ('core/group' !== ($block['blockName'] ?? null)
+        || !str_contains(serialize_block($block), 'What will we serve you at ZlIn Castle this year?')) {
+        continue;
+    }
+    foreach ($block['innerBlocks'] ?? [] as $programmeIndex => $programmeBlock) {
+        if ('core/columns' !== ($programmeBlock['blockName'] ?? null)
+            || !str_contains(serialize_block($programmeBlock), 'THURSDAY, 7 MAY')) {
+            continue;
+        }
+        $block['innerBlocks'][$programmeIndex]['innerBlocks'][0]['innerContent'][0] .= '<img src="editorial-marker.jpg" alt="">';
+        $nestedMarkupFixtureCreated = true;
+        break 2;
+    }
+}
+unset($block);
+if (!$nestedMarkupFixtureCreated) {
+    throw new RuntimeException('Nested tag-only obsolete-programme fixture could not be created.');
+}
+$nestedMarkupRejected = false;
+try {
+    $transformer->desiredPageContent(serialize_blocks($nestedMarkupBlocks));
+} catch (RuntimeException $error) {
+    if (!str_contains($error->getMessage(), 'další redakční blok')) {
+        throw $error;
+    }
+    $nestedMarkupRejected = true;
+}
+if (!$nestedMarkupRejected) {
+    throw new RuntimeException('Design Canteen transform accepted nested tag-only content in the obsolete programme.');
+}
+
+$czechLegacyRevision = get_post(43892);
+if (!$czechLegacyRevision instanceof WP_Post) {
+    throw new RuntimeException('Legacy Czech Design Canteen revision 43892 is unavailable.');
+}
+$cleanupTransformer = new WordPressDesignCanteenCleanupTransformer();
+if ($cleanupTransformer->desiredPageContent((string) $czechLegacyRevision->post_content)
+    === $czechLegacyRevision->post_content) {
+    throw new RuntimeException('Legacy Czech Design Canteen fixture does not exercise the cleanup.');
+}
+$czechMarkupBlocks = parse_blocks((string) $czechLegacyRevision->post_content);
+$czechMarkupFixtureCreated = false;
+foreach ($czechMarkupBlocks as &$block) {
+    if ('core/group' !== ($block['blockName'] ?? null)
+        || false === stripos(serialize_block($block), 'Co ti letos naservírujeme na zlínském zámku?')) {
+        continue;
+    }
+    foreach ($block['innerBlocks'] ?? [] as $childIndex => $child) {
+        if ('core/columns' !== ($child['blockName'] ?? null)
+            || [] === ($child['innerBlocks'] ?? [])) {
+            continue;
+        }
+        $block['innerBlocks'][$childIndex]['innerBlocks'][0]['innerContent'][0] .= '<img src="editorial-marker.jpg" alt="">';
+        $czechMarkupFixtureCreated = true;
+        break 2;
+    }
+}
+unset($block);
+if (!$czechMarkupFixtureCreated) {
+    throw new RuntimeException('Nested tag-only Czech Canteen fixture could not be created.');
+}
+$czechMarkupRejected = false;
+try {
+    $cleanupTransformer->desiredPageContent(serialize_blocks($czechMarkupBlocks));
+} catch (RuntimeException $error) {
+    if (!str_contains($error->getMessage(), 'jiný obsah')) {
+        throw $error;
+    }
+    $czechMarkupRejected = true;
+}
+if (!$czechMarkupRejected) {
+    throw new RuntimeException('Czech Design Canteen cleanup accepted nested tag-only content.');
 }
 
 echo "WordPressDesignCanteenContentTransformer integration test passed.\n";

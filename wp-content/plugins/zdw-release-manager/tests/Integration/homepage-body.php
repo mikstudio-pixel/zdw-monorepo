@@ -65,6 +65,18 @@ foreach ([2 => 'zdw', 93 => 'zdw-en'] as $postId => $slug) {
     if (!$nestedRawRejected) {
         throw new RuntimeException(sprintf('Homepage %d accepted raw content inside spacing.', $postId));
     }
+
+    $nestedMarkupBlocks = parse_blocks($desired);
+    $nestedMarkupBlocks[1]['innerContent'][0] .= '<img src="editorial-marker.jpg" alt="Editorial marker">';
+    $nestedMarkupRejected = false;
+    try {
+        $transformer->desiredPageContent(serialize_blocks($nestedMarkupBlocks));
+    } catch (RuntimeException) {
+        $nestedMarkupRejected = true;
+    }
+    if (!$nestedMarkupRejected) {
+        throw new RuntimeException(sprintf('Homepage %d accepted tag-only content inside spacing.', $postId));
+    }
 }
 
 echo "Homepage body integration test passed.\n";
