@@ -67,7 +67,7 @@ final class SponsorPageMigration implements Migration
                         $definition['slug'],
                         $this->desiredContent
                     );
-                    $created[] = $pageId;
+                    $created[$pageId] = $language;
                 } else {
                     $pageId = $pageIds[0];
                     $page = $this->store->find($pageId);
@@ -220,7 +220,7 @@ final class SponsorPageMigration implements Migration
         return true;
     }
 
-    /** @param list<int> $created
+    /** @param array<int, string> $created
      *  @param array<int, array{content: string, language: ?string, translations: array<string, int>, targetLanguage: string}> $originals
      */
     private function rollback(array $created, array $originals, bool $translationsAttempted): ?Throwable
@@ -240,12 +240,24 @@ final class SponsorPageMigration implements Migration
         return $failure;
     }
 
-    /** @param list<int> $created */
+    /** @param array<int, string> $created */
     private function rollbackCreatedPages(array $created): ?Throwable
     {
         $failure = null;
-        foreach (array_reverse($created) as $pageId) {
+        foreach (array_reverse($created, true) as $pageId => $targetLanguage) {
             try {
+                $page = $this->store->find($pageId);
+                if (null === $page) {
+                    continue;
+                }
+                $language = $this->store->language($pageId);
+                if ($page->content() !== $this->desiredContent
+                    || !in_array($language, [null, $targetLanguage], true)) {
+                    throw new RuntimeException(sprintf(
+                        'Nově vytvořenou stránku ID %d nelze smazat po souběžné úpravě.',
+                        $pageId
+                    ));
+                }
                 $this->store->deletePage($pageId);
             } catch (Throwable $error) {
                 $failure ??= $error;

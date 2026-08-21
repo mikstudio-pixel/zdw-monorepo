@@ -282,4 +282,22 @@ final class SponsorPageMigrationTest extends TestCase
             ], $store->translationWrites);
         }
     }
+
+    public function test_concurrently_edited_created_page_is_not_deleted_during_rollback(): void
+    {
+        $store = new InMemoryPageStore([], [10 => 'one.svg']);
+        $store->replaceContentBeforeTranslationAttempts = [1 => [1 => 'editor-created-content']];
+        $store->throwOnTranslationAttempts = [1];
+        $migration = new SponsorPageMigration($store, [10 => 'one.svg'], 'desired');
+
+        try {
+            $migration->apply();
+            self::fail('A translation failure should abort the migration.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('souběžné úpravě', $error->getMessage());
+            self::assertSame('editor-created-content', $store->find(1)?->content());
+            self::assertNull($store->find(2));
+            self::assertSame([2], $store->deleted);
+        }
+    }
 }

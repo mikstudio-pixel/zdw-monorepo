@@ -68,7 +68,9 @@ try {
 delete_option(ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK);
 try {
     $installToken = zdw_two_tier_menu_acquire_install_lock();
-    if (!is_string($installToken) || zdw_two_tier_menu_native_menu_writes_blocked()) {
+    if (!is_string($installToken)
+        || !zdw_two_tier_menu_current_request_owns_install_lock()
+        || zdw_two_tier_menu_native_menu_writes_blocked()) {
         throw new RuntimeException('The install-lock owner was blocked from its own menu writes.');
     }
     update_option(ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK, [
@@ -91,6 +93,33 @@ try {
     }
     delete_option(ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK);
     unset($GLOBALS['zdw_two_tier_menu_install_lock_token']);
+}
+
+try {
+    if (!zdw_two_tier_menu_acquire_native_menu_save_lock()) {
+        throw new RuntimeException('A native menu save could not acquire the shared install lock.');
+    }
+    $nativeToken = $GLOBALS['zdw_two_tier_menu_install_lock_token'] ?? null;
+    if (!is_string($nativeToken) || null !== zdw_two_tier_menu_acquire_install_lock()) {
+        throw new RuntimeException('A release rebuild was not serialized behind a native menu save.');
+    }
+} finally {
+    if (isset($nativeToken) && is_string($nativeToken)) {
+        zdw_two_tier_menu_release_install_lock($nativeToken);
+    }
+}
+
+$competingToken = zdw_two_tier_menu_acquire_install_lock();
+if (!is_string($competingToken)) {
+    throw new RuntimeException('The competing native-save fixture could not acquire the install lock.');
+}
+unset($GLOBALS['zdw_two_tier_menu_install_lock_token']);
+try {
+    if (zdw_two_tier_menu_acquire_native_menu_save_lock()) {
+        throw new RuntimeException('A native menu save bypassed another request\'s install lock.');
+    }
+} finally {
+    zdw_two_tier_menu_release_install_lock($competingToken);
 }
 
 $previousEnabled = get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, false);

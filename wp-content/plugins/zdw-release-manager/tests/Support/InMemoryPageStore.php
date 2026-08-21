@@ -54,6 +54,9 @@ final class InMemoryPageStore implements PageStore
     /** @var array<int, string> */
     public array $replaceContentBeforeConditionalUpdate = [];
 
+    /** @var array<int, array<int, string>> */
+    public array $replaceContentBeforeTranslationAttempts = [];
+
     /** @param list<PostRecord> $pages
      *  @param array<int, string> $attachments
      *  @param array<string, list<int>> $unpublishedSlugOwners
@@ -169,6 +172,12 @@ final class InMemoryPageStore implements PageStore
     public function setTranslations(array $translations): void
     {
         ++$this->translationAttempts;
+        foreach ($this->replaceContentBeforeTranslationAttempts[$this->translationAttempts] ?? [] as $postId => $content) {
+            if (isset($this->pages[$postId])) {
+                $page = $this->pages[$postId];
+                $this->pages[$postId] = new PostRecord($postId, $page->slug(), $content);
+            }
+        }
         $this->translationWrites[] = $translations;
         if ($this->ignoreTranslationWrites) {
             return;

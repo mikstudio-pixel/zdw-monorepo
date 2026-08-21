@@ -29,10 +29,7 @@ final class NavigationMigrationTest extends TestCase
 
     public function test_apply_rebuilds_navigation_and_is_idempotent(): void
     {
-        $pages = new InMemoryPageStore([
-            new PostRecord(42, 'sponzori', 'content'),
-            new PostRecord(43, 'partners', 'content'),
-        ]);
+        $pages = $this->sponsorPages();
         $navigation = new FakeNavigationStore();
         $migration = new NavigationMigration($pages, $navigation);
 
@@ -50,10 +47,7 @@ final class NavigationMigrationTest extends TestCase
 
     public function test_an_unresolvable_blueprint_blocks_before_any_menu_is_rebuilt(): void
     {
-        $pages = new InMemoryPageStore([
-            new PostRecord(42, 'sponzori', 'content'),
-            new PostRecord(43, 'partners', 'content'),
-        ]);
+        $pages = $this->sponsorPages();
         $navigation = new FakeNavigationStore();
         $navigation->blueprintsResolvable = false;
         $migration = new NavigationMigration($pages, $navigation);
@@ -72,10 +66,7 @@ final class NavigationMigrationTest extends TestCase
 
     public function test_missing_legacy_parents_block_before_any_menu_is_rebuilt(): void
     {
-        $pages = new InMemoryPageStore([
-            new PostRecord(42, 'sponzori', 'content'),
-            new PostRecord(43, 'partners', 'content'),
-        ]);
+        $pages = $this->sponsorPages();
         $navigation = new FakeNavigationStore();
         $navigation->legacyParentsResolvable = false;
         $migration = new NavigationMigration($pages, $navigation);
@@ -92,10 +83,7 @@ final class NavigationMigrationTest extends TestCase
 
     public function test_later_navigation_failure_restores_the_previous_visible_state(): void
     {
-        $pages = new InMemoryPageStore([
-            new PostRecord(42, 'sponzori', 'content'),
-            new PostRecord(43, 'partners', 'content'),
-        ]);
+        $pages = $this->sponsorPages();
         $navigation = new FakeNavigationStore();
         $navigation->throwDuringAtomicAfterLegacy = true;
         $migration = new NavigationMigration($pages, $navigation);
@@ -112,10 +100,7 @@ final class NavigationMigrationTest extends TestCase
 
     public function test_failed_navigation_rollback_surfaces_the_recovery_failure(): void
     {
-        $pages = new InMemoryPageStore([
-            new PostRecord(42, 'sponzori', 'content'),
-            new PostRecord(43, 'partners', 'content'),
-        ]);
+        $pages = $this->sponsorPages();
         $navigation = new FakeNavigationStore();
         $navigation->throwDuringAtomicAfterLegacy = true;
         $navigation->throwDuringRollback = true;
@@ -126,10 +111,7 @@ final class NavigationMigrationTest extends TestCase
 
     public function test_sponsor_pages_are_revalidated_after_preflight(): void
     {
-        $pages = new InMemoryPageStore([
-            new PostRecord(42, 'sponzori', 'content'),
-            new PostRecord(43, 'partners', 'content'),
-        ]);
+        $pages = $this->sponsorPages();
         $navigation = new FakeNavigationStore();
         $migration = new NavigationMigration($pages, $navigation);
 
@@ -143,5 +125,51 @@ final class NavigationMigrationTest extends TestCase
         } finally {
             self::assertSame(0, $navigation->rebuilds);
         }
+    }
+
+    public function test_invalid_sponsor_language_or_translation_blocks_navigation(): void
+    {
+        $wrongLanguage = new InMemoryPageStore(
+            [
+                new PostRecord(42, 'sponzori', 'content'),
+                new PostRecord(43, 'partners', 'content'),
+            ],
+            [],
+            [],
+            [42 => 'en', 43 => 'cs'],
+            ['cs' => 43, 'en' => 42]
+        );
+        self::assertSame(
+            'blocker',
+            (new NavigationMigration($wrongLanguage, new FakeNavigationStore()))->preflight()[0]->severity()
+        );
+
+        $unlinked = new InMemoryPageStore(
+            [
+                new PostRecord(42, 'sponzori', 'content'),
+                new PostRecord(43, 'partners', 'content'),
+            ],
+            [],
+            [],
+            [42 => 'cs', 43 => 'en']
+        );
+        self::assertSame(
+            'blocker',
+            (new NavigationMigration($unlinked, new FakeNavigationStore()))->preflight()[0]->severity()
+        );
+    }
+
+    private function sponsorPages(): InMemoryPageStore
+    {
+        return new InMemoryPageStore(
+            [
+                new PostRecord(42, 'sponzori', 'content'),
+                new PostRecord(43, 'partners', 'content'),
+            ],
+            [],
+            [],
+            [42 => 'cs', 43 => 'en'],
+            ['cs' => 42, 'en' => 43]
+        );
     }
 }

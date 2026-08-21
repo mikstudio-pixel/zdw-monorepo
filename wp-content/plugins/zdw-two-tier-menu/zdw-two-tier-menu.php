@@ -675,7 +675,9 @@ function zdw_two_tier_menu_install_menus( $replace = false ) {
 
 		return zdw_two_tier_menu_install_menus_unlocked( $replace, true, $heartbeat );
 	} catch ( Throwable $error ) {
-		zdw_two_tier_menu_record_install_failure_unlocked();
+		if ( zdw_two_tier_menu_renew_state_lock( $state_lock_token ) ) {
+			zdw_two_tier_menu_record_install_failure_unlocked();
+		}
 
 		return false;
 	} finally {
@@ -694,7 +696,9 @@ function zdw_two_tier_menu_record_install_failure_unlocked() {
 	}
 	delete_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION );
 
-	return true;
+	return '0' === (string) get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1' )
+		&& '1' === (string) get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLE_AFTER_INSTALL, '0' )
+		&& ! zdw_two_tier_menu_option_exists( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION );
 }
 
 /**
@@ -966,8 +970,8 @@ function zdw_two_tier_menu_release_install_lock( $token ) {
 	}
 }
 
-/** Return whether a different request currently owns the menu-mutation lock. */
-function zdw_two_tier_menu_native_menu_writes_blocked() {
+/** Return whether this request owns the current, unexpired menu-mutation lock. */
+function zdw_two_tier_menu_current_request_owns_install_lock() {
 	$claim = get_option( ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK, false );
 	if ( ! is_array( $claim )
 		|| ! is_string( $claim['token'] ?? null )
@@ -977,12 +981,43 @@ function zdw_two_tier_menu_native_menu_writes_blocked() {
 
 	$request_token = $GLOBALS['zdw_two_tier_menu_install_lock_token'] ?? null;
 
-	return ! is_string( $request_token ) || ! hash_equals( $claim['token'], $request_token );
+	return is_string( $request_token ) && hash_equals( $claim['token'], $request_token );
 }
 
-/** Block native menu saves while a release rebuild owns the menu snapshot. */
+/** Return whether a different request currently owns the menu-mutation lock. */
+function zdw_two_tier_menu_native_menu_writes_blocked() {
+	$claim = get_option( ZDW_TWO_TIER_MENU_OPTION_INSTALL_LOCK, false );
+	if ( ! is_array( $claim )
+		|| (int) ( $claim['claimed_at'] ?? 0 ) <= time() - ZDW_TWO_TIER_MENU_UPGRADE_LOCK_TTL ) {
+		return false;
+	}
+
+	return ! zdw_two_tier_menu_current_request_owns_install_lock();
+}
+
+/** Acquire the shared mutation lock for the remainder of a native save request. */
+function zdw_two_tier_menu_acquire_native_menu_save_lock() {
+	if ( zdw_two_tier_menu_current_request_owns_install_lock() ) {
+		return true;
+	}
+
+	$token = zdw_two_tier_menu_acquire_install_lock();
+	if ( null === $token ) {
+		return false;
+	}
+
+	register_shutdown_function(
+		static function () use ( $token ) {
+			zdw_two_tier_menu_release_install_lock( $token );
+		}
+	);
+
+	return true;
+}
+
+/** Block native menu saves unless this request owns the shared mutation lock. */
 function zdw_two_tier_menu_guard_native_menu_save() {
-	if ( ! zdw_two_tier_menu_native_menu_writes_blocked() ) {
+	if ( zdw_two_tier_menu_acquire_native_menu_save_lock() ) {
 		return;
 	}
 

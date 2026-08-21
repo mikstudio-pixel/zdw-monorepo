@@ -123,8 +123,19 @@ final class NavigationMigration implements Migration
                 $this->pages->findPageIdsBySlug($slug),
                 fn (int $pageId): bool => null !== $this->pages->find($pageId)
             ));
-            if (1 === count($pageIds)) {
+            if (1 === count($pageIds) && $language === $this->pages->language($pageIds[0])) {
                 $publishedPageIds[$language] = $pageIds[0];
+            }
+        }
+
+        if (2 === count($publishedPageIds)) {
+            foreach ($publishedPageIds as $pageId) {
+                $translations = $this->pages->translations($pageId);
+                foreach ($publishedPageIds as $language => $expectedPageId) {
+                    if (($translations[$language] ?? null) !== $expectedPageId) {
+                        return [];
+                    }
+                }
             }
         }
 
