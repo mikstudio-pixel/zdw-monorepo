@@ -8,6 +8,7 @@ interface OptionStore
 {
     public function get(string $name): mixed;
 
+    /** @phpstan-impure */
     public function has(string $name): bool;
 
     public function set(string $name, mixed $value): void;

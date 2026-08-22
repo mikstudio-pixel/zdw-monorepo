@@ -53,6 +53,7 @@ final class InMemoryOptionStore implements OptionStore
         return $this->defaults[$name] ?? null;
     }
 
+    /** @phpstan-impure */
     public function has(string $name): bool
     {
         $attempt = ($this->hasAttempts[$name] ?? 0) + 1;

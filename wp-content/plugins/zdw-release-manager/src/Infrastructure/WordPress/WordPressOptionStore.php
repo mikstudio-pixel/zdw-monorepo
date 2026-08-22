@@ -18,6 +18,7 @@ final class WordPressOptionStore implements OptionStore
         return get_option($name, null);
     }
 
+    /** @phpstan-impure */
     public function has(string $name): bool
     {
         global $wpdb;
