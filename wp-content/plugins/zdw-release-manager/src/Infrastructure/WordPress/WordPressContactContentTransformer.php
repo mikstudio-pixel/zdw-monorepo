@@ -24,6 +24,11 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
             if ($accreditationIndex === $index && $contactIndex !== $index) {
                 $last = end($updated);
                 if (is_array($last) && 'core/spacer' === ($last['blockName'] ?? null)) {
+                    if (WordPressBlockContentGuard::hasUnexpectedContainerContent($last)) {
+                        throw new RuntimeException(
+                            'Mezera před původní akreditací obsahuje redakční obsah a nelze ji bezpečně odstranit.'
+                        );
+                    }
                     array_pop($updated);
                 }
                 $skipBlankTail = true;
@@ -112,7 +117,7 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
         }
 
         return 'core/paragraph' === ($block['blockName'] ?? null)
-            && 1 === preg_match('~^\s*<p>\s*</p>\s*$~s', (string) ($block['innerHTML'] ?? ''));
+            && $this->isCanonicalEmptyParagraph($block);
     }
 
     /** @param list<array<string, mixed>> $blocks
@@ -185,7 +190,7 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
                 && $this->isDedicatedLegacyContactGroup($child)) {
                 continue;
             }
-            if ('core/paragraph' === $name && '' === $this->plainText($child)) {
+            if ('core/paragraph' === $name && $this->isCanonicalEmptyParagraph($child)) {
                 continue;
             }
 
@@ -193,6 +198,13 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
         }
 
         return true;
+    }
+
+    /** @param array<string, mixed> $block */
+    private function isCanonicalEmptyParagraph(array $block): bool
+    {
+        return [] === ($block['innerBlocks'] ?? [])
+            && 1 === preg_match('~^\s*<p>\s*</p>\s*$~s', (string) ($block['innerHTML'] ?? ''));
     }
 
     /** @param list<array<string, mixed>> $blocks */

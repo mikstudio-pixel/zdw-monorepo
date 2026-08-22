@@ -96,6 +96,25 @@ final class DesiredPostContentMigrationTest extends TestCase
         }
     }
 
+    public function test_preexisting_editorial_content_is_not_replaced(): void
+    {
+        $store = new InMemoryPostStore([
+            new PostRecord(17, 'kontakty', 'old-czech plus editorial notice'),
+            new PostRecord(179, 'contacts', 'old-english'),
+        ]);
+        $migration = $this->migration($store);
+
+        self::assertSame('blocker', $migration->preflight()[0]->severity());
+
+        try {
+            $migration->apply();
+            self::fail('Unexpected preexisting content should block the migration.');
+        } catch (RuntimeException) {
+            self::assertSame('old-czech plus editorial notice', $store->find(17)?->content());
+            self::assertSame([], $store->writes);
+        }
+    }
+
     private function migration(InMemoryPostStore $store): DesiredPostContentMigration
     {
         return new DesiredPostContentMigration(
@@ -103,8 +122,16 @@ final class DesiredPostContentMigrationTest extends TestCase
             'Hlavní kontakty',
             $store,
             [
-                17 => ['slug' => 'kontakty', 'content' => 'czech'],
-                179 => ['slug' => 'contacts', 'content' => 'english'],
+                17 => [
+                    'slug' => 'kontakty',
+                    'content' => 'czech',
+                    'sourceHashes' => [hash('sha256', 'old'), hash('sha256', 'old-czech')],
+                ],
+                179 => [
+                    'slug' => 'contacts',
+                    'content' => 'english',
+                    'sourceHashes' => [hash('sha256', 'old-english')],
+                ],
             ]
         );
     }

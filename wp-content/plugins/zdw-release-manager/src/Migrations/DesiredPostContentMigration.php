@@ -12,7 +12,7 @@ use ZDW\ReleaseManager\Domain\PreflightCheck;
 
 final class DesiredPostContentMigration implements Migration
 {
-    /** @param array<int, array{slug: string, content: string}> $desiredPosts */
+    /** @param array<int, array{slug: string, content: string, sourceHashes: list<string>}> $desiredPosts */
     public function __construct(
         private readonly string $migrationId,
         private readonly string $migrationLabel,
@@ -107,6 +107,12 @@ final class DesiredPostContentMigration implements Migration
                     'post.slug.' . $postId,
                     sprintf('Stránka ID %d má slug %s místo %s.', $postId, $post->slug(), $desired['slug'])
                 );
+            } elseif ($post->content() !== $desired['content']
+                && !$this->sourceContentMatches($post->content(), $desired['sourceHashes'])) {
+                $checks[] = PreflightCheck::blocker(
+                    'post.content.' . $postId,
+                    sprintf('Stránka ID %d obsahuje neočekávaný redakční obsah.', $postId)
+                );
             }
         }
 
@@ -126,5 +132,18 @@ final class DesiredPostContentMigration implements Migration
         }
 
         return $changed;
+    }
+
+    /** @param list<string> $sourceHashes */
+    private function sourceContentMatches(string $content, array $sourceHashes): bool
+    {
+        $actual = hash('sha256', $content);
+        foreach ($sourceHashes as $expected) {
+            if (hash_equals($expected, $actual)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

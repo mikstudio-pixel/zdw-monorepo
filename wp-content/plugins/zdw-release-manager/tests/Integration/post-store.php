@@ -37,6 +37,27 @@ try {
     if (function_exists('pll_set_post_language')) {
         $publishedLanguage = $pageStore->language((int) $publishedPage);
         $targetLanguage = 'cs' === $publishedLanguage ? 'en' : 'cs';
+        wp_set_current_user(0);
+        try {
+            try {
+                $pageStore->setLanguage((int) $publishedPage, $targetLanguage);
+                throw new RuntimeException('A language write without page-edit permission unexpectedly succeeded.');
+            } catch (RuntimeException $error) {
+                if (!str_contains($error->getMessage(), 'nemůže upravit jazyk')) {
+                    throw $error;
+                }
+            }
+            try {
+                $pageStore->setTranslations([$targetLanguage => (int) $publishedPage]);
+                throw new RuntimeException('A translation write without page-edit permission unexpectedly succeeded.');
+            } catch (RuntimeException $error) {
+                if (!str_contains($error->getMessage(), 'nemůže upravit překlady')) {
+                    throw $error;
+                }
+            }
+        } finally {
+            wp_set_current_user((int) $administratorIds[0]);
+        }
         if (!$pageStore->setLanguageIfCurrent((int) $publishedPage, $publishedLanguage, $targetLanguage)
             || $pageStore->setLanguageIfCurrent((int) $publishedPage, $publishedLanguage, $targetLanguage)) {
             throw new RuntimeException('Conditional language write did not enforce its locked expectation.');

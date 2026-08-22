@@ -6,7 +6,7 @@ namespace ZDW\ReleaseManager\Migrations;
 
 final class InitialContactContent
 {
-    /** @return array<int, array{slug: string, content: string}> */
+    /** @return array<int, array{slug: string, content: string, sourceHashes: list<string>}> */
     public static function desiredPosts(): array
     {
         $team = [
@@ -24,10 +24,26 @@ final class InitialContactContent
         ];
 
         return [
-            17 => ['slug' => 'kontakty', 'content' => self::block($team, 'grid')],
-            179 => ['slug' => 'contacts', 'content' => self::block($team, 'grid')],
-            258 => ['slug' => 'bid-kontakt', 'content' => self::block($bestInDesign, 'compact')],
-            1013 => ['slug' => 'contact-best-in-design-2', 'content' => self::block($bestInDesign, 'compact')],
+            17 => [
+                'slug' => 'kontakty',
+                'content' => self::block($team, 'grid'),
+                'sourceHashes' => ['90d0166103ec083237e361a18c746b9386659c92fcf7a3ea8ff8ca9037f7e9d2'],
+            ],
+            179 => [
+                'slug' => 'contacts',
+                'content' => self::block($team, 'grid'),
+                'sourceHashes' => ['afed4fcdfd1003ff826da6d8ff070a0f1cc86767fb98c1203d350e25dfd2cc59'],
+            ],
+            258 => [
+                'slug' => 'bid-kontakt',
+                'content' => self::block($bestInDesign, 'compact'),
+                'sourceHashes' => ['11fb17898b774ca94ff5c6cd6b28a73215025a66fbf465ca0985107601b44895'],
+            ],
+            1013 => [
+                'slug' => 'contact-best-in-design-2',
+                'content' => self::block($bestInDesign, 'compact'),
+                'sourceHashes' => ['3e6c670c0beea15d5e0a3b7c0f655ef467d0a7e17388788d08adf892118dcd74'],
+            ],
         ];
     }
 

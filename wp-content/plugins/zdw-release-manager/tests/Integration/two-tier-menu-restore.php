@@ -156,6 +156,7 @@ try {
         if (!get_post($parentId) || get_post($childId)) {
             throw new RuntimeException('The partial-delete fixture did not preserve only the rejected item.');
         }
+        update_post_meta($parentId, '_zdw_added_during_failed_update', 'remove-me');
         if (!zdw_two_tier_menu_restore_items((int) $menuId, $snapshot)) {
             throw new RuntimeException('Rollback could not recover around an undeletable original item.');
         }
@@ -168,7 +169,8 @@ try {
         || ['first', 'second'] !== get_post_meta($parentId, '_zdw_rollback_test')
         || $parentId !== (int) get_post_meta($childId, '_zdw_related_menu_item', true)
         || $slashes !== get_post_meta($childId, '_zdw_rollback_slashes', true)
-        || $arrayMeta !== get_post_meta($childId, '_zdw_rollback_array', true)) {
+        || $arrayMeta !== get_post_meta($childId, '_zdw_rollback_array', true)
+        || metadata_exists('post', $parentId, '_zdw_added_during_failed_update')) {
         throw new RuntimeException('Partial-delete rollback did not preserve the complete original snapshot.');
     }
 

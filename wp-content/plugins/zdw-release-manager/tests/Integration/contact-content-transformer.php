@@ -7,6 +7,7 @@ require $wordpressRoot . '/wp-load.php';
 require_once dirname(__DIR__, 2) . '/zdw-release-manager.php';
 
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressContactContentTransformer;
+use ZDW\ReleaseManager\Migrations\InitialContactContent;
 
 $transformer = new WordPressContactContentTransformer();
 $eva = [[
@@ -21,6 +22,15 @@ $anna = [[
     'email' => 'anna.svobodova@zlindesignweek.com',
     'phone' => '+420 733 144 711',
 ]];
+
+$initialContacts = InitialContactContent::desiredPosts();
+foreach ([17 => 44126, 179 => 36165, 258 => 35179, 1013 => 35178] as $pageId => $revisionId) {
+    $revision = get_post($revisionId);
+    if (!$revision instanceof WP_Post
+        || !in_array(hash('sha256', $revision->post_content), $initialContacts[$pageId]['sourceHashes'], true)) {
+        throw new RuntimeException(sprintf('Primary contact source fingerprint is stale for page ID %d.', $pageId));
+    }
+}
 
 // Revisions 43859 and 40676 come from the SQL dump configured by ZDW_SQL_DUMP.
 $pressRevision = get_post(43859);
@@ -77,6 +87,19 @@ $unsafeInitialPress = '<!-- wp:group --><div class="wp-block-group">'
 try {
     $transformer->pressPage($unsafeInitialPress, $eva);
     throw new RuntimeException('Initial contact transform accepted a legacy group with unrelated siblings.');
+} catch (RuntimeException $error) {
+    if (!str_contains($error->getMessage(), 'nesouvisející obsah')) {
+        throw $error;
+    }
+}
+
+$tagOnlyLegacyContact = '<!-- wp:group --><div class="wp-block-group">'
+    . '<!-- wp:paragraph --><p><img src="retained-contact-note.jpg" alt=""></p><!-- /wp:paragraph -->'
+    . '<!-- wp:acf/contact-person {"name":"acf/contact-person"} /-->'
+    . '</div><!-- /wp:group -->';
+try {
+    $transformer->pressPage($tagOnlyLegacyContact, $eva);
+    throw new RuntimeException('A legacy contact group accepted a tag-only editorial paragraph.');
 } catch (RuntimeException $error) {
     if (!str_contains($error->getMessage(), 'nesouvisející obsah')) {
         throw $error;
@@ -194,6 +217,15 @@ $tagOnlyTail = '<!-- wp:paragraph --><p><img src="retained-tail.jpg" alt=""></p>
 $tagOnlyTailResult = $transformer->pressPage($syntheticPress . $legacyAccreditation . $tagOnlyTail, $eva);
 if (!str_contains($tagOnlyTailResult, 'retained-tail.jpg')) {
     throw new RuntimeException('Press transform removed a tag-only paragraph after accreditation.');
+}
+$unsafeLeadSpacer = '<!-- wp:spacer --><div class="wp-block-spacer"><img src="retained-lead.jpg" alt=""></div><!-- /wp:spacer -->';
+try {
+    $transformer->pressPage($syntheticPress . $unsafeLeadSpacer . $legacyAccreditation, $eva);
+    throw new RuntimeException('Press transform removed content inside the spacer before accreditation.');
+} catch (RuntimeException $error) {
+    if (!str_contains($error->getMessage(), 'Mezera před')) {
+        throw $error;
+    }
 }
 
 $accessibilityRevision = get_post(40676);

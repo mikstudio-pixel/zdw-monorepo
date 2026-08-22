@@ -130,6 +130,10 @@ final class WordPressPageStore implements PageStore
 
     public function setLanguage(int $postId, ?string $language): void
     {
+        if (!current_user_can('edit_post', $postId)) {
+            throw new RuntimeException(sprintf('Aktuální účet nemůže upravit jazyk stránky ID %d.', $postId));
+        }
+
         if (null === $language) {
             foreach (['post_translations', 'language'] as $taxonomy) {
                 $result = wp_set_object_terms($postId, [], $taxonomy);
@@ -201,6 +205,15 @@ final class WordPressPageStore implements PageStore
     {
         if (!function_exists('pll_save_post_translations')) {
             throw new RuntimeException('Polylang API není dostupné.');
+        }
+
+        foreach (array_values($translations) as $postId) {
+            if (!current_user_can('edit_post', (int) $postId)) {
+                throw new RuntimeException(sprintf(
+                    'Aktuální účet nemůže upravit překlady stránky ID %d.',
+                    $postId
+                ));
+            }
         }
 
         pll_save_post_translations($translations);

@@ -410,7 +410,18 @@ function zdw_two_tier_menu_restore_items( $menu_id, $snapshot, $heartbeat = null
 			continue;
 		}
 
-		foreach ( (array) ( $item['meta'] ?? array() ) as $key => $values ) {
+		$snapshot_meta = (array) ( $item['meta'] ?? array() );
+		foreach ( array_keys( get_post_meta( $original_id ) ) as $key ) {
+			if ( array_key_exists( $key, $snapshot_meta ) ) {
+				continue;
+			}
+			delete_post_meta( $original_id, (string) $key );
+			if ( metadata_exists( 'post', $original_id, (string) $key ) ) {
+				$success = false;
+			}
+		}
+
+		foreach ( $snapshot_meta as $key => $values ) {
 			if ( metadata_exists( 'post', $original_id, (string) $key ) ) {
 				delete_post_meta( $original_id, (string) $key );
 				if ( metadata_exists( 'post', $original_id, (string) $key ) ) {
@@ -423,6 +434,13 @@ function zdw_two_tier_menu_restore_items( $menu_id, $snapshot, $heartbeat = null
 					$success = false;
 				}
 			}
+		}
+		$current_meta_keys  = array_keys( get_post_meta( $original_id ) );
+		$snapshot_meta_keys = array_keys( $snapshot_meta );
+		sort( $current_meta_keys );
+		sort( $snapshot_meta_keys );
+		if ( $current_meta_keys !== $snapshot_meta_keys ) {
+			$success = false;
 		}
 	}
 
@@ -1159,23 +1177,38 @@ function zdw_two_tier_menu_is_legacy_preview() {
 /**
  * Whether all isolated header menus still exist and contain published items.
  *
+ * @param bool $refresh Clear the request-local cached result before probing.
  * @return bool
  */
-function zdw_two_tier_menu_required_menus_available() {
+function zdw_two_tier_menu_required_menus_available( $refresh = false ) {
+	static $available = null;
+	if ( $refresh ) {
+		$available = null;
+	}
+	if ( null !== $available ) {
+		return $available;
+	}
+
 	foreach ( zdw_two_tier_menu_names() as $languages ) {
 		foreach ( $languages as $name ) {
 			$menu = wp_get_nav_menu_object( $name );
 			if ( ! $menu ) {
-				return false;
+				$available = false;
+
+				return $available;
 			}
 			$items = wp_get_nav_menu_items( (int) $menu->term_id, array( 'post_status' => 'publish' ) );
 			if ( ! is_array( $items ) || empty( $items ) ) {
-				return false;
+				$available = false;
+
+				return $available;
 			}
 		}
 	}
 
-	return true;
+	$available = true;
+
+	return $available;
 }
 
 /**
