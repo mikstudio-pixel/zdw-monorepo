@@ -52,16 +52,32 @@ final class WordPressOptionStore implements OptionStore
         mixed $value
     ): bool {
         if (!$expectedExists) {
-            $knownFilteredValue = sanitize_option($name, $value);
-            if (!add_option($name, $value, '', $this->autoload)) {
-                return false;
+            $capturedValue = null;
+            $valueCaptured = false;
+            $captureValue = static function (string $option, mixed $filteredValue) use (
+                $name,
+                &$capturedValue,
+                &$valueCaptured
+            ): void {
+                if ($option === $name) {
+                    $capturedValue = $filteredValue;
+                    $valueCaptured = true;
+                }
+            };
+            add_action('add_option', $captureValue, PHP_INT_MAX, 2);
+            try {
+                if (!add_option($name, $value, '', $this->autoload)) {
+                    return false;
+                }
+            } finally {
+                remove_action('add_option', $captureValue, PHP_INT_MAX);
             }
 
             $actual = $this->get($name);
             if ($this->valuesMatch($actual, $value)) {
                 return true;
             }
-            if (!$this->valuesMatch($actual, $knownFilteredValue)) {
+            if (!$valueCaptured || !$this->valuesMatch($actual, $capturedValue)) {
                 return false;
             }
             if (!$this->deleteIfCurrent($name, $actual)) {

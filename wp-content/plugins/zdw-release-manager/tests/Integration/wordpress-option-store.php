@@ -13,11 +13,13 @@ $option = 'zdw_release_manager_integration_option';
 $integerOption = 'zdw_release_manager_integration_integer_option';
 $defaultOption = 'zdw_release_manager_integration_default_option';
 $filteredAddOption = 'zdw_release_manager_integration_filtered_add';
+$changingFilteredAddOption = 'zdw_release_manager_integration_changing_filtered_add';
 $concurrentAddOption = 'zdw_release_manager_integration_concurrent_add';
 delete_option($option);
 delete_option($integerOption);
 delete_option($defaultOption);
 delete_option($filteredAddOption);
+delete_option($changingFilteredAddOption);
 delete_option($concurrentAddOption);
 
 try {
@@ -130,6 +132,22 @@ try {
     } finally {
         remove_filter('sanitize_option_' . $filteredAddOption, $rewrite);
     }
+    $changingFilterCalls = 0;
+    $changingRewrite = static function (mixed $value) use (&$changingFilterCalls): string {
+        unset($value);
+        ++$changingFilterCalls;
+
+        return 'filtered-' . $changingFilterCalls;
+    };
+    add_filter('sanitize_option_' . $changingFilteredAddOption, $changingRewrite);
+    try {
+        if ($store->setIfCurrent($changingFilteredAddOption, false, null, 'requested')
+            || $store->has($changingFilteredAddOption)) {
+            throw new RuntimeException('The exact sanitized option row created by this call was not compensated.');
+        }
+    } finally {
+        remove_filter('sanitize_option_' . $changingFilteredAddOption, $changingRewrite);
+    }
     $changeAfterAdd = static function (string $name) use ($concurrentAddOption): void {
         if ($concurrentAddOption === $name) {
             update_option($name, 'newer-write');
@@ -149,6 +167,7 @@ try {
     delete_option($integerOption);
     delete_option($defaultOption);
     delete_option($filteredAddOption);
+    delete_option($changingFilteredAddOption);
     delete_option($concurrentAddOption);
 }
 

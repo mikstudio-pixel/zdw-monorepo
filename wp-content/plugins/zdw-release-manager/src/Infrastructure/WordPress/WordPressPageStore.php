@@ -73,6 +73,12 @@ final class WordPressPageStore implements PageStore
     public function createPage(string $title, string $slug, string $content): int
     {
         $this->assertUnfilteredHtmlCapability();
+        $pageType = get_post_type_object('page');
+        $createCapability = $pageType?->cap->create_posts ?? $pageType?->cap->edit_posts ?? 'edit_pages';
+        $publishCapability = $pageType?->cap->publish_posts ?? 'publish_pages';
+        if (!current_user_can($createCapability) || !current_user_can($publishCapability)) {
+            throw new RuntimeException('Aktuální účet nemůže vytvořit a publikovat novou stránku.');
+        }
 
         $result = wp_insert_post([
             'post_type' => 'page',
@@ -207,7 +213,12 @@ final class WordPressPageStore implements PageStore
             throw new RuntimeException('Polylang API není dostupné.');
         }
 
-        foreach (array_values($translations) as $postId) {
+        $desiredPostIds = array_map('intval', array_values($translations));
+        $affectedPostIds = $desiredPostIds;
+        foreach ($desiredPostIds as $postId) {
+            $affectedPostIds = array_merge($affectedPostIds, array_values($this->translations($postId)));
+        }
+        foreach (array_values(array_unique($affectedPostIds)) as $postId) {
             if (!current_user_can('edit_post', (int) $postId)) {
                 throw new RuntimeException(sprintf(
                     'Aktuální účet nemůže upravit překlady stránky ID %d.',
@@ -221,9 +232,14 @@ final class WordPressPageStore implements PageStore
 
     public function setTranslationsIfCurrent(array $expectedByPost, array $translations): bool
     {
+        $expectedTranslationIds = [];
+        foreach ($expectedByPost as $expected) {
+            $expectedTranslationIds = array_merge($expectedTranslationIds, array_values($expected));
+        }
         $postIds = array_values(array_unique(array_merge(
             array_map('intval', array_keys($expectedByPost)),
-            array_map('intval', array_values($translations))
+            array_map('intval', array_values($translations)),
+            array_map('intval', $expectedTranslationIds)
         )));
 
         return $this->withPolylangWriteLock($postIds, function () use (

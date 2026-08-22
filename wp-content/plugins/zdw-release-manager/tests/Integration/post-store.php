@@ -22,6 +22,24 @@ try {
     wp_set_current_user((int) $administratorIds[0]);
     $store = new WordPressPostStore();
     $pageStore = new WordPressPageStore();
+    $denyPublishing = static function (array $allCaps): array {
+        $allCaps['publish_pages'] = false;
+
+        return $allCaps;
+    };
+    add_filter('user_has_cap', $denyPublishing, PHP_INT_MAX, 1);
+    try {
+        try {
+            $pageStore->createPage('Forbidden fixture', 'forbidden-publish-fixture', 'content');
+            throw new RuntimeException('A page publish without publish_pages unexpectedly succeeded.');
+        } catch (RuntimeException $error) {
+            if (!str_contains($error->getMessage(), 'nemůže vytvořit a publikovat')) {
+                throw $error;
+            }
+        }
+    } finally {
+        remove_filter('user_has_cap', $denyPublishing, PHP_INT_MAX);
+    }
     if (null === $store->find((int) $publishedPage)) {
         throw new RuntimeException('Published page was not accepted.');
     }
@@ -78,6 +96,28 @@ try {
         if (!$pageStore->setTranslationsIfCurrent($translationExpectations, $desiredTranslations)
             || $pageStore->setTranslationsIfCurrent([(int) $publishedPage => []], $desiredTranslations)) {
             throw new RuntimeException('Conditional translation write did not enforce its locked expectations.');
+        }
+        $denyDraftEdit = static function (array $allCaps, array $caps, array $args) use ($draftPage): array {
+            if ('edit_post' === ($args[0] ?? null) && (int) $draftPage === (int) ($args[2] ?? 0)) {
+                foreach ($caps as $capability) {
+                    $allCaps[$capability] = false;
+                }
+            }
+
+            return $allCaps;
+        };
+        add_filter('user_has_cap', $denyDraftEdit, PHP_INT_MAX, 3);
+        try {
+            try {
+                $pageStore->setTranslations([$targetLanguage => (int) $publishedPage]);
+                throw new RuntimeException('An omitted group member without edit permission was removed.');
+            } catch (RuntimeException $error) {
+                if (!str_contains($error->getMessage(), 'nemůže upravit překlady')) {
+                    throw $error;
+                }
+            }
+        } finally {
+            remove_filter('user_has_cap', $denyDraftEdit, PHP_INT_MAX);
         }
 
         $translationTerms = wp_get_object_terms(
