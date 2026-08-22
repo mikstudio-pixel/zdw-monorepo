@@ -32,4 +32,41 @@ foreach (['zdw-two-tier-top-desktop-cs', 'zdw-two-tier-top-mobile-cs'] as $expec
     }
 }
 
+$menuName = zdw_two_tier_menu_names()['top']['cs'];
+$menu = wp_get_nav_menu_object($menuName);
+if (!$menu) {
+    throw new RuntimeException('A required menu fixture is unavailable.');
+}
+$menuId = (int) $menu->term_id;
+$enabledExisted = zdw_two_tier_menu_option_exists(ZDW_TWO_TIER_MENU_OPTION_ENABLED);
+$enabledBefore = get_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED);
+$versionExisted = zdw_two_tier_menu_option_exists(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION);
+$versionBefore = get_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION);
+update_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, '1');
+update_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, ZDW_TWO_TIER_MENU_DB_VERSION);
+$renamed = wp_update_nav_menu_object($menuId, ['menu-name' => 'ZDW unavailable menu fixture']);
+if (is_wp_error($renamed)) {
+    throw new RuntimeException('The required-menu fallback fixture could not be created.');
+}
+try {
+    if (zdw_two_tier_menu_required_menus_available() || zdw_two_tier_menu_is_active()) {
+        throw new RuntimeException('A missing required menu did not fall back to the legacy header.');
+    }
+} finally {
+    $restored = wp_update_nav_menu_object($menuId, ['menu-name' => $menuName]);
+    if ($enabledExisted) {
+        update_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED, $enabledBefore);
+    } else {
+        delete_option(ZDW_TWO_TIER_MENU_OPTION_ENABLED);
+    }
+    if ($versionExisted) {
+        update_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION, $versionBefore);
+    } else {
+        delete_option(ZDW_TWO_TIER_MENU_OPTION_DB_VERSION);
+    }
+    if (is_wp_error($restored)) {
+        throw new RuntimeException('The required-menu fallback fixture could not be restored.');
+    }
+}
+
 echo "Two-tier menu DOM ID integration test passed.\n";

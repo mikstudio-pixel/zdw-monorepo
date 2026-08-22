@@ -1157,13 +1157,35 @@ function zdw_two_tier_menu_is_legacy_preview() {
 }
 
 /**
+ * Whether all isolated header menus still exist and contain published items.
+ *
+ * @return bool
+ */
+function zdw_two_tier_menu_required_menus_available() {
+	foreach ( zdw_two_tier_menu_names() as $languages ) {
+		foreach ( $languages as $name ) {
+			$menu = wp_get_nav_menu_object( $name );
+			if ( ! $menu ) {
+				return false;
+			}
+			$items = wp_get_nav_menu_items( (int) $menu->term_id, array( 'post_status' => 'publish' ) );
+			if ( ! is_array( $items ) || empty( $items ) ) {
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+/**
  * Public switch used by the child header template.
  *
  * @return bool
  */
 function zdw_two_tier_menu_is_active() {
 	if ( zdw_two_tier_menu_is_preview() ) {
-		return true;
+		return zdw_two_tier_menu_required_menus_available();
 	}
 
 	if ( zdw_two_tier_menu_is_legacy_preview() ) {
@@ -1171,7 +1193,8 @@ function zdw_two_tier_menu_is_active() {
 	}
 
 	return ZDW_TWO_TIER_MENU_DB_VERSION === get_option( ZDW_TWO_TIER_MENU_OPTION_DB_VERSION )
-		&& '1' === (string) get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0' );
+		&& '1' === (string) get_option( ZDW_TWO_TIER_MENU_OPTION_ENABLED, '0' )
+		&& zdw_two_tier_menu_required_menus_available();
 }
 
 /**

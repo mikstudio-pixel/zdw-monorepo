@@ -220,6 +220,15 @@ try {
         || 'conditional-restore' !== $store->find((int) $publishedPage)?->content()) {
         throw new RuntimeException('A case-only stale conditional update overwrote newer content.');
     }
+    global $wpdb;
+    $wpdb->update(
+        $wpdb->posts,
+        ['post_modified' => '2020-01-01 00:00:00', 'post_modified_gmt' => '2020-01-01 00:00:00'],
+        ['ID' => (int) $publishedPage],
+        ['%s', '%s'],
+        ['%d']
+    );
+    clean_post_cache((int) $publishedPage);
     $throwingLifecycle = static function (int $postId) use ($publishedPage): void {
         if ((int) $publishedPage === $postId) {
             throw new RuntimeException('Lifecycle fixture failure.');
@@ -244,6 +253,12 @@ try {
     }
     if ('conditional-restore' !== $store->find((int) $publishedPage)?->content()) {
         throw new RuntimeException('A post-write lifecycle failure left migrated content persisted.');
+    }
+    $restoredPost = get_post((int) $publishedPage);
+    if (!$restoredPost instanceof WP_Post
+        || '2020-01-01 00:00:00' !== $restoredPost->post_modified
+        || '2020-01-01 00:00:00' !== $restoredPost->post_modified_gmt) {
+        throw new RuntimeException('A post-write lifecycle failure left migrated timestamps persisted.');
     }
 } finally {
     wp_set_current_user($previousUserId);

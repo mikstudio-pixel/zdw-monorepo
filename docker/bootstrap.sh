@@ -52,7 +52,18 @@ wp search-replace \
 
 wp option update blog_public 0 --quiet
 
-if ! wp user get "${ZDW_LOCAL_ADMIN_USER}" >/dev/null 2>&1; then
+if wp user get "${ZDW_LOCAL_ADMIN_USER}" >/dev/null 2>&1; then
+    existing_email="$(wp user get "${ZDW_LOCAL_ADMIN_USER}" --field=user_email)"
+    if [ "${existing_email}" != "${ZDW_LOCAL_ADMIN_EMAIL}" ]; then
+        echo "Login ${ZDW_LOCAL_ADMIN_USER} už používá jiný účet (${existing_email}); lokální přihlašovací údaje nelze bezpečně nastavit." >&2
+        exit 1
+    fi
+    wp user update \
+        "${ZDW_LOCAL_ADMIN_USER}" \
+        --role=administrator \
+        --user_pass="${ZDW_LOCAL_ADMIN_PASSWORD}" \
+        --quiet
+else
     existing_login="$(wp user get "${ZDW_LOCAL_ADMIN_EMAIL}" --field=user_login 2>/dev/null || true)"
     if [ -n "${existing_login}" ]; then
         echo "E-mail ${ZDW_LOCAL_ADMIN_EMAIL} už používá jiný účet (${existing_login}); lokálního administrátora nelze vytvořit." >&2

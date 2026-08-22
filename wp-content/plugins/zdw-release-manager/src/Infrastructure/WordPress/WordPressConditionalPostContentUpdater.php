@@ -78,17 +78,36 @@ final class WordPressConditionalPostContentUpdater
         bool $lifecycleStarted
     ): void {
         global $wpdb;
-        $restored = $wpdb->query(
-            $wpdb->prepare(
-                "UPDATE {$wpdb->posts}
-                SET post_content = %s
-                WHERE ID = %d AND post_type = 'page' AND post_status = 'publish'
-                    AND CAST(post_content AS BINARY) = CAST(%s AS BINARY)",
-                $postBefore->post_content,
-                $postBefore->ID,
-                $failedContent
-            )
-        );
+        if ($postAfter instanceof WP_Post) {
+            $restored = $wpdb->query(
+                $wpdb->prepare(
+                    "UPDATE {$wpdb->posts}
+                    SET post_content = %s, post_modified = %s, post_modified_gmt = %s
+                    WHERE ID = %d AND post_type = 'page' AND post_status = 'publish'
+                        AND CAST(post_content AS BINARY) = CAST(%s AS BINARY)
+                        AND post_modified = %s AND post_modified_gmt = %s",
+                    $postBefore->post_content,
+                    $postBefore->post_modified,
+                    $postBefore->post_modified_gmt,
+                    $postBefore->ID,
+                    $failedContent,
+                    $postAfter->post_modified,
+                    $postAfter->post_modified_gmt
+                )
+            );
+        } else {
+            $restored = $wpdb->query(
+                $wpdb->prepare(
+                    "UPDATE {$wpdb->posts}
+                    SET post_content = %s
+                    WHERE ID = %d AND post_type = 'page' AND post_status = 'publish'
+                        AND CAST(post_content AS BINARY) = CAST(%s AS BINARY)",
+                    $postBefore->post_content,
+                    $postBefore->ID,
+                    $failedContent
+                )
+            );
+        }
         clean_post_cache((int) $postBefore->ID);
         if (1 !== $restored) {
             throw new RuntimeException(
