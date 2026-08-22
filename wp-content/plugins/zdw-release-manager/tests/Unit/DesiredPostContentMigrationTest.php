@@ -96,6 +96,25 @@ final class DesiredPostContentMigrationTest extends TestCase
         }
     }
 
+    public function test_apply_rechecks_the_source_fingerprint_on_its_planning_read(): void
+    {
+        $store = new InMemoryPostStore([
+            new PostRecord(17, 'kontakty', 'old-czech'),
+            new PostRecord(179, 'contacts', 'old-english'),
+        ]);
+        $store->replaceContentOnFindAttempts = [17 => [2 => 'editor-change']];
+        $migration = $this->migration($store);
+
+        try {
+            $migration->apply();
+            self::fail('An edit between identity validation and planning should abort the migration.');
+        } catch (RuntimeException $error) {
+            self::assertStringContainsString('mezitím změnil', $error->getMessage());
+            self::assertSame('editor-change', $store->find(17)?->content());
+            self::assertSame([], $store->writes);
+        }
+    }
+
     public function test_preexisting_editorial_content_is_not_replaced(): void
     {
         $store = new InMemoryPostStore([

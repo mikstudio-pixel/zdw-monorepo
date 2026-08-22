@@ -61,6 +61,12 @@ final class DesiredPostContentMigration implements Migration
         foreach ($this->desiredPosts as $postId => $desired) {
             $post = $this->store->find($postId);
             if (null !== $post && $post->content() !== $desired['content']) {
+                if (!$this->sourceContentMatches($post->content(), $desired['sourceHashes'])) {
+                    throw new RuntimeException(sprintf(
+                        'Obsah stránky ID %d mezitím změnil jiný požadavek.',
+                        $postId
+                    ));
+                }
                 $updates[$postId] = $desired['content'];
                 $originals[$postId] = $post->content();
             }
