@@ -11,6 +11,9 @@ final class InMemoryOptionStore implements OptionStore
     /** @var array<string, mixed> */
     private array $values;
 
+    /** @var array<string, mixed> */
+    private array $defaults;
+
     /** @var list<string> */
     public array $writes = [];
 
@@ -32,15 +35,22 @@ final class InMemoryOptionStore implements OptionStore
     /** @var array<string, int> */
     private array $hasAttempts = [];
 
-    /** @param array<string, mixed> $values */
-    public function __construct(array $values = [])
+    /** @param array<string, mixed> $values
+     *  @param array<string, mixed> $defaults
+     */
+    public function __construct(array $values = [], array $defaults = [])
     {
         $this->values = $values;
+        $this->defaults = $defaults;
     }
 
     public function get(string $name): mixed
     {
-        return $this->values[$name] ?? null;
+        if (array_key_exists($name, $this->values)) {
+            return $this->values[$name];
+        }
+
+        return $this->defaults[$name] ?? null;
     }
 
     public function has(string $name): bool

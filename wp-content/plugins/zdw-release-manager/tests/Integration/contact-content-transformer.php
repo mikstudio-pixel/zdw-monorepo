@@ -190,6 +190,12 @@ if (false !== strpos($safeResult, '>AKREDITACE<')) {
     throw new RuntimeException('Press transform kept the structurally identified legacy accreditation section.');
 }
 
+$tagOnlyTail = '<!-- wp:paragraph --><p><img src="retained-tail.jpg" alt=""></p><!-- /wp:paragraph -->';
+$tagOnlyTailResult = $transformer->pressPage($syntheticPress . $legacyAccreditation . $tagOnlyTail, $eva);
+if (!str_contains($tagOnlyTailResult, 'retained-tail.jpg')) {
+    throw new RuntimeException('Press transform removed a tag-only paragraph after accreditation.');
+}
+
 $accessibilityRevision = get_post(40676);
 if (!$accessibilityRevision instanceof WP_Post) {
     throw new RuntimeException('Accessibility fixture revision 40676 is missing.');

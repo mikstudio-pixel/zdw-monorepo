@@ -228,6 +228,31 @@ if ($cleanupTransformer->desiredPageContent((string) $czechLegacyRevision->post_
     === $czechLegacyRevision->post_content) {
     throw new RuntimeException('Legacy Czech Design Canteen fixture does not exercise the cleanup.');
 }
+$legacyGroup = null;
+foreach (parse_blocks((string) $czechLegacyRevision->post_content) as $block) {
+    if ('core/group' === ($block['blockName'] ?? null)
+        && false !== stripos(serialize_block($block), 'KUDY TUDY')) {
+        $legacyGroup = $block;
+        break;
+    }
+}
+if (!is_array($legacyGroup)) {
+    throw new RuntimeException('An adjacent-spacer Czech Canteen fixture could not be created.');
+}
+$unsafeSpacer = parse_blocks(
+    '<!-- wp:spacer --><div class="wp-block-spacer"><img src="retained-spacer.jpg" alt=""></div><!-- /wp:spacer -->'
+)[0] ?? null;
+if (!is_array($unsafeSpacer)) {
+    throw new RuntimeException('An unsafe spacer fixture could not be parsed.');
+}
+try {
+    $cleanupTransformer->desiredPageContent(serialize_blocks([$unsafeSpacer, $legacyGroup]));
+    throw new RuntimeException('Czech Design Canteen cleanup removed content inside an adjacent spacer.');
+} catch (RuntimeException $error) {
+    if (!str_contains($error->getMessage(), 'Sousední mezera')) {
+        throw $error;
+    }
+}
 $czechMarkupBlocks = parse_blocks((string) $czechLegacyRevision->post_content);
 $czechMarkupFixtureCreated = false;
 foreach ($czechMarkupBlocks as &$block) {

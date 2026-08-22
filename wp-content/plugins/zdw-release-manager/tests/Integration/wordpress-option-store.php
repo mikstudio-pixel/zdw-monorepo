@@ -79,6 +79,19 @@ try {
     if ($store->has($defaultOption)) {
         throw new RuntimeException('A registered default was mistaken for a persisted option row.');
     }
+    $defaultMigration = new DesiredOptionsMigration(
+        'integration_default_option',
+        'Integration registered default',
+        $store,
+        [$defaultOption => 'registered-default']
+    );
+    if ('warning' !== $defaultMigration->preflight()[0]->severity()) {
+        throw new RuntimeException('An absent option row matching its registered default was treated as persisted.');
+    }
+    $defaultMigration->apply();
+    if (!$store->has($defaultOption) || 'pass' !== $defaultMigration->verify()[0]->severity()) {
+        throw new RuntimeException('A manifest value matching a registered default was not persisted.');
+    }
 
     $migration = new DesiredOptionsMigration(
         'integration_scalar_options',

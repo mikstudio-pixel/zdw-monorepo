@@ -60,12 +60,13 @@ final class DesiredOptionsMigration implements Migration
 
         try {
             foreach ($this->desiredValues as $name => $value) {
+                $originalExists = $this->store->has($name);
                 $original = $this->store->get($name);
-                if ($this->valuesMatch($original, $value)) {
+                if ($originalExists && $this->valuesMatch($original, $value)) {
                     continue;
                 }
 
-                $originals[$name] = ['exists' => $this->store->has($name), 'value' => $original];
+                $originals[$name] = ['exists' => $originalExists, 'value' => $original];
                 if ($this->store->has($name) !== $originals[$name]['exists']
                     || !$this->valuesMatch($this->store->get($name), $original)) {
                     throw new RuntimeException(sprintf(
@@ -162,7 +163,7 @@ final class DesiredOptionsMigration implements Migration
         $changed = [];
 
         foreach ($this->desiredValues as $name => $value) {
-            if (!$this->valuesMatch($this->store->get($name), $value)) {
+            if (!$this->store->has($name) || !$this->valuesMatch($this->store->get($name), $value)) {
                 $changed[] = $name;
             }
         }

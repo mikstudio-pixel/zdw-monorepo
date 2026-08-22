@@ -77,6 +77,11 @@ final class WordPressDesignCanteenCleanupTransformer implements DesignCanteenCle
         foreach ($remove as $index) {
             foreach ([$index - 1, $index + 1] as $adjacent) {
                 if ('core/spacer' === ($blocks[$adjacent]['blockName'] ?? null)) {
+                    if (WordPressBlockContentGuard::hasUnexpectedContainerContent($blocks[$adjacent])) {
+                        throw new RuntimeException(
+                            'Sousední mezera české Design Canteen obsahuje redakční obsah a nelze ji bezpečně odstranit.'
+                        );
+                    }
                     $remove[] = $adjacent;
                 }
             }

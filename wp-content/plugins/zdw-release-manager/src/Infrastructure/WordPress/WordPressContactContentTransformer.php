@@ -108,11 +108,11 @@ final class WordPressContactContentTransformer implements ContactContentTransfor
     private function isBlankTailBlock(array $block): bool
     {
         if ('core/spacer' === ($block['blockName'] ?? null)) {
-            return true;
+            return !WordPressBlockContentGuard::hasUnexpectedContainerContent($block);
         }
 
         return 'core/paragraph' === ($block['blockName'] ?? null)
-            && '' === trim(wp_strip_all_tags((string) ($block['innerHTML'] ?? '')));
+            && 1 === preg_match('~^\s*<p>\s*</p>\s*$~s', (string) ($block['innerHTML'] ?? ''));
     }
 
     /** @param list<array<string, mixed>> $blocks

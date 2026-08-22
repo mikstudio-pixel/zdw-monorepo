@@ -86,6 +86,25 @@ final class DesiredOptionsMigrationTest extends TestCase
         self::assertSame('pass', $migration->verify()[0]->severity());
     }
 
+    public function test_matching_registered_default_is_persisted_when_the_option_row_is_absent(): void
+    {
+        $store = new InMemoryOptionStore([], ['enabled' => '1']);
+        $migration = new DesiredOptionsMigration(
+            '20260807_001_interface_settings',
+            'Nastavení rozhraní',
+            $store,
+            ['enabled' => '1']
+        );
+
+        self::assertSame('warning', $migration->preflight()[0]->severity());
+
+        $migration->apply();
+
+        self::assertTrue($store->has('enabled'));
+        self::assertSame(['enabled'], $store->writes);
+        self::assertSame('pass', $migration->verify()[0]->severity());
+    }
+
     public function test_later_option_failure_restores_changed_and_absent_options(): void
     {
         $store = new InMemoryOptionStore(['effect' => 'filter']);
