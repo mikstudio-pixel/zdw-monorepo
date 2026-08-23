@@ -1,0 +1,73 @@
+.zdw-contacts-editor {
+	border: 1px solid #c3c4c7;
+	background: #fff;
+	color: #1e1e1e;
+}
+
+.zdw-contacts-editor__header,
+.zdw-contacts-editor__card-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+}
+
+.zdw-contacts-editor__header {
+	padding: 16px 20px;
+	border-bottom: 1px solid #c3c4c7;
+	background: #f0f0f0;
+}
+
+.zdw-contacts-editor__header strong,
+.zdw-contacts-editor__header span {
+	display: block;
+}
+
+.zdw-contacts-editor__header span {
+	margin-top: 2px;
+	color: #646970;
+	font-size: 12px;
+}
+
+.zdw-contacts-editor__card {
+	padding: 20px;
+	border-bottom: 1px solid #ddd;
+}
+
+.zdw-contacts-editor__card:last-child {
+	border-bottom: 0;
+}
+
+.zdw-contacts-editor__card-heading {
+	margin-bottom: 16px;
+}
+
+.zdw-contacts-editor__actions {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.zdw-contacts-editor__fields {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0 16px;
+}
+
+.zdw-contacts-editor__empty {
+	margin: 0;
+	padding: 20px;
+	color: #646970;
+}
+
+@media (max-width: 600px) {
+	.zdw-contacts-editor__header,
+	.zdw-contacts-editor__card-heading {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+
+	.zdw-contacts-editor__fields {
+		grid-template-columns: 1fr;
+	}
+}

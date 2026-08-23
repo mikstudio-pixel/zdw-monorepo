@@ -1,0 +1,355 @@
+/*
+Theme Name: ZDW Theme Child
+Description: Safe local overrides for the ZDW website.
+Template: zdw-theme
+Version: 1.2.4
+Author: Zlin Design Week
+*/
+
+/*
+ * Both legacy accent tokens now use the same light primary color. Keep text
+ * on primary-colored surfaces dark enough to meet WCAG contrast requirements.
+ */
+.has-zdw-background-color,
+.has-light-background-color {
+	color: var(--bg);
+}
+
+.has-zdw-background-color a,
+.has-light-background-color a,
+.has-zdw-background-color.has-dark-color,
+.has-zdw-background-color.has-light-color,
+.has-zdw-background-color.has-zdw-color,
+.has-zdw-background-color.has-white-color,
+.has-light-background-color.has-dark-color,
+.has-light-background-color.has-light-color,
+.has-light-background-color.has-zdw-color,
+.has-light-background-color.has-white-color,
+.has-zdw-background-color .has-dark-color,
+.has-zdw-background-color .has-light-color,
+.has-zdw-background-color .has-zdw-color,
+.has-zdw-background-color .has-white-color,
+.has-light-background-color .has-dark-color,
+.has-light-background-color .has-light-color,
+.has-light-background-color .has-zdw-color,
+.has-light-background-color .has-white-color {
+	color: var(--bg) !important;
+}
+
+mark.has-zdw-color,
+mark.has-light-color {
+	background-color: transparent;
+}
+
+/* Keep the footer flush with the preceding content and use the site's dark mode. */
+.footer.footer.mt-2 {
+	margin-top: 0;
+	padding-top: 0;
+}
+
+.footer.footer.has-dark-background-color,
+.footer.footer .footer-connect {
+	background-color: var(--bg) !important;
+	color: var(--dark);
+}
+
+.footer.footer .container.has-bg-color,
+.footer.footer .copyright,
+.footer.footer .copyright a,
+.footer.footer .copyright a:hover,
+.footer.footer .copyright a:visited {
+	color: var(--dark);
+}
+
+.footer.footer .footer-legal {
+	border-top-color: rgba(222, 222, 222, .22);
+	color: var(--dark);
+}
+
+.footer.footer .footer-legal a,
+.footer.footer .footer-legal a:hover,
+.footer.footer .footer-legal a:visited {
+	color: var(--dark);
+}
+
+.footer.footer .footer-connect {
+	padding-block: 8rem;
+}
+
+.footer-connect__grid {
+	display: grid;
+	gap: 4rem;
+}
+
+.footer-connect__title {
+	color: inherit;
+	font-size: clamp(2.25rem, 4vw, 3.75rem);
+	font-weight: 500;
+	letter-spacing: -.035em;
+	line-height: 1;
+	margin: 0 0 2.75rem;
+	text-transform: none;
+}
+
+.footer-connect__contacts {
+	display: grid;
+	gap: 2rem;
+}
+
+.footer-connect__contact {
+	font-size: 1.05rem;
+	font-style: normal;
+	line-height: 1.4;
+}
+
+.footer-connect__contact p {
+	margin: 0;
+}
+
+.footer-connect__contact p + p {
+	margin-top: 1.5rem;
+}
+
+.footer-connect__contact a,
+.footer-connect__social-links a {
+	color: inherit;
+}
+
+.footer-connect__contact a {
+	text-decoration: none;
+}
+
+.footer-connect__contact a:focus-visible,
+.footer-connect__contact a:hover {
+	color: inherit;
+	text-decoration: underline;
+}
+
+.footer-connect__social .footer-connect__title {
+	max-width: 9ch;
+}
+
+.footer-connect__social-links {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1.75rem;
+}
+
+.footer-connect__social-links a {
+	display: inline-flex;
+	transition: transform 160ms ease;
+}
+
+.footer-connect__social-links a:hover {
+	color: inherit;
+	transform: translateY(-3px);
+}
+
+.footer-connect__social-links a:focus-visible {
+	color: inherit;
+	outline: 2px solid currentcolor;
+	outline-offset: 6px;
+}
+
+.footer-connect__social-icon {
+	background-color: currentColor;
+	display: block;
+	height: 2.75rem;
+	-webkit-mask-position: center;
+	-webkit-mask-repeat: no-repeat;
+	-webkit-mask-size: contain;
+	mask-position: center;
+	mask-repeat: no-repeat;
+	mask-size: contain;
+	width: 2.75rem;
+}
+
+.footer-connect__social-icon--instagram {
+	-webkit-mask-image: url("assets/instagram.svg");
+	mask-image: url("assets/instagram.svg");
+}
+
+.footer-connect__social-icon--facebook {
+	-webkit-mask-image: url("assets/facebook.svg");
+	mask-image: url("assets/facebook.svg");
+}
+
+.footer-connect__social-icon--linkedin {
+	-webkit-mask-image: url("assets/linkedin.svg");
+	mask-image: url("assets/linkedin.svg");
+}
+
+.footer-connect__social-icon--spotify {
+	-webkit-mask-image: url("assets/spotify.svg");
+	mask-image: url("assets/spotify.svg");
+}
+
+.footer-legal {
+	border-top-style: solid;
+	border-top-width: 1px;
+	display: grid;
+	gap: 1.5rem;
+	padding-block: 2rem 3rem;
+}
+
+.footer-legal p {
+	margin: 0;
+}
+
+.footer-legal__primary,
+.footer-legal__meta {
+	display: grid;
+	gap: .5rem;
+}
+
+.footer-legal__support {
+	font-size: .875rem;
+	font-weight: 500;
+	line-height: 1.4;
+	max-width: 34rem;
+}
+
+.footer-legal__about,
+.footer-legal__meta {
+	font-size: .875rem;
+	line-height: 1.5;
+}
+
+.footer-legal__about {
+	max-width: 50rem;
+	opacity: .72;
+}
+
+.footer-legal__admin {
+	opacity: .72;
+}
+
+.footer-legal__links {
+	display: flex;
+	flex-direction: column;
+	gap: .35rem;
+}
+
+.footer-legal__links a {
+	color: inherit;
+	text-decoration-thickness: 1px;
+	text-underline-offset: .2em;
+}
+
+.footer-legal__links a:focus-visible,
+.footer-legal__links a:hover,
+.footer-legal__links a:visited {
+	color: inherit;
+}
+
+.footer-edit-link {
+	padding-bottom: 2rem;
+}
+
+@media (min-width: 680px) {
+	.footer-legal__primary {
+		grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+		gap: 2rem;
+	}
+}
+
+@media (min-width: 960px) {
+	.footer.footer .footer-connect {
+		padding-block: 10rem;
+	}
+
+	.footer-connect__grid {
+		grid-template-columns: minmax(0, 2fr) minmax(260px, .8fr);
+		gap: clamp(4rem, 8vw, 9rem);
+	}
+
+	.footer-connect__contacts {
+		grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+	}
+
+	.footer-connect__title {
+		min-height: 2em;
+	}
+
+	.footer-connect__social-links {
+		align-self: start;
+	}
+
+	.footer-legal {
+		grid-template-columns: minmax(0, 2fr) minmax(260px, .8fr);
+		gap: clamp(4rem, 8vw, 9rem);
+	}
+
+	.footer-legal__meta {
+		align-self: start;
+	}
+}
+
+/* Align the homepage header, hero and footer with the showcase intro text. */
+body.home {
+	--zdw-home-content-edge: calc(6px + clamp(2rem, 5vw, 6rem));
+}
+
+body.home .zdw-two-tier__inner,
+body.home .zdw-intro-experiment .zdw-intro-effect-inner > .wp-block-group__inner-container,
+body.home footer.footer .container {
+	width: auto;
+	max-width: none;
+	margin-inline: var(--zdw-home-content-edge);
+	padding-inline: 0;
+}
+
+@media (min-width: 1000px) {
+	body.home .zdw-intro-experiment .zdw-intro-effect-side {
+		right: var(--zdw-home-content-edge);
+		left: auto;
+	}
+
+	body.home .zdw-intro-experiment .zdw-intro-effect-side > .wp-block-group__inner-container {
+		padding-inline: 0;
+	}
+}
+
+@media (max-width: 767.98px) {
+	body.home {
+		--zdw-home-content-edge: calc(4px + 1.25rem);
+	}
+}
+
+/* Best in Design: keep the hero photo proportional and soften content panels. */
+body.page-id-193 .wp-block-zdw-intro-effect {
+	--zdw-intro-overlay-blend-mode: multiply;
+	--zdw-intro-overlay-color: #000;
+	--zdw-intro-overlay-opacity: .3;
+
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+body.page-id-193 .wp-block-zdw-intro-effect::before {
+	background: var(--zdw-intro-overlay-color);
+	content: "";
+	inset: 0;
+	mix-blend-mode: var(--zdw-intro-overlay-blend-mode);
+	opacity: var(--zdw-intro-overlay-opacity);
+	pointer-events: none;
+	position: absolute;
+	z-index: 1;
+}
+
+body.page-id-193 .wp-block-zdw-intro-effect .zdw-intro-effect-inner,
+body.page-id-193 .wp-block-zdw-intro-effect h2.wp-block-heading {
+	color: var(--dark);
+	mix-blend-mode: normal;
+}
+
+body.page-id-193 .wp-block-zdw-intro-effect:not([data-apply-effect]) canvas {
+	display: none !important;
+}
+
+body.page-id-193 main > .wp-block-group.has-light-background-color,
+body.page-id-193 main > .wp-block-group.has-zdw-background-color {
+	background-color: #f2f2f2 !important;
+}

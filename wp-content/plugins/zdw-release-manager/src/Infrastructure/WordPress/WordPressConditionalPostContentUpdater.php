@@ -1,0 +1,184 @@
+<?php
+
+declare(strict_types=1);
+
+namespace ZDW\ReleaseManager\Infrastructure\WordPress;
+
+use RuntimeException;
+use Throwable;
+use WP_Post;
+
+final class WordPressConditionalPostContentUpdater
+{
+    public static function update(
+        int $postId,
+        string $expectedContent,
+        string $content,
+        string $failureMessage
+    ): bool {
+        $postBefore = get_post($postId);
+        if (!$postBefore instanceof WP_Post
+            || 'page' !== $postBefore->post_type
+            || 'publish' !== $postBefore->post_status
+            || $expectedContent !== (string) $postBefore->post_content) {
+            return false;
+        }
+
+        global $wpdb;
+        $updated = $wpdb->query(
+            $wpdb->prepare(
+                "UPDATE {$wpdb->posts}
+                SET post_content = %s, post_modified = %s, post_modified_gmt = %s
+                WHERE ID = %d AND post_type = 'page' AND post_status = 'publish'
+                    AND CAST(post_content AS BINARY) = CAST(%s AS BINARY)",
+                $content,
+                current_time('mysql'),
+                current_time('mysql', true),
+                $postId,
+                $expectedContent
+            )
+        );
+        if (false === $updated) {
+            throw new RuntimeException(sprintf($failureMessage, $postId));
+        }
+        if (1 !== $updated) {
+            return false;
+        }
+
+        $lifecycleStarted = false;
+        try {
+            clean_post_cache($postId);
+            $postAfter = get_post($postId);
+            if (!$postAfter instanceof WP_Post) {
+                throw new RuntimeException(sprintf('Aktualizovanou stránku ID %d nelze načíst.', $postId));
+            }
+
+            self::saveRevision($postBefore);
+            $lifecycleStarted = true;
+            self::dispatchUpdateLifecycle($postId, $postBefore, $postAfter);
+        } catch (Throwable $error) {
+            self::restoreContentAfterFailure(
+                $postBefore,
+                $postAfter ?? null,
+                $content,
+                $error,
+                $lifecycleStarted
+            );
+            throw $error;
+        }
+
+        return true;
+    }
+
+    private static function restoreContentAfterFailure(
+        WP_Post $postBefore,
+        ?WP_Post $postAfter,
+        string $failedContent,
+        Throwable $originalError,
+        bool $lifecycleStarted
+    ): void {
+        global $wpdb;
+        if ($postAfter instanceof WP_Post) {
+            $restored = $wpdb->query(
+                $wpdb->prepare(
+                    "UPDATE {$wpdb->posts}
+                    SET post_content = %s, post_modified = %s, post_modified_gmt = %s
+                    WHERE ID = %d AND post_type = 'page' AND post_status = 'publish'
+                        AND CAST(post_content AS BINARY) = CAST(%s AS BINARY)
+                        AND post_modified = %s AND post_modified_gmt = %s",
+                    $postBefore->post_content,
+                    $postBefore->post_modified,
+                    $postBefore->post_modified_gmt,
+                    $postBefore->ID,
+                    $failedContent,
+                    $postAfter->post_modified,
+                    $postAfter->post_modified_gmt
+                )
+            );
+        } else {
+            $restored = $wpdb->query(
+                $wpdb->prepare(
+                    "UPDATE {$wpdb->posts}
+                    SET post_content = %s
+                    WHERE ID = %d AND post_type = 'page' AND post_status = 'publish'
+                        AND CAST(post_content AS BINARY) = CAST(%s AS BINARY)",
+                    $postBefore->post_content,
+                    $postBefore->ID,
+                    $failedContent
+                )
+            );
+        }
+        clean_post_cache((int) $postBefore->ID);
+        if (1 !== $restored) {
+            throw new RuntimeException(
+                sprintf(
+                    '%s Obnova obsahu stránky ID %d po chybě lifecycle selhala.',
+                    $originalError->getMessage(),
+                    $postBefore->ID
+                ),
+                0,
+                $originalError
+            );
+        }
+        if (!$lifecycleStarted || !$postAfter instanceof WP_Post) {
+            return;
+        }
+
+        $postRestored = get_post((int) $postBefore->ID);
+        if (!$postRestored instanceof WP_Post) {
+            throw new RuntimeException(
+                sprintf('%s Obnovenou stránku ID %d nelze načíst.', $originalError->getMessage(), $postBefore->ID),
+                0,
+                $originalError
+            );
+        }
+        try {
+            self::dispatchUpdateLifecycle((int) $postBefore->ID, $postAfter, $postRestored);
+        } catch (Throwable $compensationError) {
+            throw new RuntimeException(
+                sprintf(
+                    '%s Kompenzační lifecycle stránky ID %d selhal: %s',
+                    $originalError->getMessage(),
+                    $postBefore->ID,
+                    $compensationError->getMessage()
+                ),
+                0,
+                $originalError
+            );
+        }
+    }
+
+    private static function saveRevision(WP_Post $postBefore): void
+    {
+        if (!wp_revisions_enabled($postBefore)) {
+            return;
+        }
+
+        $revisionId = _wp_put_post_revision($postBefore);
+        if (is_wp_error($revisionId) || 0 === $revisionId) {
+            $message = is_wp_error($revisionId)
+                ? $revisionId->get_error_message()
+                : 'WordPress revizi nevytvořil.';
+            throw new RuntimeException(sprintf(
+                'Nelze uložit revizi stránky ID %d: %s',
+                $postBefore->ID,
+                $message
+            ));
+        }
+    }
+
+    private static function dispatchUpdateLifecycle(
+        int $postId,
+        WP_Post $postBefore,
+        WP_Post $postAfter
+    ): void {
+        wp_transition_post_status($postAfter->post_status, $postBefore->post_status, $postAfter);
+        do_action("edit_post_{$postAfter->post_type}", $postId, $postAfter);
+        do_action('edit_post', $postId, $postAfter);
+        do_action('post_updated', $postId, $postAfter, $postBefore);
+        do_action("save_post_{$postAfter->post_type}", $postId, $postAfter, true);
+        do_action('save_post', $postId, $postAfter, true);
+        do_action('wp_insert_post', $postId, $postAfter, true);
+        wp_after_insert_post($postAfter, true, $postBefore);
+    }
+}
