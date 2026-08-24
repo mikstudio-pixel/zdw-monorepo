@@ -18,8 +18,13 @@ final class FakeMediaStore implements MediaStore
 
     public function findByFilename(string $filename): array
     {
+        $assets = $this->videos;
+        if ($this->poster instanceof MediaAsset) {
+            $assets[] = $this->poster;
+        }
+
         return array_values(array_filter(
-            $this->videos,
+            $assets,
             static function (MediaAsset $asset) use ($filename): bool {
                 $path = parse_url($asset->url(), PHP_URL_PATH);
 

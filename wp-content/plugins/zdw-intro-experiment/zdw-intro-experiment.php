@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ZDW Intro Experiment
  * Description: Non-destructive experiments for the ZDW Intro Effect block.
- * Version: 0.3.1
+ * Version: 0.3.2
  * Author: Zlin Design Week
  */
 
@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
 function zdw_intro_experiment_asset_version( $relative_path ) {
 	$path = plugin_dir_path( __FILE__ ) . ltrim( $relative_path, '/' );
 
-	return file_exists( $path ) ? (string) filemtime( $path ) : '0.3.0';
+	return file_exists( $path ) ? (string) filemtime( $path ) : '0.3.2';
 }
 
 /**

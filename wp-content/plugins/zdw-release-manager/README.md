@@ -1,10 +1,11 @@
 # ZDW Release Manager
 
 Versioned, auditable and idempotent WordPress content migrations for Zlin
-Design Week. Version 0.6.2 includes environment preflight, a tested migration
-runner, and twelve idempotent migrations for colors and settings, contact
+Design Week. Version 0.7.0 includes environment preflight, a tested migration
+runner, and thirteen idempotent migrations for colors and settings, contact
 content, translated sponsor pages, navigation, final homepages, the Best in
-Design hero, and removal of obsolete Czech Design Canteen sections.
+Design hero, removal of obsolete Czech Design Canteen sections, and the current
+homepage video and matching poster.
 
 ## Development
 
@@ -88,10 +89,14 @@ The homepage intro migration is intentionally blocked until
 `zdw-bg-trimmed-30-muted.mp4` exists exactly once in the WordPress Media
 Library. It resolves the production attachment ID and URL at runtime and
 replaces only the first intro block on both Czech and English homepages. A
-separate guarded migration gives both localized homepages the same compact
-structure and removes obsolete event cards. Another guarded migration removes
-the outdated 2026 programme from the English Design Canteen while retaining
-its translated evergreen sections.
+later migration expects `ZDW-bg-cut02.mp4` and `ZDW-bg-cut02-poster.jpg`, then
+updates only the video and poster fields in both localized intro blocks so the
+loading state no longer exposes the legacy poster. It remains blocked until
+the original homepage intro migration 006 is recorded as applied. A separate
+guarded migration gives both localized homepages the same compact structure
+and removes obsolete event cards. Another guarded migration removes the
+outdated 2026 programme from the English Design Canteen while retaining its
+translated evergreen sections.
 
 The content-transformer integration fixture uses revisions `43859` and `40676`
 from the SQL dump configured through `ZDW_SQL_DUMP`. Restore the matching

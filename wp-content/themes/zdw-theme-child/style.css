@@ -2,7 +2,7 @@
 Theme Name: ZDW Theme Child
 Description: Safe local overrides for the ZDW website.
 Template: zdw-theme
-Version: 1.2.4
+Version: 1.4.0
 Author: Zlin Design Week
 */
 
@@ -41,16 +41,20 @@ mark.has-light-color {
 	background-color: transparent;
 }
 
-/* Keep the footer flush with the preceding content and use the site's dark mode. */
+/* Keep the footer flush with the preceding content; the contact band is light. */
 .footer.footer.mt-2 {
 	margin-top: 0;
 	padding-top: 0;
 }
 
-.footer.footer.has-dark-background-color,
-.footer.footer .footer-connect {
+.footer.footer.has-dark-background-color {
 	background-color: var(--bg) !important;
 	color: var(--dark);
+}
+
+.footer.footer .footer-connect {
+	background-color: var(--dark) !important;
+	color: #1d1d1d;
 }
 
 .footer.footer .container.has-bg-color,
