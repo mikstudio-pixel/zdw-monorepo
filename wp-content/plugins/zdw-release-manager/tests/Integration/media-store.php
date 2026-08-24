@@ -19,11 +19,33 @@ if (is_wp_error($attachmentId)) {
     throw new RuntimeException($attachmentId->get_error_message());
 }
 
+$upload = wp_upload_bits('zdw-case-fixture-' . wp_generate_uuid4() . '.mp4', null, 'fixture');
+if (!empty($upload['error'])) {
+    throw new RuntimeException((string) $upload['error']);
+}
+
+$caseAttachmentId = wp_insert_attachment([
+    'post_mime_type' => 'video/mp4',
+    'post_status' => 'inherit',
+    'post_title' => 'ZDW filename case integration fixture',
+    'guid' => $upload['url'],
+]);
+if (is_wp_error($caseAttachmentId)) {
+    wp_delete_file($upload['file']);
+    throw new RuntimeException($caseAttachmentId->get_error_message());
+}
+
 try {
     update_post_meta((int) $attachmentId, '_wp_attached_file', '2099/01/zdw-definitely-missing.mp4');
+    update_attached_file((int) $caseAttachmentId, $upload['file']);
     $store = new WordPressMediaStore();
     if (null !== $store->find((int) $attachmentId)) {
         throw new RuntimeException('A stale attachment whose upload is missing was accepted as media.');
+    }
+
+    $matches = $store->findByFilename(strtoupper(basename($upload['file'])));
+    if (1 !== count($matches) || (int) $caseAttachmentId !== $matches[0]->id()) {
+        throw new RuntimeException('An existing attachment was not matched case-insensitively by filename.');
     }
 
     $pageStore = new WordPressPageStore();
@@ -32,6 +54,7 @@ try {
     }
 } finally {
     wp_delete_attachment((int) $attachmentId, true);
+    wp_delete_attachment((int) $caseAttachmentId, true);
 }
 
 echo "WordPressMediaStore integration test passed.\n";

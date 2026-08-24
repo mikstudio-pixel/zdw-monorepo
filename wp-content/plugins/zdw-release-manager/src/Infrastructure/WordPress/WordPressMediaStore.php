@@ -28,7 +28,7 @@ final class WordPressMediaStore implements MediaStore
 
         foreach ($ids as $id) {
             $path = (string) get_post_meta((int) $id, '_wp_attached_file', true);
-            if ($filename !== basename($path)) {
+            if (0 !== strcasecmp($filename, basename($path))) {
                 continue;
             }
             $asset = $this->find((int) $id);
