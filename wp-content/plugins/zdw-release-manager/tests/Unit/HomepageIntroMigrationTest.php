@@ -76,8 +76,8 @@ final class HomepageIntroMigrationTest extends TestCase
         $migration = new HomepageIntroMigration(
             posts: $posts,
             media: new FakeMediaStore(
-                [new MediaAsset(101, 'ZDW-bg-cut02.mp4')],
-                new MediaAsset(102, 'ZDW-bg-cut02-poster.jpg')
+                [new MediaAsset(101, 'https://example.test/uploads/zdw-bg-cut02.mp4')],
+                new MediaAsset(102, 'https://example.test/uploads/zdw-bg-cut02-poster.jpg')
             ),
             transformer: new FakeIntroContentTransformer(),
             homepages: [2 => 'zdw', 93 => 'zdw-en'],

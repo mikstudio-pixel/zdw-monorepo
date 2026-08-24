@@ -28,7 +28,7 @@ final class FakeMediaStore implements MediaStore
             static function (MediaAsset $asset) use ($filename): bool {
                 $path = parse_url($asset->url(), PHP_URL_PATH);
 
-                return is_string($path) && rawurldecode(basename($path)) === $filename;
+                return is_string($path) && 0 === strcasecmp(rawurldecode(basename($path)), $filename);
             }
         ));
     }

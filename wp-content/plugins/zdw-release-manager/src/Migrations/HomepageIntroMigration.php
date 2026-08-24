@@ -146,7 +146,7 @@ final class HomepageIntroMigration implements Migration, DependentMigration
                 'intro.poster_duplicate',
                 sprintf('Soubor %s je v Médiích vícekrát; ponechte právě jednu kopii.', $this->posterFilename)
             );
-        } elseif (!$poster instanceof MediaAsset || $this->posterFilename !== $this->filename($poster)) {
+        } elseif (!$poster instanceof MediaAsset || 0 !== strcasecmp($this->posterFilename, $this->filename($poster))) {
             $checks[] = PreflightCheck::blocker(
                 'intro.poster_mismatch',
                 null === $this->posterId
