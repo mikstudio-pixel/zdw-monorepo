@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace ZDW\ReleaseManager\Tests\Support;
 
 use RuntimeException;
+use ZDW\ReleaseManager\Contracts\DependentMigration;
 use ZDW\ReleaseManager\Contracts\Migration;
 use ZDW\ReleaseManager\Domain\PreflightCheck;
 
-final class SpyMigration implements Migration
+final class SpyMigration implements Migration, DependentMigration
 {
     public int $preflightCalls = 0;
     public int $applyCalls = 0;
@@ -23,7 +24,9 @@ final class SpyMigration implements Migration
         private readonly string $migrationId,
         private readonly string $migrationLabel,
         private array $preflightChecks = [],
-        private array $verificationChecks = []
+        private array $verificationChecks = [],
+        /** @var list<string> */
+        private readonly array $migrationDependencies = []
     ) {
     }
 
@@ -35,6 +38,11 @@ final class SpyMigration implements Migration
     public function label(): string
     {
         return $this->migrationLabel;
+    }
+
+    public function dependencies(): array
+    {
+        return $this->migrationDependencies;
     }
 
     public function preflight(): array

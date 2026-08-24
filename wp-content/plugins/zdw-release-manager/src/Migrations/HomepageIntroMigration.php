@@ -7,6 +7,7 @@ namespace ZDW\ReleaseManager\Migrations;
 use RuntimeException;
 use Throwable;
 use ZDW\ReleaseManager\Application\AtomicPostContentUpdater;
+use ZDW\ReleaseManager\Contracts\DependentMigration;
 use ZDW\ReleaseManager\Contracts\IntroContentTransformer;
 use ZDW\ReleaseManager\Contracts\MediaStore;
 use ZDW\ReleaseManager\Contracts\Migration;
@@ -15,7 +16,7 @@ use ZDW\ReleaseManager\Domain\MediaAsset;
 use ZDW\ReleaseManager\Domain\PostRecord;
 use ZDW\ReleaseManager\Domain\PreflightCheck;
 
-final class HomepageIntroMigration implements Migration
+final class HomepageIntroMigration implements Migration, DependentMigration
 {
     private const DEFAULT_MIGRATION_ID = '20260808_006_homepage_intros';
     private const DEFAULT_LABEL = 'Video a obsah úvodního bloku obou homepage';
@@ -33,7 +34,9 @@ final class HomepageIntroMigration implements Migration
         private readonly string $videoFilename = self::DEFAULT_VIDEO_FILENAME,
         private readonly string $posterFilename = self::DEFAULT_POSTER_FILENAME,
         private readonly ?int $posterId = self::DEFAULT_POSTER_ID,
-        private readonly string $migrationLabel = self::DEFAULT_LABEL
+        private readonly string $migrationLabel = self::DEFAULT_LABEL,
+        /** @var list<string> */
+        private readonly array $migrationDependencies = []
     ) {
     }
 
@@ -45,6 +48,11 @@ final class HomepageIntroMigration implements Migration
     public function label(): string
     {
         return $this->migrationLabel;
+    }
+
+    public function dependencies(): array
+    {
+        return $this->migrationDependencies;
     }
 
     public function preflight(): array

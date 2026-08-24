@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ZDW\ReleaseManager\Application;
 
 use Throwable;
+use ZDW\ReleaseManager\Contracts\DependentMigration;
 use ZDW\ReleaseManager\Contracts\Migration;
 use ZDW\ReleaseManager\Contracts\StateStore;
 use ZDW\ReleaseManager\Domain\MigrationPlanItem;
@@ -38,7 +39,10 @@ final class MigrationRunner
             }
 
             try {
-                $checks = $migration->preflight();
+                $checks = $this->dependencyChecks($migration);
+                if (!$this->hasBlocker($checks)) {
+                    $checks = array_merge($checks, $migration->preflight());
+                }
                 $status = $this->hasBlocker($checks)
                     ? MigrationPlanItem::BLOCKED
                     : MigrationPlanItem::READY;
@@ -81,6 +85,15 @@ final class MigrationRunner
         try {
             if ($this->stateStore->isApplied($migrationId)) {
                 return new RunResult(RunResult::SKIPPED, 'Migrace už byla aplikována.');
+            }
+
+            $dependencyChecks = $this->dependencyChecks($migration);
+            if ($this->hasBlocker($dependencyChecks)) {
+                return new RunResult(
+                    RunResult::BLOCKED,
+                    'Migraci blokuje chybějící předchozí migrace.',
+                    $dependencyChecks
+                );
             }
 
             try {
@@ -155,6 +168,26 @@ final class MigrationRunner
         }
 
         return false;
+    }
+
+    /** @return list<PreflightCheck> */
+    private function dependencyChecks(Migration $migration): array
+    {
+        if (!$migration instanceof DependentMigration) {
+            return [];
+        }
+
+        $checks = [];
+        foreach ($migration->dependencies() as $dependencyId) {
+            if (!$this->stateStore->isApplied($dependencyId)) {
+                $checks[] = PreflightCheck::blocker(
+                    'migration.dependency_missing',
+                    sprintf('Nejprve aplikujte migraci %s.', $dependencyId)
+                );
+            }
+        }
+
+        return $checks;
     }
 
     private function assertClaimsRenewed(

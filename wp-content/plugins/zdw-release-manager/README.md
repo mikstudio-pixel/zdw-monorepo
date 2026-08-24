@@ -90,11 +90,13 @@ The homepage intro migration is intentionally blocked until
 Library. It resolves the production attachment ID and URL at runtime and
 replaces only the first intro block on both Czech and English homepages. A
 later migration expects `ZDW-bg-cut02.mp4` and `ZDW-bg-cut02-poster.jpg`, then
-updates both localized intro blocks so the loading state no longer exposes the
-legacy poster. A separate guarded migration gives both localized homepages the same compact
-structure and removes obsolete event cards. Another guarded migration removes
-the outdated 2026 programme from the English Design Canteen while retaining
-its translated evergreen sections.
+updates only the video and poster fields in both localized intro blocks so the
+loading state no longer exposes the legacy poster. It remains blocked until
+the original homepage intro migration 006 is recorded as applied. A separate
+guarded migration gives both localized homepages the same compact structure
+and removes obsolete event cards. Another guarded migration removes the
+outdated 2026 programme from the English Design Canteen while retaining its
+translated evergreen sections.
 
 The content-transformer integration fixture uses revisions `43859` and `40676`
 from the SQL dump configured through `ZDW_SQL_DUMP`. Restore the matching

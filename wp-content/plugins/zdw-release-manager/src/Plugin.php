@@ -17,6 +17,7 @@ use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressEnvironmentCollector;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressHomepageBodyTransformer;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressHeroBackgroundTransformer;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressIntroContentTransformer;
+use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressIntroMediaTransformer;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressMediaStore;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressNavigationStore;
 use ZDW\ReleaseManager\Infrastructure\WordPress\WordPressOptionStore;
@@ -148,13 +149,14 @@ final class Plugin
             new HomepageIntroMigration(
                 posts: $postStore,
                 media: $mediaStore,
-                transformer: $introTransformer,
+                transformer: new WordPressIntroMediaTransformer(),
                 homepages: [2 => 'zdw', 93 => 'zdw-en'],
                 migrationId: '20260824_013_homepage_video_cut02',
                 videoFilename: 'ZDW-bg-cut02.mp4',
                 posterFilename: 'ZDW-bg-cut02-poster.jpg',
                 posterId: null,
-                migrationLabel: 'Nový střih a poster videa obou homepage'
+                migrationLabel: 'Nový střih a poster videa obou homepage',
+                migrationDependencies: ['20260808_006_homepage_intros']
             ),
         ]);
         $runner = new MigrationRunner($registry, new OptionStateStore());

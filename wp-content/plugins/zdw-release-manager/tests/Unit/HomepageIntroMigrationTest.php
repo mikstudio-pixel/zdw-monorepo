@@ -85,11 +85,13 @@ final class HomepageIntroMigrationTest extends TestCase
             videoFilename: 'ZDW-bg-cut02.mp4',
             posterFilename: 'ZDW-bg-cut02-poster.jpg',
             posterId: null,
-            migrationLabel: 'Nový střih videa obou homepage'
+            migrationLabel: 'Nový střih videa obou homepage',
+            migrationDependencies: ['20260808_006_homepage_intros']
         );
 
         self::assertSame('20260824_013_homepage_video_cut02', $migration->id());
         self::assertSame('Nový střih videa obou homepage', $migration->label());
+        self::assertSame(['20260808_006_homepage_intros'], $migration->dependencies());
         self::assertSame('warning', $migration->preflight()[0]->severity());
 
         $migration->apply();

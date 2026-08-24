@@ -6,6 +6,7 @@ namespace ZDW\ReleaseManager\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use ZDW\ReleaseManager\Application\MigrationRunner;
+use ZDW\ReleaseManager\Domain\MigrationPlanItem;
 use ZDW\ReleaseManager\Domain\MigrationRegistry;
 use ZDW\ReleaseManager\Domain\PreflightCheck;
 use ZDW\ReleaseManager\Domain\RunResult;
@@ -55,6 +56,33 @@ final class RunnerTest extends TestCase
         self::assertSame(RunResult::BLOCKED, $result->status());
         self::assertSame(0, $migration->applyCalls);
         self::assertFalse($store->isApplied($migration->id()));
+    }
+
+    public function test_a_dependency_blocks_plan_and_apply_until_it_is_applied(): void
+    {
+        $dependencyId = '20260808_006_homepage_intros';
+        $migration = new SpyMigration(
+            '20260824_013_homepage_video_cut02',
+            'Nový střih videa',
+            migrationDependencies: [$dependencyId]
+        );
+        $blockedRunner = new MigrationRunner(
+            new MigrationRegistry([$migration]),
+            new InMemoryStateStore()
+        );
+
+        self::assertSame(MigrationPlanItem::BLOCKED, $blockedRunner->plan()[0]->status());
+        self::assertSame(0, $migration->preflightCalls);
+        self::assertSame(RunResult::BLOCKED, $blockedRunner->apply($migration->id())->status());
+        self::assertSame(0, $migration->applyCalls);
+
+        $readyRunner = new MigrationRunner(
+            new MigrationRegistry([$migration]),
+            new InMemoryStateStore([$dependencyId])
+        );
+
+        self::assertSame(MigrationPlanItem::READY, $readyRunner->plan()[0]->status());
+        self::assertSame(RunResult::APPLIED, $readyRunner->apply($migration->id())->status());
     }
 
     public function test_successful_migration_is_verified_and_marked_applied(): void
