@@ -14,12 +14,13 @@ use ZDW\ReleaseManager\Domain\MediaAsset;
 $posts = new WordPressPostStore();
 $media = new WordPressMediaStore();
 $transformer = new WordPressIntroContentTransformer();
-// These fixture IDs and the migrated content come from the dump configured by ZDW_SQL_DUMP.
+// Page IDs come from ZDW_SQL_DUMP; the current video and poster are loaded into the local Media Library.
 $homepages = array_filter([$posts->find(2), $posts->find(93)]);
-$videos = $media->findByFilename('zdw-bg-trimmed-30-muted.mp4');
-$poster = $media->find(35610);
+$videos = $media->findByFilename('ZDW-bg-cut02.mp4');
+$posters = $media->findByFilename('ZDW-bg-cut02-poster.jpg');
+$poster = 1 === count($posters) ? $posters[0] : null;
 
-if (2 !== count($homepages) || 1 !== count($videos) || null === $poster) {
+if (2 !== count($homepages) || 1 !== count($videos) || 1 !== count($posters) || null === $poster) {
     throw new RuntimeException('Homepage intro fixtures are not unique.');
 }
 

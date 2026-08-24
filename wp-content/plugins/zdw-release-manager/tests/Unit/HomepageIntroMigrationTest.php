@@ -67,6 +67,37 @@ final class HomepageIntroMigrationTest extends TestCase
         self::assertSame('pass', $migration->verify()[0]->severity());
     }
 
+    public function test_configured_release_uses_the_new_video_and_poster_by_filename(): void
+    {
+        $posts = new InMemoryPostStore([
+            new PostRecord(2, 'zdw', 'homepage-cs'),
+            new PostRecord(93, 'zdw-en', 'homepage-en'),
+        ]);
+        $migration = new HomepageIntroMigration(
+            posts: $posts,
+            media: new FakeMediaStore(
+                [new MediaAsset(101, 'ZDW-bg-cut02.mp4')],
+                new MediaAsset(102, 'ZDW-bg-cut02-poster.jpg')
+            ),
+            transformer: new FakeIntroContentTransformer(),
+            homepages: [2 => 'zdw', 93 => 'zdw-en'],
+            migrationId: '20260824_013_homepage_video_cut02',
+            videoFilename: 'ZDW-bg-cut02.mp4',
+            posterFilename: 'ZDW-bg-cut02-poster.jpg',
+            posterId: null,
+            migrationLabel: 'Nový střih videa obou homepage'
+        );
+
+        self::assertSame('20260824_013_homepage_video_cut02', $migration->id());
+        self::assertSame('Nový střih videa obou homepage', $migration->label());
+        self::assertSame('warning', $migration->preflight()[0]->severity());
+
+        $migration->apply();
+
+        self::assertSame([2, 93], $posts->writes);
+        self::assertSame('pass', $migration->verify()[0]->severity());
+    }
+
     public function test_apply_prepares_every_homepage_before_writing_any_intro(): void
     {
         $posts = new InMemoryPostStore([

@@ -113,13 +113,15 @@ Aktuální manifest pokrývá:
 - hlavní kontakty i kontakty v sekcích Pro média, Best in Design a Přístupnost,
 - vytvoření/aktualizaci propojených Gutenberg stránek Sponzoři a Partners,
 - čtyři menu nového headeru a jazykově správné odkazy na partnery v legacy menu,
-- úvodní video, datum a text intro bloku na české i anglické homepage,
+- úvodní video, poster, datum a text intro bloku na české i anglické homepage,
 - finální skladbu české homepage bez starých obsahových bloků.
 
 Footer s kontaktem, fakturačními údaji, sociálními sítěmi a právními texty je
 součástí samostatné child theme a nevyžaduje zásah do původní šablony.
 
 Produkční postup je: nahrát vlastní pluginy a child theme přes FTPES, přes Média
-nahrát `zdw-bg-trimmed-30-muted.mp4`, aktivovat `zdw-release-manager`, spustit
-kontrolu prostředí a aplikovat nabízené migrace v pořadí. Již aplikované
-migrace se znovu nespouštějí.
+nahrát `ZDW-bg-cut02.mp4` a `ZDW-bg-cut02-poster.jpg`, aktivovat
+`zdw-release-manager`, spustit kontrolu prostředí a aplikovat nabízené migrace
+v pořadí. Původní video `zdw-bg-trimmed-30-muted.mp4` potřebuje jen zcela nová
+instalace kvůli historické migraci 006. Již aplikované migrace se znovu
+nespouštějí.

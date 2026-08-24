@@ -75,6 +75,7 @@ final class Plugin
         $postStore = new WordPressPostStore();
         $pageStore = new WordPressPageStore();
         $mediaStore = new WordPressMediaStore();
+        $introTransformer = new WordPressIntroContentTransformer();
         $bestInDesignHeroMigration = new BestInDesignHeroMigration(
             $postStore,
             $mediaStore,
@@ -128,7 +129,7 @@ final class Plugin
             new HomepageIntroMigration(
                 $postStore,
                 $mediaStore,
-                new WordPressIntroContentTransformer(),
+                $introTransformer,
                 [2 => 'zdw', 93 => 'zdw-en']
             ),
             new HomepageBodyMigration(
@@ -144,6 +145,17 @@ final class Plugin
             $designCanteenCleanupMigration,
             new BestInDesignHeroMarkupMigration($bestInDesignHeroMigration),
             new DesignCanteenProgramCleanupMigration($designCanteenCleanupMigration),
+            new HomepageIntroMigration(
+                posts: $postStore,
+                media: $mediaStore,
+                transformer: $introTransformer,
+                homepages: [2 => 'zdw', 93 => 'zdw-en'],
+                migrationId: '20260824_013_homepage_video_cut02',
+                videoFilename: 'ZDW-bg-cut02.mp4',
+                posterFilename: 'ZDW-bg-cut02-poster.jpg',
+                posterId: null,
+                migrationLabel: 'Nový střih a poster videa obou homepage'
+            ),
         ]);
         $runner = new MigrationRunner($registry, new OptionStateStore());
         $adminPage = new AdminPage($audit, $collector, $runner);

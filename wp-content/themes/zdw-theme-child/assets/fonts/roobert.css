@@ -1,0 +1,31 @@
+@font-face {
+	font-display: swap;
+	font-family: "Roobert";
+	font-style: normal;
+	font-weight: 300;
+	src: url("./Roobert-Light.woff2") format("woff2");
+}
+
+@font-face {
+	font-display: swap;
+	font-family: "Roobert";
+	font-style: normal;
+	font-weight: 400;
+	src: url("./Roobert-Regular.woff2") format("woff2");
+}
+
+@font-face {
+	font-display: swap;
+	font-family: "Roobert";
+	font-style: normal;
+	font-weight: 500;
+	src: url("./Roobert-Medium.woff2") format("woff2");
+}
+
+@font-face {
+	font-display: swap;
+	font-family: "Roobert";
+	font-style: normal;
+	font-weight: 900;
+	src: url("./Roobert-Heavy.woff2") format("woff2");
+}

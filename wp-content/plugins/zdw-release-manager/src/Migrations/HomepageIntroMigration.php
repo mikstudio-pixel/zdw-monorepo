@@ -17,33 +17,40 @@ use ZDW\ReleaseManager\Domain\PreflightCheck;
 
 final class HomepageIntroMigration implements Migration
 {
-    private const VIDEO_FILENAME = 'zdw-bg-trimmed-30-muted.mp4';
-    private const POSTER_ID = 35610;
-    private const POSTER_FILENAME = '16-zdw-tag-jiri-edit-1-2.jpg';
+    private const DEFAULT_MIGRATION_ID = '20260808_006_homepage_intros';
+    private const DEFAULT_LABEL = 'Video a obsah úvodního bloku obou homepage';
+    private const DEFAULT_VIDEO_FILENAME = 'zdw-bg-trimmed-30-muted.mp4';
+    private const DEFAULT_POSTER_ID = 35610;
+    private const DEFAULT_POSTER_FILENAME = '16-zdw-tag-jiri-edit-1-2.jpg';
 
     public function __construct(
         private readonly PostStore $posts,
         private readonly MediaStore $media,
         private readonly IntroContentTransformer $transformer,
         /** @var array<int, string> */
-        private readonly array $homepages = [2 => 'zdw']
+        private readonly array $homepages = [2 => 'zdw'],
+        private readonly string $migrationId = self::DEFAULT_MIGRATION_ID,
+        private readonly string $videoFilename = self::DEFAULT_VIDEO_FILENAME,
+        private readonly string $posterFilename = self::DEFAULT_POSTER_FILENAME,
+        private readonly ?int $posterId = self::DEFAULT_POSTER_ID,
+        private readonly string $migrationLabel = self::DEFAULT_LABEL
     ) {
     }
 
     public function id(): string
     {
-        return '20260808_006_homepage_intros';
+        return $this->migrationId;
     }
 
     public function label(): string
     {
-        return 'Video a obsah úvodního bloku obou homepage';
+        return $this->migrationLabel;
     }
 
     public function preflight(): array
     {
-        [$posts, $videos, $poster] = $this->resolvedTargets();
-        $checks = $this->blockingChecks($posts, $videos, $poster);
+        [$posts, $videos, $posters, $poster] = $this->resolvedTargets();
+        $checks = $this->blockingChecks($posts, $videos, $posters, $poster);
         if ([] !== $checks) {
             return $checks;
         }
@@ -62,8 +69,8 @@ final class HomepageIntroMigration implements Migration
 
     public function apply(): void
     {
-        [$posts, $videos, $poster] = $this->resolvedTargets();
-        if ([] !== $this->blockingChecks($posts, $videos, $poster)) {
+        [$posts, $videos, $posters, $poster] = $this->resolvedTargets();
+        if ([] !== $this->blockingChecks($posts, $videos, $posters, $poster)) {
             throw new RuntimeException('Nelze bezpečně migrovat úvodní blok homepage.');
         }
 
@@ -87,8 +94,8 @@ final class HomepageIntroMigration implements Migration
 
     public function verify(): array
     {
-        [$posts, $videos, $poster] = $this->resolvedTargets();
-        $checks = $this->blockingChecks($posts, $videos, $poster);
+        [$posts, $videos, $posters, $poster] = $this->resolvedTargets();
+        $checks = $this->blockingChecks($posts, $videos, $posters, $poster);
         if ([] !== $checks) {
             return $checks;
         }
@@ -106,27 +113,37 @@ final class HomepageIntroMigration implements Migration
     }
 
     /** @return list<PreflightCheck> */
-    private function blockingChecks(array $posts, array $videos, ?MediaAsset $poster): array
+    private function blockingChecks(array $posts, array $videos, array $posters, ?MediaAsset $poster): array
     {
         $checks = [];
         if ([] === $videos) {
             $checks[] = PreflightCheck::blocker(
                 'intro.video_missing',
-                sprintf('Nejprve nahrajte soubor %s přes WordPress → Média.', self::VIDEO_FILENAME)
+                sprintf('Nejprve nahrajte soubor %s přes WordPress → Média.', $this->videoFilename)
             );
         } elseif (1 !== count($videos)) {
             $checks[] = PreflightCheck::blocker(
                 'intro.video_duplicate',
-                sprintf('Soubor %s je v Médiích vícekrát; ponechte právě jednu kopii.', self::VIDEO_FILENAME)
+                sprintf('Soubor %s je v Médiích vícekrát; ponechte právě jednu kopii.', $this->videoFilename)
             );
         }
 
-        if (!$poster instanceof MediaAsset) {
-            $checks[] = PreflightCheck::blocker('intro.poster_missing', sprintf('Chybí poster obrázek ID %d.', self::POSTER_ID));
-        } elseif (self::POSTER_FILENAME !== $this->filename($poster)) {
+        if ([] === $posters) {
+            $message = null === $this->posterId
+                ? sprintf('Nejprve nahrajte poster %s přes WordPress → Média.', $this->posterFilename)
+                : sprintf('Chybí poster obrázek ID %d.', $this->posterId);
+            $checks[] = PreflightCheck::blocker('intro.poster_missing', $message);
+        } elseif (1 !== count($posters)) {
+            $checks[] = PreflightCheck::blocker(
+                'intro.poster_duplicate',
+                sprintf('Soubor %s je v Médiích vícekrát; ponechte právě jednu kopii.', $this->posterFilename)
+            );
+        } elseif (!$poster instanceof MediaAsset || $this->posterFilename !== $this->filename($poster)) {
             $checks[] = PreflightCheck::blocker(
                 'intro.poster_mismatch',
-                sprintf('Poster ID %d neodpovídá souboru %s.', self::POSTER_ID, self::POSTER_FILENAME)
+                null === $this->posterId
+                    ? sprintf('Poster neodpovídá souboru %s.', $this->posterFilename)
+                    : sprintf('Poster ID %d neodpovídá souboru %s.', $this->posterId, $this->posterFilename)
             );
         }
 
@@ -159,7 +176,7 @@ final class HomepageIntroMigration implements Migration
         return [$resolvedPosts, $videos[0], $poster];
     }
 
-    /** @return array{0: array<int, ?PostRecord>, 1: list<MediaAsset>, 2: ?MediaAsset} */
+    /** @return array{0: array<int, ?PostRecord>, 1: list<MediaAsset>, 2: list<MediaAsset>, 3: ?MediaAsset} */
     private function resolvedTargets(): array
     {
         $posts = [];
@@ -167,10 +184,15 @@ final class HomepageIntroMigration implements Migration
             $posts[$postId] = $this->posts->find($postId);
         }
 
+        $posters = null === $this->posterId
+            ? $this->media->findByFilename($this->posterFilename)
+            : array_values(array_filter([$this->media->find($this->posterId)]));
+
         return [
             $posts,
-            $this->media->findByFilename(self::VIDEO_FILENAME),
-            $this->media->find(self::POSTER_ID),
+            $this->media->findByFilename($this->videoFilename),
+            $posters,
+            1 === count($posters) ? $posters[0] : null,
         ];
     }
 

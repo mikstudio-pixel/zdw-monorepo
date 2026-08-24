@@ -13,6 +13,16 @@
 	pointer-events: none;
 }
 
+.wp-block-zdw-intro-effect.zdw-intro-experiment.intro-effect-big {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+	min-height: 100vh;
+	min-height: 100svh;
+	min-height: 100dvh;
+}
+
 .wp-block-zdw-intro-effect.intro-effect[data-effect-intensity] .zdw-intro-video-base {
 	z-index: 0 !important;
 }
