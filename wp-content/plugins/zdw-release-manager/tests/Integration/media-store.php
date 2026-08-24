@@ -33,9 +33,12 @@ try {
         'post_status' => 'inherit',
         'post_title' => 'ZDW filename case integration fixture',
         'guid' => $upload['url'],
-    ]);
+    ], false, 0, true);
     if (is_wp_error($caseAttachmentId)) {
         throw new RuntimeException($caseAttachmentId->get_error_message());
+    }
+    if (0 === $caseAttachmentId) {
+        throw new RuntimeException('The filename case integration fixture could not be created.');
     }
 
     update_post_meta((int) $attachmentId, '_wp_attached_file', '2099/01/zdw-definitely-missing.mp4');
