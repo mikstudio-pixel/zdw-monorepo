@@ -91,7 +91,8 @@ final class Plugin
                 'patrik_ziska_@patrikziska_591.jpg',
                 'patrik_ziska_@patrikziska_591-1.jpg',
             ],
-            migrationLabel: 'Fotografie Patrika Žišky v českém hero Best in Design'
+            migrationLabel: 'Fotografie Patrika Žišky v českém hero Best in Design',
+            migrationDependencies: ['20260808_009_best_in_design_hero']
         );
         $designCanteenCleanupMigration = new DesignCanteenCleanupMigration(
             $postStore,

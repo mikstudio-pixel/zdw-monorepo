@@ -97,11 +97,13 @@ final class BestInDesignHeroMigrationTest extends TestCase
             },
             migrationId: '20260827_014_best_in_design_hero_patrik_ziska',
             filenames: ['patrik_ziska_@patrikziska_591.jpg'],
-            migrationLabel: 'Fotografie Patrika Žišky v českém hero Best in Design'
+            migrationLabel: 'Fotografie Patrika Žišky v českém hero Best in Design',
+            migrationDependencies: ['20260808_009_best_in_design_hero']
         );
 
         self::assertSame('20260827_014_best_in_design_hero_patrik_ziska', $migration->id());
         self::assertSame('Fotografie Patrika Žišky v českém hero Best in Design', $migration->label());
+        self::assertSame(['20260808_009_best_in_design_hero'], $migration->dependencies());
         self::assertSame('warning', $migration->preflight()[0]->severity());
 
         $migration->apply();

@@ -6,6 +6,7 @@ namespace ZDW\ReleaseManager\Migrations;
 
 use RuntimeException;
 use Throwable;
+use ZDW\ReleaseManager\Contracts\DependentMigration;
 use ZDW\ReleaseManager\Contracts\HeroBackgroundTransformer;
 use ZDW\ReleaseManager\Contracts\MediaStore;
 use ZDW\ReleaseManager\Contracts\Migration;
@@ -14,7 +15,7 @@ use ZDW\ReleaseManager\Domain\MediaAsset;
 use ZDW\ReleaseManager\Domain\PostRecord;
 use ZDW\ReleaseManager\Domain\PreflightCheck;
 
-final class BestInDesignHeroMigration implements Migration
+final class BestInDesignHeroMigration implements Migration, DependentMigration
 {
     private const POST_ID = 193;
     private const POST_SLUG = 'best-in-design';
@@ -29,7 +30,9 @@ final class BestInDesignHeroMigration implements Migration
         private readonly HeroBackgroundTransformer $transformer,
         private readonly string $migrationId = '20260808_009_best_in_design_hero',
         private readonly array $filenames = self::DEFAULT_FILENAMES,
-        private readonly string $migrationLabel = 'Nová fotografie v českém hero Best in Design'
+        private readonly string $migrationLabel = 'Nová fotografie v českém hero Best in Design',
+        /** @var list<string> */
+        private readonly array $migrationDependencies = []
     ) {
     }
 
@@ -41,6 +44,11 @@ final class BestInDesignHeroMigration implements Migration
     public function label(): string
     {
         return $this->migrationLabel;
+    }
+
+    public function dependencies(): array
+    {
+        return $this->migrationDependencies;
     }
 
     public function preflight(): array
