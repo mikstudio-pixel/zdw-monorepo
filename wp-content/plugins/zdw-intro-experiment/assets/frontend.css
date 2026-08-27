@@ -1,9 +1,8 @@
-.wp-block-zdw-intro-effect.intro-effect:not([data-effect-mode]) .ie-bg-video,
 .wp-block-zdw-intro-effect.intro-effect[data-effect-mode="none"] .ie-bg-video,
 .wp-block-zdw-intro-effect.intro-effect[data-effect-mode="overlay"] .ie-bg-video,
 .wp-block-zdw-intro-effect.intro-effect[data-effect-mode="filter"][data-effect-intensity="0"] .ie-bg-video {
-	/* The saved block still carries the legacy SVG filter inline. Keep it from
-	 * being painted before the footer scripts initialize the selected mode. */
+	/* The saved block still carries the legacy SVG filter inline. Suppress it
+	 * from first paint when the server-selected mode does not need it. */
 	filter: none !important;
 	opacity: 1 !important;
 }
