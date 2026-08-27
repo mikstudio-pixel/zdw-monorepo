@@ -3,6 +3,7 @@
  * Plugin Name: ZDW Intro Experiment
  * Description: Non-destructive experiments for the ZDW Intro Effect block.
  * Version: 0.3.2
+ * Requires at least: 6.2
  * Author: Zlin Design Week
  */
 
