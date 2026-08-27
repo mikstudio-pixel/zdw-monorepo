@@ -82,6 +82,17 @@ final class Plugin
             $mediaStore,
             new WordPressHeroBackgroundTransformer()
         );
+        $bestInDesignHeroPatrikZiskaMigration = new BestInDesignHeroMigration(
+            posts: $postStore,
+            media: $mediaStore,
+            transformer: new WordPressHeroBackgroundTransformer(),
+            migrationId: '20260827_014_best_in_design_hero_patrik_ziska',
+            filenames: [
+                'patrik_ziska_@patrikziska_591.jpg',
+                'patrik_ziska_@patrikziska_591-1.jpg',
+            ],
+            migrationLabel: 'Fotografie Patrika Žišky v českém hero Best in Design'
+        );
         $designCanteenCleanupMigration = new DesignCanteenCleanupMigration(
             $postStore,
             new WordPressDesignCanteenCleanupTransformer()
@@ -158,6 +169,7 @@ final class Plugin
                 migrationLabel: 'Nový střih a poster videa obou homepage',
                 migrationDependencies: ['20260808_006_homepage_intros']
             ),
+            $bestInDesignHeroPatrikZiskaMigration,
         ]);
         $runner = new MigrationRunner($registry, new OptionStateStore());
         $adminPage = new AdminPage($audit, $collector, $runner);

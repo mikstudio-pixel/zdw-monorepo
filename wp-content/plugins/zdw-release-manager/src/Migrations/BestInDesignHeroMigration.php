@@ -18,7 +18,7 @@ final class BestInDesignHeroMigration implements Migration
 {
     private const POST_ID = 193;
     private const POST_SLUG = 'best-in-design';
-    private const FILENAMES = [
+    private const DEFAULT_FILENAMES = [
         'liza-marchkova-lizamarchkova-13-1-scaled.jpg',
         'liza-marchkova-lizamarchkova-13-1-scaled-1.jpg',
     ];
@@ -26,18 +26,21 @@ final class BestInDesignHeroMigration implements Migration
     public function __construct(
         private readonly PostStore $posts,
         private readonly MediaStore $media,
-        private readonly HeroBackgroundTransformer $transformer
+        private readonly HeroBackgroundTransformer $transformer,
+        private readonly string $migrationId = '20260808_009_best_in_design_hero',
+        private readonly array $filenames = self::DEFAULT_FILENAMES,
+        private readonly string $migrationLabel = 'Nová fotografie v českém hero Best in Design'
     ) {
     }
 
     public function id(): string
     {
-        return '20260808_009_best_in_design_hero';
+        return $this->migrationId;
     }
 
     public function label(): string
     {
-        return 'Nová fotografie v českém hero Best in Design';
+        return $this->migrationLabel;
     }
 
     public function preflight(): array
@@ -87,7 +90,7 @@ final class BestInDesignHeroMigration implements Migration
             throw new RuntimeException('Česká stránka Best in Design nebyla bezpečně nalezena.');
         }
         $assets = [];
-        foreach (self::FILENAMES as $filename) {
+        foreach ($this->filenames as $filename) {
             array_push($assets, ...$this->media->findByFilename($filename));
         }
         if (1 !== count($assets)) {
