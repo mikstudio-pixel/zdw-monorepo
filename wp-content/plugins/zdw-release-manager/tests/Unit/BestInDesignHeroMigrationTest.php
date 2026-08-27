@@ -77,7 +77,7 @@ final class BestInDesignHeroMigrationTest extends TestCase
     {
         $posts = new InMemoryPostStore([new PostRecord(193, 'best-in-design', 'hero')]);
         $media = new FakeMediaStore([
-            new MediaAsset(591, 'https://example.test/uploads/patrik_ziska_@patrikziska_591.jpg'),
+            new MediaAsset(591, 'https://example.test/uploads/patrik-ziska-patrikziska-591.jpg'),
         ]);
         $migration = new BestInDesignHeroMigration(
             posts: $posts,
@@ -96,7 +96,10 @@ final class BestInDesignHeroMigrationTest extends TestCase
                 }
             },
             migrationId: '20260827_014_best_in_design_hero_patrik_ziska',
-            filenames: ['patrik_ziska_@patrikziska_591.jpg'],
+            filenames: [
+                'patrik_ziska_@patrikziska_591.jpg',
+                'patrik-ziska-patrikziska-591.jpg',
+            ],
             migrationLabel: 'Fotografie Patrika Žišky v českém hero Best in Design',
             migrationDependencies: ['20260808_009_best_in_design_hero']
         );
