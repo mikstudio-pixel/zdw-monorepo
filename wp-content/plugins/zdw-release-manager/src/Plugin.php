@@ -90,6 +90,8 @@ final class Plugin
             filenames: [
                 'patrik_ziska_@patrikziska_591.jpg',
                 'patrik_ziska_@patrikziska_591-1.jpg',
+                'patrik-ziska-patrikziska-591.jpg',
+                'patrik-ziska-patrikziska-591-1.jpg',
             ],
             migrationLabel: 'Fotografie Patrika Žišky v českém hero Best in Design',
             migrationDependencies: ['20260808_009_best_in_design_hero']
