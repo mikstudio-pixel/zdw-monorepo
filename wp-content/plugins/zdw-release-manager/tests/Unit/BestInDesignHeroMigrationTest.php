@@ -73,6 +73,46 @@ final class BestInDesignHeroMigrationTest extends TestCase
         self::assertStringContainsString('právě jedna fotografie', $check->message());
     }
 
+    public function test_custom_target_uses_its_versioned_id_and_filename(): void
+    {
+        $posts = new InMemoryPostStore([new PostRecord(193, 'best-in-design', 'hero')]);
+        $media = new FakeMediaStore([
+            new MediaAsset(591, 'https://example.test/uploads/patrik_ziska_@patrikziska_591.jpg'),
+        ]);
+        $migration = new BestInDesignHeroMigration(
+            posts: $posts,
+            media: $media,
+            transformer: new class implements HeroBackgroundTransformer {
+                public function desiredPageContent(string $content, MediaAsset $background): string
+                {
+                    $suffix = '|hero:' . $background->id();
+
+                    return str_ends_with($content, $suffix) ? $content : $content . $suffix;
+                }
+
+                public function equivalent(string $first, string $second): bool
+                {
+                    return $first === $second;
+                }
+            },
+            migrationId: '20260827_014_best_in_design_hero_patrik_ziska',
+            filenames: ['patrik_ziska_@patrikziska_591.jpg'],
+            migrationLabel: 'Fotografie Patrika Žišky v českém hero Best in Design',
+            migrationDependencies: ['20260808_009_best_in_design_hero']
+        );
+
+        self::assertSame('20260827_014_best_in_design_hero_patrik_ziska', $migration->id());
+        self::assertSame('Fotografie Patrika Žišky v českém hero Best in Design', $migration->label());
+        self::assertSame(['20260808_009_best_in_design_hero'], $migration->dependencies());
+        self::assertSame('warning', $migration->preflight()[0]->severity());
+
+        $migration->apply();
+
+        self::assertSame([193], $posts->writes);
+        self::assertSame('hero|hero:591', $posts->find(193)?->content());
+        self::assertSame('pass', $migration->verify()[0]->severity());
+    }
+
     public function test_concurrent_hero_edit_is_not_overwritten(): void
     {
         $posts = new InMemoryPostStore([new PostRecord(193, 'best-in-design', 'hero')]);

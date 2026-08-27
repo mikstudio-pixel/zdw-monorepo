@@ -312,6 +312,13 @@ body.zdw-two-tier-menu-active:not(.home) main {
 	}
 }
 
+@media (min-width: 640.02px) and (max-width: 1119.98px) {
+	/* Keep short links aligned with the top of adjacent submenu columns. */
+	.zdw-two-tier__mobile-panel .zdw-two-tier__menu {
+		align-items: start;
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.zdw-two-tier,
 	.zdw-two-tier__trigger-icon,

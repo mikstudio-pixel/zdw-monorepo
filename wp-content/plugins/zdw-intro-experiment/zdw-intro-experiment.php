@@ -3,6 +3,7 @@
  * Plugin Name: ZDW Intro Experiment
  * Description: Non-destructive experiments for the ZDW Intro Effect block.
  * Version: 0.3.2
+ * Requires at least: 6.2
  * Author: Zlin Design Week
  */
 
@@ -79,6 +80,32 @@ function zdw_intro_experiment_enqueue_frontend_assets() {
 	);
 }
 add_action( 'wp_enqueue_scripts', 'zdw_intro_experiment_enqueue_frontend_assets', 20 );
+
+/**
+ * Expose the selected experiment mode in the rendered block before first paint.
+ */
+function zdw_intro_experiment_prepare_rendered_block( $block_content ) {
+	if ( '' === trim( $block_content ) || ! class_exists( 'WP_HTML_Tag_Processor' ) ) {
+		return $block_content;
+	}
+
+	$mode      = zdw_intro_experiment_sanitize_mode( get_option( 'zdw_intro_effect_mode', 'filter' ) );
+	$intensity = zdw_intro_experiment_sanitize_intensity( get_option( 'zdw_intro_effect_intensity', 0 ) );
+	$processor = new WP_HTML_Tag_Processor( $block_content );
+
+	if ( ! $processor->next_tag( array( 'class_name' => 'intro-effect' ) ) ) {
+		return $block_content;
+	}
+
+	$processor->add_class( 'zdw-intro-experiment' );
+	$processor->set_attribute( 'data-effect-mode', $mode );
+	$processor->set_attribute( 'data-effect-intensity', (string) $intensity );
+	$processor->set_attribute( 'data-title-effect', get_option( 'zdw_intro_plain_title', false ) ? 'plain' : 'exclusion' );
+	$processor->set_attribute( 'data-apply-effect', '0' );
+
+	return $processor->get_updated_html();
+}
+add_filter( 'render_block_zdw/intro-effect', 'zdw_intro_experiment_prepare_rendered_block' );
 
 function zdw_intro_experiment_sanitize_intensity( $value ) {
 	return max( 0, min( 100, (int) $value ) );

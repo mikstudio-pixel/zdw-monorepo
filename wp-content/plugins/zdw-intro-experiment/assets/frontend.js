@@ -15,9 +15,11 @@
 		video.muted = true;
 		video.playsInline = true;
 		video.autoplay = true;
+		video.loop = true;
 		video.setAttribute( 'muted', '' );
 		video.setAttribute( 'playsinline', '' );
 		video.setAttribute( 'autoplay', '' );
+		video.setAttribute( 'loop', '' );
 
 		try {
 			var promise = video.play();
@@ -48,6 +50,7 @@
 		videos.forEach( function ( video ) {
 			video.addEventListener( 'loadedmetadata', playAll );
 			video.addEventListener( 'canplay', playAll );
+			video.addEventListener( 'ended', playAll );
 		} );
 		window.addEventListener( 'pageshow', playAll );
 		document.addEventListener( 'visibilitychange', playAll );
