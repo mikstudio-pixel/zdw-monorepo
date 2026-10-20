@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f5f5f1">
+  <title>ZDW — Liquid / Material study</title>
+  <script id="local-preview">
+    if (location.protocol === 'file:') {
+      location.replace(new URL('./preview/zdw-liquid.html', location.href));
+    }
+  </script>
+  <link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+  <header class="topbar"><a class="wordmark" href="./">ZDW<span>®</span></a></header>
+  <main>
+    <div class="workspace">
+      <section class="viewer" aria-label="Interaktivní náhled liquidu">
+        <div class="stage" id="stage"><canvas id="liquid" aria-label="Animovaný barevný liquid a skleněné čtverce"></canvas><p id="cursor-hint" class="cursor-hint" hidden>Pohybujte myší nebo táhněte prstem.</p><p id="error" role="alert" hidden></p></div>
+        <div class="playback" id="playback"><button id="play" aria-label="Pozastavit animaci">Ⅱ</button><input id="timeline" type="range" min="0" max="4.56" step="0.04" value="0" aria-label="Čas animace"><output id="time">0.00 s</output><button id="reset" title="Obnovit výchozí nastavení" aria-label="Obnovit výchozí nastavení">↺</button></div>
+        <p class="notice" id="notice" role="status" hidden></p>
+      </section>
+      <aside class="controls">
+        <div class="control-section"><div class="source-options" role="group" aria-label="Zdroj pohybu"><button class="source active" data-mode="original" aria-pressed="true"><span>Originál</span><span class="radio" aria-hidden="true"></span></button><button class="source" data-mode="procedural" aria-pressed="false"><span>WebGL · AE</span><span class="radio" aria-hidden="true"></span></button><button class="source" data-mode="reveal" aria-pressed="false"><span>Generování</span><span class="radio" aria-hidden="true"></span></button><button class="source" data-mode="repel" aria-pressed="false"><span>Rozhánění</span><span class="radio" aria-hidden="true"></span></button><button class="source" data-mode="scatter" aria-pressed="false"><span>Posouvání</span><span class="radio" aria-hidden="true"></span></button></div></div>
+        <div class="control-section" id="repel-controls" role="group" aria-label="Nastavení rozhánění" hidden>
+          <label for="repelStrength">Síla rozhánění <output id="repelStrength-value">165 %</output></label><input id="repelStrength" type="range" min="0" max="300" step="5" value="165">
+          <label for="repelRadius">Velikost zásahu <output id="repelRadius-value">240 px</output></label><input id="repelRadius" type="range" min="60" max="400" step="10" value="240">
+          <label for="repelDuration">Doznění <output id="repelDuration-value">3.0 s</output></label><input id="repelDuration" type="range" min="0.5" max="6" step="0.1" value="3">
+        </div>
+        <div class="control-section">
+          <label class="toggle-line" for="glass">Sklo <input id="glass" type="checkbox" checked></label>
+          <label for="size">Velikost čtverců <output id="size-value">146 px</output></label><input id="size" type="range" min="64" max="240" step="2" value="146">
+          <label for="strength">Síla skla <output id="strength-value">100 %</output></label><input id="strength" type="range" min="0" max="200" step="5" value="100">
+          <label for="aberration">Chromatická aberace <output id="aberration-value">100 %</output></label><input id="aberration" type="range" min="0" max="100" step="5" value="100">
+          <label for="zoom">Zvětšení <output id="zoom-value">100 %</output></label><input id="zoom" type="range" min="100" max="150" step="1" value="100">
+          <label for="blur">Rozostření <output id="blur-value">0 px</output></label><input id="blur" type="range" min="0" max="16" step="0.5" value="0">
+        </div>
+        <div class="control-section"><div class="swatches" role="group" aria-label="Barva pozadí"><button class="swatch light active" data-background="light" aria-label="Světlé pozadí" aria-pressed="true" title="Světlé pozadí"></button><button class="swatch dark" data-background="dark" aria-label="Tmavé pozadí" aria-pressed="false" title="Tmavé pozadí"></button><button class="swatch blue" data-background="blue" aria-label="Modré pozadí" aria-pressed="false" title="Modré pozadí"></button></div><label class="toggle-line" for="interaction">Reakce na kurzor <input id="interaction" type="checkbox" checked></label><label for="speed">Rychlost <output id="speed-value">1.00×</output></label><input id="speed" type="range" min="0.25" max="2" step="0.05" value="1"></div>
+      </aside>
+    </div>
+  </main>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

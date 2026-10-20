@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="cs">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Liquid Studio — nový materiál štětce</title>
+<style>
+  :root{color-scheme:dark;font-family:system-ui,sans-serif;background:#101416;color:#f4f5f2}
+  body{margin:0;padding:clamp(20px,4vw,64px)}
+  main{max-width:1920px;margin:auto}h1{font-size:clamp(28px,4vw,52px);font-weight:500;letter-spacing:-.04em;margin:8px 0 16px}
+  p{color:#aeb8bd;line-height:1.6;max-width:900px}video{display:block;width:100%;background:#000;border:1px solid #293036;border-radius:8px;margin:28px 0 18px}
+  nav{display:flex;gap:12px;align-items:center;flex-wrap:wrap}button,a{color:inherit;font:inherit}button{padding:10px 18px;border:1px solid #3a454c;border-radius:6px;background:#1d262b;cursor:pointer}button[aria-pressed=true]{background:#c3d8b7;color:#101416;border-color:#c3d8b7}a{margin-left:8px}
+</style>
+<main>
+  <p>ZDW · LIQUID</p>
+  <h1>Stejný tah. Nový liquid.</h1>
+  <p>Vlevo původní štětec, vpravo kalibrovaný materiál v Liquid Studiu 1.4. Obě verze mají stejný tah, čas, strukturu 50 % a měřítko.</p>
+  <video id="comparison" controls autoplay muted loop playsinline preload="auto" aria-label="Stejný tah liquidu před a po kalibraci"><source src="./liquid-brush-compare/liquid-before-after.webm" type="video/webm"><source src="./liquid-brush-compare/liquid-before-after.mp4" type="video/mp4"></video>
+  <nav aria-label="Rychlost porovnání"><button data-rate="1" aria-pressed="true">1× skutečná rychlost</button><button data-rate="0.5" aria-pressed="false">½× zpomaleně</button><a href="./liquid-brush-compare/before-after.jpg">Stejný snímek před / po ↗</a><a href="./liquid-brush-compare/liquid-before-after.mp4" download>Stáhnout MP4 ↓</a></nav>
+  <p>181 snímků · 30 fps · 0–6 s · stejný tah 300 px · bez skla. Nový štětec používá pastelovou paletu, filtry a deformaci z kalibrovaného webu. Guma maže i přesahy, Struktura dál řídí velikost tvarů a otevřenost povrchu.</p>
+</main>
+<script>
+  for (const button of document.querySelectorAll('[data-rate]')) button.addEventListener('click', () => {
+    document.getElementById('comparison').playbackRate = Number(button.dataset.rate);
+    for (const option of document.querySelectorAll('[data-rate]')) option.setAttribute('aria-pressed', String(option === button));
+  });
+</script>
+</html>

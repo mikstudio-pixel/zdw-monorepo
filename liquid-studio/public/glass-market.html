@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="cs">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Figma × WebGL — skutečný návrh ZDW</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;padding:24px;background:#ececea;color:#20211e;font:14px system-ui,sans-serif}
+  header{max-width:1120px;margin:0 auto 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  h1{font-size:18px;margin:0 auto 0 0}button,a{color:inherit}button{padding:9px 14px;border:1px solid #999;background:transparent;border-radius:4px;cursor:pointer}
+  #comparison{display:block;width:100%;max-width:1120px;height:auto;margin:auto;background:#f6f6f3}
+  #status{max-width:1120px;margin:16px auto;white-space:pre-wrap;font:12px/1.6 monospace}
+  details{max-width:1120px;margin:16px auto}details img{width:256px;max-width:100%;margin:16px 0}
+</style>
+<header><h1>Figma × WebGL · skutečný návrh</h1><a href="./glass-check.html">Kontrolní mřížka</a><button id="download" disabled>Stáhnout porovnání PNG</button><button id="web-download" disabled>Stáhnout samotný WebGL</button></header>
+<canvas id="comparison" width="1120" height="722" aria-label="Porovnání původního návrhu ve Figmě a aktuálního WebGL shaderu na totožném podkladu"></canvas>
+<p id="status" role="status">Načítání nativního exportu a renderování WebGL…</p>
+<details><summary>Podklad použitý jako textura WebGL · bez skleněné kostky</summary><img src="./glass-reference/market/source.png" alt="Originální podklad exportovaný z Figmy s dočasně skrytou kostkou"><p><a href="https://www.figma.com/design/UNbVyy4hH7iewQzoiGvBGx/Zlin-Design-Week-2027?node-id=1929-1443">Původní vrstva ve Figmě</a> · <a href="./../">Zpět na liquid</a></p></details>
+<script type="module" src="./glass-market.js"></script>
+</html>

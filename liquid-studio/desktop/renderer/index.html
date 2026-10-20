@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'">
+  <title>Liquid Studio</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">✳</span><strong>liquid<span class="brand-light">studio</span></strong></div>
+    <div class="header-actions"><button id="load-settings" class="quiet">Načíst nastavení</button><button id="save-settings" class="quiet">Uložit nastavení</button></div>
+  </header>
+  <main>
+    <section class="workspace" aria-label="Video">
+      <div class="preview-panel">
+        <div class="preview-toolbar"><span class="panel-title">Náhled</span><div class="format-switch" role="group" aria-label="Poměr stran"><button data-aspect="16:9" aria-pressed="true">16:9</button><button data-aspect="9:16" aria-pressed="false">9:16</button><button data-aspect="1:1" aria-pressed="false">1:1</button></div><span id="resolution">1920 × 1080</span></div>
+        <div class="drawing-toolbar" role="toolbar" aria-label="Oblasti efektů">
+          <div class="tools"><button data-tool="glass" aria-pressed="false" title="Nakreslit oblast kostek"><span class="tool-dot glass-dot" aria-hidden="true"></span>Kostky</button><button data-tool="liquid" aria-pressed="false" title="Nakreslit oblast liquidu"><span class="tool-dot liquid-dot" aria-hidden="true"></span>Liquid</button><button data-tool="erase" aria-pressed="false" title="Smazat celé tahy liquidu nebo kostky">Guma</button><button data-tool="move" aria-pressed="true" title="Posunout výřez videa tažením">Ořez</button></div>
+          <div id="edit-actions" hidden><button id="discard-regions" class="quiet">Zrušit</button><button id="apply-regions" class="primary">Hotovo</button></div>
+        </div>
+        <div id="brush-options" class="brush-options" hidden>
+          <label for="brush-size">Štětec</label><input id="brush-size" type="range" min="20" max="480" step="10" value="240"><output id="brush-value" for="brush-size">240</output>
+          <select id="erase-layer" aria-label="Mazat vrstvu" hidden><option value="glass">Kostky</option><option value="liquid">Celé tahy liquidu</option><option value="both">Obě vrstvy</option></select>
+          <div class="history"><button id="undo-region" title="Zpět (⌘Z)" aria-label="Zpět">↶</button><button id="redo-region" title="Znovu (⇧⌘Z)" aria-label="Znovu">↷</button><button id="clear-region" title="Vymazat celou vybranou oblast">Vymazat oblast</button></div>
+        </div>
+        <div id="stage" class="stage">
+          <div id="empty" class="empty-state"><div class="glass-art" aria-hidden="true"><i></i><i></i><i></i><i></i></div><h1>Přetáhněte video nebo obrázek</h1><button id="choose-video" class="primary">Vybrat soubor</button></div>
+          <canvas id="preview" hidden aria-label="Náhled videa nebo obrázku; oblasti kreslete tažením vybraného štětce"></canvas>
+          <div id="brush-cursor" hidden></div>
+          <div id="drop-overlay" hidden>Pusťte video nebo obrázek sem</div>
+        </div>
+        <div class="transport"><button id="play" class="icon-button" disabled aria-label="Přehrát">▶</button><span id="current-time" class="time">00:00.00</span><input id="timeline" aria-label="Časová osa" type="range" min="0" max="1" value="0" step="1" disabled><span id="duration" class="time">00:00.00</span><button id="mute" class="quiet" disabled aria-label="Ztlumit zvuk">Zvuk zap.</button></div>
+      </div>
+      <div class="source-bar"><div><strong id="file-name">Bez média</strong><span id="file-info"></span></div><button id="replace-video" class="quiet">Vložit soubor</button></div>
+    </section>
+    <aside class="settings-panel" aria-label="Nastavení efektu">
+      <div class="settings-heading"><h2>Efekt</h2><button id="reset" class="quiet" title="Obnovit efekt a ořez; nakreslené oblasti zůstanou">Obnovit</button></div>
+      <fieldset id="effect-controls">
+        <div class="control-section"><h3>Přednastavení</h3><div class="presets"><button data-preset="signature" class="preset selected"><span class="preset-art signature"></span>Signature</button><button data-preset="soft" class="preset"><span class="preset-art soft"></span>Soft frost</button><button data-preset="festival" class="preset"><span class="preset-art festival"></span>Festival</button></div></div>
+        <div class="control-section"><h3>Kostky</h3><div id="glass-sliders"></div></div>
+        <div class="control-section">
+          <label class="toggle-row" for="liquid"><strong>Liquid</strong><input id="liquid" type="checkbox" role="switch"></label>
+          <div id="liquid-sliders"></div>
+          <div id="liquid-colors-container" class="liquid-colors-container">
+            <div class="liquid-palette-bar">
+              <span class="liquid-colors-title">Paleta barev</span>
+              <button id="apply-palette" type="button" class="quiet mini-action" title="Aplikovat celou paletu na liquid">Aplikovat paletu</button>
+            </div>
+            <div id="palette-swatches" class="palette-swatches" aria-label="Paleta barev"></div>
+            <div class="liquid-stops-bar">
+              <span class="liquid-colors-title">Jednotlivé barvy liquidu</span>
+              <button id="reset-liquid-colors" type="button" class="quiet mini-action" title="Vrátit výchozí barvy liquidu">Výchozí</button>
+            </div>
+            <div id="liquid-stops" class="liquid-stops-list"></div>
+          </div>
+        </div>
+        <div class="control-section"><h3>Ořez</h3><div id="crop-sliders"></div><button id="center-crop" class="quiet">Vycentrovat</button></div>
+      </fieldset>
+    </aside>
+  </main>
+  <section id="status" class="status" hidden aria-live="polite"><div class="status-top"><div><strong id="status-title"></strong><p id="status-message"></p></div><button id="cancel" class="quiet" hidden>Zrušit</button><button id="reveal" class="quiet" hidden>Zobrazit soubor</button><button id="dismiss" class="quiet" hidden aria-label="Zavřít zprávu">×</button></div><progress id="progress" max="1" value="0" hidden></progress></section>
+  <footer><span id="export-spec">MP4 · 1920 × 1080 · 30 fps</span><div class="footer-actions"><button id="export-image" class="quiet" disabled>Exportovat obrázek (PNG)</button><button id="export" class="primary" disabled>Exportovat video <span aria-hidden="true">↗</span></button></div></footer>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

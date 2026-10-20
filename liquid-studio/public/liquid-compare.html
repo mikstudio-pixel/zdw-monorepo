@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="cs">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Liquid — srovnání snímků</title>
+<link rel="stylesheet" href="./liquid-compare.css">
+<main>
+  <header><div><p class="eyebrow">ZDW · LIQUID LAB / 01</p><h1>Liquid před a po kalibraci.</h1><p>181 okamžiků · 30 fps · 1920 × 1080 · bez skla a kurzoru</p></div><a href="/">Zpět k prototypu ↗</a></header>
+  <aside><strong>Kalibrace podle AE.</strong> Nový web i Studio kreslí otevřenou křivku, pastelovou paletu a filtry ve správném pořadí. Turbulence používá souřadnicová data z AE. Opravená křivka je rekonstrukce z videa; shodu s tutoriálem posuzujeme zvlášť od shody webu s touto AE referencí.</aside>
+  <div class="toolbar">
+    <label>Vlevo<select id="left"><option value="calibrated">AE · opravená reference</option><option value="web-before">Web · před úpravou</option><option value="web">WebGL · po kalibraci</option><option value="base">AE · původní liquid_base</option><option value="ae">AE · předchozí liquid_delivery</option></select></label>
+    <label>Vpravo<select id="right"><option value="web">WebGL · po kalibraci</option><option value="studio">Liquid Studio · po kalibraci</option><option value="web-before">Web · před úpravou</option><option value="ae">AE · předchozí liquid_delivery</option></select></label>
+    <label>Zobrazení<select id="layout"><option value="pair">Vedle sebe</option><option value="overlay">Překryv 50 / 50</option><option value="difference">Rozdíl pixelů</option><option value="wipe">Posuvné srovnání</option></select></label>
+    <label>Zvětšení<select id="zoom"><option value="fit">Do okna</option><option value="native">100 % · skutečné pixely</option></select></label>
+  </div>
+  <div class="view" id="view"><div class="pair"><figure><figcaption id="left-title"></figcaption><img id="left-image" alt="Referenční snímek AE"></figure><figure><figcaption id="right-title"></figcaption><img id="right-image" alt="Srovnávaný snímek"></figure></div><div class="combined" hidden><canvas id="combined" width="1920" height="1080"></canvas></div></div>
+  <label id="wipe-control" hidden>Rozdělení <input id="wipe" type="range" min="0" max="100" value="50"></label>
+  <div class="transport"><button id="previous" title="Předchozí snímek (←)">←</button><button id="play">Přehrát</button><button id="next" title="Následující snímek (→)">→</button><input id="frame" type="range" min="0" max="180" value="0" aria-label="Snímek"><output id="time">00:00:00</output><label># <input id="frame-number" type="number" min="0" max="180" value="0" aria-label="Číslo snímku"></label></div>
+  <div id="metrics" aria-live="polite"></div>
+  <p class="hint">Šipky krokují po snímku, mezerník spouští přehrávání. Metriky vynechávají společné černé pozadí. Překryv obrysů není procento celkové podobnosti. Pro posouzení měkkosti použijte 100% zobrazení.</p>
+  <div class="notes"><label for="note">Poznámka k tomuto snímku</label><textarea id="note" rows="2" placeholder="Např. otvor vlevo je menší, okraj je příliš ostrý…"></textarea><button id="export">Stáhnout poznámky</button><small id="saved">Poznámky zůstávají v tomto prohlížeči.</small></div>
+  <section><h2>Kontrola proti tutoriálu</h2><p>Výřez z videa v čase 12:25 ukazuje kompozici přibližně v čase 3,04 s. Nativní snímky jsou z nejbližšího okamžiku při 30 fps: 3,033 s. Opravená křivka byla rekonstruována podle závěrečné animace. Záznam tutoriálu používá náhled Quarter.</p><a href="./liquid-compare/tutorial-audit.jpg"><img class="audit" src="./liquid-compare/tutorial-audit.jpg" alt="Tutoriál, původní a opravená AE reference a nový web ve stejném měřítku"></a><p><a href="./liquid-compare/contact-sheet.jpg">Přehled osmi časů ↗</a> · <a href="./liquid-compare/metrics.json">Měření ↗</a> · <a href="./liquid-compare/capture-manifest.json">Parametry a původ snímků ↗</a></p></section>
+</main>
+<script type="module" src="./liquid-compare.js"></script>
+</html>

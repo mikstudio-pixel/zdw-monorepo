@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="cs">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Figma × WebGL — mřížka a přechod</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;padding:24px;background:#1e1e1e;color:#eee;font:14px system-ui,sans-serif}
+  header{max-width:1120px;margin:0 auto 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  h1{font-size:18px;margin:0 auto 0 0}a{color:#bbb}button{color:#eee;padding:9px 14px;border:1px solid #666;background:transparent;border-radius:4px;cursor:pointer}
+  #comparison{display:block;width:100%;max-width:1120px;height:auto;margin:auto}
+  #status{max-width:1120px;margin:16px auto;white-space:pre-wrap;font:12px/1.6 monospace;color:#bbb}
+</style>
+<header><h1>Figma × WebGL · mřížka a přechod</h1><a href="./glass-market.html">Původní plakát</a><a href="./glass-quality.html">Detail rohu 1× / 4×</a><button id="download" disabled>Stáhnout porovnání PNG</button></header>
+<canvas id="comparison" width="1120" height="1344" aria-label="Vlevo nativní Figma, vpravo skutečný WebGL: nahoře mřížka s KE, dole šedý přechod"></canvas>
+<p id="status" role="status">Načítání dvou scén z Figmy…</p>
+<script type="module" src="./glass-scenes.js"></script>
+</html>
