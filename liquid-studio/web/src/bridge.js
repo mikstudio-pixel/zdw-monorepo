@@ -25,10 +25,15 @@ function download(blob, name) {
   link.href = url; link.download = name; document.body.append(link); link.click(); link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
-async function importFile(file) {
-  if (!file) return null;
+async function importFile(file, { defaultVideo = false } = {}) {
+  if (!file && !defaultVideo) return null;
   controller = new AbortController();
   try {
+    if (defaultVideo) {
+      const response = await fetch(new URL('./assets/zdw-demo.mp4', document.baseURI), { signal: controller.signal });
+      if (!response.ok) throw new Error('Ukázkové video se nepodařilo načíst. Vložte vlastní soubor.');
+      file = new File([await response.blob()], 'ZDW – úvodní video.mp4', { type: 'video/mp4' });
+    }
     const isImage = /\.(png|jpe?g|webp|bmp)$/i.test(file.name);
     if (isImage) file = await prepareImage(file, controller.signal);
     const info = await inspectVideo(file, controller.signal);
@@ -38,6 +43,7 @@ async function importFile(file) {
   } finally { controller = null; }
 }
 window.liquid = {
+  loadDefaultVideo: () => wrap(() => importFile(null, { defaultVideo: true })),
   // Normalize through RGB, just like decoded export frames. This also avoids
   // Safari simulator's NV12-to-WebGL texture upload color corruption.
   previewSource: video => {

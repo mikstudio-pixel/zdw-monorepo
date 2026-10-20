@@ -1,8 +1,10 @@
 import { build } from 'esbuild';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 await mkdir(`${root}dist`, { recursive: true });
+await mkdir(`${root}dist/assets`, { recursive: true });
+await copyFile(`${root}assets/zdw-demo.mp4`, `${root}dist/assets/zdw-demo.mp4`);
 await build({ entryPoints: [`${root}src/bootstrap.js`], outfile: `${root}dist/app.js`, bundle: true, format: 'esm', target: 'safari18', sourcemap: true });
 let html = await readFile(`${root}../desktop/renderer/index.html`, 'utf8');
 html = html.replace('width=device-width,initial-scale=1', 'width=1440');

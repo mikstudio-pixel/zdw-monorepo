@@ -34,6 +34,10 @@ try {
   const verified = await promisify(execFile)(process.execPath, [`${root}tests/verify.mjs`, 'browser-sync']); console.log(verified.stdout);
   checks.push('Visible import, both brushes, confirmation, preview, frame export and result playback');
   await page.goto(url); await page.waitForSelector('#liquidStructure');
+  await page.waitForFunction(() => document.getElementById('file-name').textContent === 'ZDW – úvodní video.mp4' && !document.getElementById('export').disabled);
+  assert.equal(await page.locator('video').evaluate(video => video.paused), true);
+  await page.screenshot({ path: `${results}browser-default-video.png` });
+  checks.push('Bundled ZDW video loads automatically, paused and ready to edit');
   const settings = JSON.parse(await readFile(`${results}browser-sync-settings.json`, 'utf8'));
   const importFile = async path => page.evaluate(async ({ bytes, name }) => window.liquid.importFile(new File([Uint8Array.from(atob(bytes), c => c.charCodeAt(0))], name)), { bytes: (await readFile(path)).toString('base64'), name: path.split('/').pop() });
   const invalid = await page.evaluate(() => window.liquid.importFile(new File(['invalid'], 'invalid.mp4')));
@@ -70,7 +74,7 @@ try {
   }
   assert.deepEqual(errors, []);
   await page.goto(url);
-  await page.waitForSelector('#choose-video');
+  await page.waitForFunction(() => document.getElementById('file-name').textContent === 'ZDW – úvodní video.mp4' && !document.getElementById('export').disabled);
   await page.evaluate(() => {
     const input = document.createElement('input'); input.type = 'file'; input.id = 'image-fixture'; document.body.append(input);
   });
@@ -101,6 +105,14 @@ try {
   assert.ok(animatedImage.ok, animatedImage.error); assert.equal(animatedImage.frames, 150);
   assert.deepEqual(errors, []);
   checks.push('Image drag/drop, 5-second scene, shared palette, PNG save and 150-frame image animation export');
+  await page.route('**/assets/zdw-demo.mp4', route => route.fulfill({ status: 404, body: 'Unavailable' }));
+  await page.goto(url);
+  await page.waitForFunction(() => document.getElementById('status').classList.contains('error') && !document.getElementById('choose-video').disabled);
+  assert.match(await page.locator('#status-message').innerText(), /Vložte vlastní soubor/);
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#choose-video')]);
+  await chooser.setFiles(`${results}sync-input.mp4`);
+  await page.waitForFunction(() => document.getElementById('file-name').textContent === 'sync-input.mp4' && !document.getElementById('export').disabled);
+  checks.push('A failed demo download leaves the file picker usable for a custom video');
   await writeFile(`${results}browser-checks.json`, JSON.stringify({ success: true, checks }, null, 2));
   console.log(checks.join('\n'));
 } finally { await application?.close(); server.kill(); }

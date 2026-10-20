@@ -19,7 +19,11 @@ Pro nasazení spusťte `npm run build` a poskytujte obsah `dist/` přes HTTPS.
 Balíček obsahuje všechny závislosti, bez CDN. Zpracování již načtené aplikace
 funguje bez sítě; instalace PWA a offline start aplikace nejsou součástí této verze.
 
-Vyberte video, upravte efekt a použijte **Exportovat video**. Po dokončení tlačítko
+Po otevření se automaticky načte úvodní video Zlin Design Week jako připravená
+ukázka. Přehrávání začíná pozastavené. Tlačítkem **Změnit video** nebo přetažením
+souboru je kdykoli nahradíte vlastním videem či obrázkem.
+
+Upravte efekt a použijte **Exportovat video**. Po dokončení tlačítko
 **Uložit soubor** otevře systémové sdílení nebo stáhne výsledek. Podporované obrázky
 PNG, JPEG, WebP a BMP se připraví jako tichá pětisekundová scéna. Aktuální snímek
 lze uložit přes **Exportovat obrázek (PNG)**. Sedm barev liquidu lze upravit
