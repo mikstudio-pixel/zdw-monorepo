@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: wp-content/plugins/zdw-release-manager
+        working-directory: wordpress/wp-content/plugins/zdw-release-manager
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -23,3 +23,25 @@ jobs:
       - run: composer install --no-interaction --prefer-dist
       - run: composer validate --strict
       - run: composer test
+  liquid-studio:
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: liquid-studio
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            liquid-studio/desktop/package-lock.json
+            liquid-studio/web/package-lock.json
+      - run: npm --prefix desktop ci --no-audit --no-fund
+      - run: npm --prefix web ci --no-audit --no-fund
+      - run: npm run check && npm test
+      - run: npm --prefix desktop run check && npm --prefix desktop test
+      - run: npm --prefix desktop run test:e2e
+      - run: npm --prefix web test

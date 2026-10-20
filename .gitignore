@@ -1,60 +1,15 @@
-# Deny by default. This repository contains only maintained source code and
-# local tooling; production data, backups, third-party packages and media stay
-# outside Git.
-*
-
-# Repository metadata and documentation.
-!.gitignore
-!.gitattributes
-!.env.example
-!README.md
-!docker-compose.yml
-!.github/
-!.github/**
-
-# Local Docker/tooling source.
-!docker/
-!docker/**
-!scripts/
-!scripts/**
-scripts/ftp-config.sh
-
-# Explicitly selected WordPress code.
-!wp-content/
-wp-content/*
-
-!wp-content/mu-plugins/
-wp-content/mu-plugins/*
-!wp-content/mu-plugins/zdw-local-safety.php
-
-!wp-content/plugins/
-wp-content/plugins/*
-!wp-content/plugins/zdw-contacts-block/
-!wp-content/plugins/zdw-contacts-block/**
-!wp-content/plugins/zdw-intro-experiment/
-!wp-content/plugins/zdw-intro-experiment/**
-!wp-content/plugins/zdw-release-manager/
-!wp-content/plugins/zdw-release-manager/**
-!wp-content/plugins/zdw-sponsors-block/
-!wp-content/plugins/zdw-sponsors-block/**
-!wp-content/plugins/zdw-two-tier-menu/
-!wp-content/plugins/zdw-two-tier-menu/**
-
-!wp-content/themes/
-wp-content/themes/*
-!wp-content/themes/zdw-theme-child/
-!wp-content/themes/zdw-theme-child/**
-
-# Generated development dependencies and caches inside an allowed plugin.
-wp-content/plugins/zdw-release-manager/vendor/
-wp-content/plugins/zdw-release-manager/.phpunit.cache/
-
-# Defense in depth for sensitive or very large local artifacts.
-.env
+# Keep application data and generated outputs out of the monorepo.
 .DS_Store
-updraft/
+.env
+node_modules
+vendor/
+dist/
+release/
+test-results/
+__pycache__/
+*.log
+*.aep
+*.aepx
 *.sql
 *.sql.gz
-wp-content/uploads/
-wp-content/cache/
-wp-content/upgrade/
+liquid-studio/preview/

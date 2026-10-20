@@ -1,0 +1,17 @@
+{
+  "name": "zdw-liquid-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "npm run build && node scripts/serve.mjs",
+    "test": "npm run build && node tests/browser.mjs"
+  },
+  "dependencies": {
+    "mediabunny": "1.58.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

@@ -1,0 +1,13 @@
+import { build } from 'esbuild';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+const root = fileURLToPath(new URL('../', import.meta.url));
+await mkdir(`${root}dist`, { recursive: true });
+await build({ entryPoints: [`${root}src/bootstrap.js`], outfile: `${root}dist/app.js`, bundle: true, format: 'esm', target: 'safari18', sourcemap: true });
+let html = await readFile(`${root}../desktop/renderer/index.html`, 'utf8');
+html = html.replace('width=device-width,initial-scale=1', 'width=1440');
+html = html.replace("media-src 'self'", "media-src 'self' blob:");
+html = html.replace("connect-src 'self'", "connect-src 'self' blob:; worker-src 'self' blob:");
+await writeFile(`${root}dist/index.html`, html);
+await writeFile(`${root}dist/style.css`, await readFile(`${root}../desktop/renderer/style.css`, 'utf8') + '\nbody { height:100svh }\n');
+console.log('Web app built in web/dist (shared desktop renderer).');

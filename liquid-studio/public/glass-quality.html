@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="cs">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Glass — detail a rozlišení</title>
+<style>
+  body{margin:24px;background:#1e1e1e;color:#eee;font:14px system-ui,sans-serif}
+  header{max-width:1120px;margin:0 auto 20px;display:flex;align-items:center;gap:24px}
+  h1{font-size:18px;margin-right:auto}a{color:#ccc}button{padding:9px}
+  canvas{display:block;width:100%;max-width:1120px;height:auto;margin:auto}
+  p{max-width:1120px;margin:16px auto;line-height:1.6}
+</style>
+<header><h1>Detail rohu · stejné sklo, rozdílné rozlišení</h1><a href="./glass-scenes.html">Porovnání s Figmou</a><button id="download" disabled>Stáhnout detail PNG</button></header>
+<canvas id="comparison" width="1120" height="650" aria-label="Stejný roh WebGL: vlevo render 512 px, vpravo render 2048 px, oba detaily zvětšené čtyřikrát"></canvas>
+<p id="status" role="status">Vykreslování…</p>
+<script type="module">
+  import { renderGlassComparison } from './glass-compare-renderer.js';
+  const source=new Image();source.src='./glass-reference/grid-source.png';await source.decode();
+  const low=renderGlassComparison(source),high=renderGlassComparison(source,{scale:4});
+  const canvas=document.getElementById('comparison'),ctx=canvas.getContext('2d');
+  ctx.fillStyle='#1e1e1e';ctx.fillRect(0,0,1120,650);ctx.fillStyle='#eee';
+  ctx.font='600 22px Arial';ctx.fillText('STEJNÝ SHADER · STEJNÝ PODKLAD · DETAIL ROHU 4×',32,38);
+  ctx.font='600 16px Arial';ctx.fillText('1× RENDER · 512 × 512 px',32,80);ctx.fillText('4× RENDER · 2048 × 2048 px',576,80);
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(low,128,128,128,128,32,100,512,512);
+  ctx.drawImage(high,512,512,512,512,576,100,512,512);
+  ctx.fillStyle='#aaa';ctx.font='12px Arial';ctx.fillText('Zdrojová textura má v obou případech 512 px. Vlevo jsou záměrně vidět jednotlivé pixely; vpravo čtyřnásobné vzorkování lomu.',32,638);
+  document.getElementById('status').textContent='Oba výřezy zachycují tentýž roh v totožném měřítku. Mění se pouze rozlišení vykreslení, žádný dodatečný blur.';
+  const button=document.getElementById('download');button.disabled=false;button.onclick=()=>{
+    const link=document.createElement('a');link.download='webgl-corner-resolution.png';link.href=canvas.toDataURL('image/png');link.click();
+  };
+</script>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "zdw-liquid-study",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "npm run preview:build",
+    "dev": "node scripts/serve.mjs",
+    "preview:build": "node scripts/build-standalone.mjs",
+    "check": "node --check src/main.js && node --check src/pointer-field.js && node --check src/liquid-births.js && node --check src/renderer.js && node --check src/shaders.js && node --check src/liquid-source.js && node --check src/liquid-deformation.js && node --check scripts/serve.mjs",
+    "test": "node --test tests/*.test.js"
+  }
+}
