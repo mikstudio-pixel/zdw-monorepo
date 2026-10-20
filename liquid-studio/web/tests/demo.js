@@ -30,7 +30,7 @@ async function stroke(from, to) {
   } finally { canvas.setPointerCapture = capture; canvas.releasePointerCapture = release; }
 }
 try {
-  await waitFor(() => window.liquid && $('liquidStructure'));
+  await waitFor(() => window.liquid && $('liquidStructure') && !$('replace-video').disabled);
   await event('ready', { encoder: typeof VideoEncoder, decoder: typeof VideoDecoder, secure: isSecureContext });
   window.liquid.onProgress(value => { if (value.phase !== 'render' || value.frames < 4 || value.frames % 30 === 0) void event('progress', value); });
   await sleep(2500);
@@ -38,8 +38,8 @@ try {
   const file = new File([await (await fetch(`/__qa/${fixture}.mp4`)).blob()], fixture === 'demo' ? 'ZDW – ukázka.mp4' : 'Synchronizace.mp4', { type: 'video/mp4' });
   const originalChoose = window.liquid.chooseVideo;
   window.liquid.chooseVideo = () => window.liquid.importFile(file);
-  $('choose-video').click();
-  await waitFor(() => !$('preview').hidden && !$('export').disabled);
+  $('replace-video').click();
+  await waitFor(() => $('file-name').textContent === file.name && !$('export').disabled);
   window.liquid.chooseVideo = originalChoose;
   await event('imported');
   await sleep(1000);

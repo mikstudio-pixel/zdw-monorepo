@@ -204,24 +204,29 @@ async function unwrap(promise) {
   if (!result.ok) throw Object.assign(new Error(result.error), { cancelled: result.cancelled });
   return result.value;
 }
-async function importVideo(file) {
+function importVideo(file) { return importMedia(() => file ? api.importFile(file) : api.chooseVideo()); }
+export async function importMedia(load) {
   if (busy || editor?.editing) return;
   setBusy(true); $('progress').value = 0;
   showStatus('Připravujeme médium', '', { pending: true });
   try {
-    const result = await unwrap(file ? api.importFile(file) : api.chooseVideo());
+    const result = await unwrap(load());
     if (!result) { $('status').hidden = true; return; }
     media = result; frameTime = 0;
     const loaded = new Promise((resolve, reject) => {
-      const cleanup = () => { clearTimeout(timeout); video.removeEventListener('loadeddata', ready); video.removeEventListener('error', error); };
-      const ready = () => { cleanup(); resolve(); };
+      const cleanup = () => { clearTimeout(timeout); video.removeEventListener('loadeddata', ready); video.removeEventListener('seeked', firstFrame); video.removeEventListener('error', error); };
+      const firstFrame = () => { cleanup(); resolve(); };
+      const ready = () => {
+        video.addEventListener('seeked', firstFrame, { once: true });
+        seekTo(0);
+        if (!video.seeking) firstFrame();
+      };
       const error = () => { cleanup(); reject(new Error('Nepodařilo se načíst náhled média.')); };
       const timeout = setTimeout(error, 20000);
       video.addEventListener('loadeddata', ready, { once: true }); video.addEventListener('error', error, { once: true });
     });
     video.src = result.url; video.load();
     await loaded;
-    if (media.startTime) seekTo(0);
     $('empty').hidden = true; $('preview').hidden = false;
     $('file-name').textContent = result.name;
     const soundText = result.isImage ? 'obrázek' : result.hasAudio ? 'se zvukem' : 'bez zvuku';
