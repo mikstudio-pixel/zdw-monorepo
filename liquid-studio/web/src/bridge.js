@@ -1,8 +1,10 @@
 import { inspectVideo, renderVideo, prepareImage } from './media.js';
 import { parseSettings, serializeSettings } from '../../desktop/shared/settings.js';
 import { MAX_SETTINGS_BYTES } from '../../desktop/shared/regions.js';
+import { PixelBackdrop } from './pixel-backdrop.js';
 
 let current, previewUrl, exported, exportedUrl, controller;
+let backdrop;
 const listeners = new Set();
 const previewCanvas = document.createElement('canvas');
 const previewContext = previewCanvas.getContext('2d', { alpha: false });
@@ -30,9 +32,11 @@ async function importFile(file, { defaultVideo = false } = {}) {
   controller = new AbortController();
   try {
     if (defaultVideo) {
-      const response = await fetch(new URL('./assets/zdw-demo.mp4', document.baseURI), { signal: controller.signal });
+      const portrait = window.liquid.regionMode === 'area';
+      const asset = portrait ? 'zdw-demo-portrait.mp4' : 'zdw-demo.mp4';
+      const response = await fetch(new URL(`./assets/${asset}`, document.baseURI), { signal: controller.signal });
       if (!response.ok) throw new Error('Ukázkové video se nepodařilo načíst. Vložte vlastní soubor.');
-      file = new File([await response.blob()], 'ZDW – úvodní video.mp4', { type: 'video/mp4' });
+      file = new File([await response.blob()], portrait ? 'ZDW – úvodní video na výšku.mp4' : 'ZDW – úvodní video.mp4', { type: 'video/mp4' });
     }
     const isImage = /\.(png|jpe?g|webp|bmp)$/i.test(file.name);
     if (isImage) file = await prepareImage(file, controller.signal);
@@ -50,7 +54,9 @@ window.liquid = {
     if (previewCanvas.width !== video.videoWidth || previewCanvas.height !== video.videoHeight) {
       previewCanvas.width = video.videoWidth; previewCanvas.height = video.videoHeight;
     }
-    previewContext.drawImage(video, 0, 0); return previewCanvas;
+    previewContext.drawImage(video, 0, 0);
+    if (window.liquid.regionMode === 'area') (backdrop ||= new PixelBackdrop()).draw(previewCanvas);
+    return previewCanvas;
   },
   chooseVideo: () => wrap(async () => importFile(await pick('video/*,.mp4,.mov,.m4v,.webm,.png,.jpg,.jpeg,.webp,.bmp'))),
   importFile: file => wrap(() => importFile(file)),

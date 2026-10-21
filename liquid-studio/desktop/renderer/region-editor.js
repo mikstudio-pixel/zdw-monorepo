@@ -9,8 +9,8 @@ const brushes = {
 };
 
 export class RegionEditor {
-  constructor({ canvas, getSettings, createMaps, liquidCoverage, enabled, onChange, onModeChange, pause, onError }) {
-    Object.assign(this, { canvas, getSettings, createMaps, liquidCoverage, enabled, onChange, onModeChange, pause, onError });
+  constructor({ canvas, getSettings, createMaps, liquidCoverage, enabled, onChange, onModeChange, pause, onError, areaMode = false }) {
+    Object.assign(this, { canvas, getSettings, createMaps, liquidCoverage, enabled, onChange, onModeChange, pause, onError, areaMode });
     this.tool = 'move'; this.layer = 'glass'; this.editing = false;
     this.brushSizes = Object.fromEntries(Object.entries(brushes).map(([tool, range]) => [tool, range.initial]));
     this.undo = []; this.redo = [];
@@ -46,7 +46,11 @@ export class RegionEditor {
       if (!this.editing || ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault(); this.travel(event.shiftKey ? this.redo : this.undo, event.shiftKey ? this.undo : this.redo);
-      } else if (event.key === 'Escape') { event.preventDefault(); this.finish(false); }
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        if (this.areaMode) this.endStroke(true);
+        else this.finish(false);
+      }
     });
   }
   choose(tool) {
@@ -54,6 +58,7 @@ export class RegionEditor {
     if (tool !== 'move' && !this.editing) {
       this.pause();
       try { this.maps = this.createMaps(); } catch (error) { this.onError(error); return; }
+      if (this.areaMode) this.maps.useLiquidArea();
       this.originalLiquid = this.getSettings().liquid;
       this.undo = []; this.redo = []; this.editing = true;
     }
@@ -127,7 +132,7 @@ export class RegionEditor {
     try {
       this.targets().forEach(layer => {
         if (layer === 'glass' && this.tool === 'erase') this.maps.eraseGlass(from, point, diameter, w / h, settings.size);
-        else if (layer === 'liquid' && this.tool === 'erase') this.maps.eraseLiquid(from, point, diameter, w / h,
+        else if (layer === 'liquid' && this.tool === 'erase' && this.maps.liquidMode !== 'area') this.maps.eraseLiquid(from, point, diameter, w / h,
           this.stroke.liquidCoverage ||= this.liquidCoverage(this.maps));
         else this.maps.paint(layer, from, point, diameter, w / h, this.tool === 'erase');
       });
@@ -140,6 +145,7 @@ export class RegionEditor {
     if (cancelled) { this.maps.restore(stroke.before); this.onChange(); }
     else if (this.maps.version !== stroke.version) this.remember(stroke.before);
     if (this.canvas.hasPointerCapture(stroke.pointerId)) this.canvas.releasePointerCapture(stroke.pointerId);
+    this.onChange();
   }
   remember(snapshot) {
     this.undo.push(snapshot); if (this.undo.length > 20) this.undo.shift();

@@ -1,4 +1,5 @@
 import { EMPTY_REGIONS, validateRegions, MAX_SETTINGS_BYTES } from './regions.js';
+import { EFFECT_KEYS, MAX_KEYFRAMES } from './keyframes.js';
 
 export const DEFAULT_LIQUID_COLORS = Object.freeze([
   '#c9bf91', '#c2bda5', '#a7bae2', '#98b0fd', '#e8d160', '#fd534c', '#df2d67',
@@ -42,6 +43,10 @@ export function validateSettings(value) {
     if (typeof value.liquid !== 'boolean') throw new Error('Neplatné nastavení vrstvy liquidu.');
     result.liquid = value.liquid;
   }
+  if (value.mediaFit !== undefined) {
+    if (value.mediaFit !== 'contain') throw new Error('Neplatné přizpůsobení média.');
+    result.mediaFit = 'contain';
+  }
   if (value.liquidColors !== undefined) {
     if (!Array.isArray(value.liquidColors) || value.liquidColors.length !== 7 ||
         !value.liquidColors.every(c => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c))) {
@@ -55,21 +60,37 @@ export function validateSettings(value) {
     result[key] = value[key];
   }
   result.regions = validateRegions(value.regions);
+  if (value.keyframes !== undefined) {
+    if (!Array.isArray(value.keyframes) || !value.keyframes.length || value.keyframes.length > MAX_KEYFRAMES) throw new Error('Neplatné klíčové snímky.');
+    let previous = -1;
+    result.keyframes = value.keyframes.map(key => {
+      if (!Number.isInteger(key?.frame) || key.frame <= previous || key.frame > 5400 || !key.effects || Object.hasOwn(key.effects, 'keyframes')) throw new Error('Neplatný klíčový snímek.');
+      previous = key.frame;
+      const effect = validateSettings(key.effects);
+      if (effect.regions.liquidMode !== 'area') throw new Error('Klíčové snímky vyžadují oblast liquidu.');
+      return { frame: key.frame, effects: Object.fromEntries(EFFECT_KEYS.map(name => [name, effect[name]])) };
+    });
+  }
   return result;
 }
 export function parseSettings(text) {
   let file;
   try { file = JSON.parse(text); } catch { throw new Error('Soubor nastavení není platný JSON.'); }
-  if (file?.type !== 'zdw-liquid-studio' || ![1, 2, 3, 4].includes(file.version)) throw new Error('Tato verze souboru nastavení není podporovaná.');
+  if (file?.type !== 'zdw-liquid-studio' || ![1, 2, 3, 4, 5, 6].includes(file.version)) throw new Error('Tato verze souboru nastavení není podporovaná.');
   return validateSettings(file.settings);
 }
 export function serializeSettings(settings) {
-  const text = JSON.stringify({ type: 'zdw-liquid-studio', version: 4, settings: validateSettings(settings) }, null, 2) + '\n';
+  const version = settings.keyframes?.length || settings.regions?.glass?.rle || settings.mediaFit ? 6 : settings.regions?.liquidMode === 'area' ? 5 : 4;
+  const text = JSON.stringify({ type: 'zdw-liquid-studio', version, settings: validateSettings(settings) }, null, 2) + '\n';
   if (text.length > MAX_SETTINGS_BYTES) throw new Error('Kompozice překračuje maximální velikost souboru nastavení.');
   return text;
 }
 // Visible fraction of the source; position always stays inside its bounds.
 export function cropTransform(sourceAspect, outputAspect, settings) {
+  if (settings.mediaFit === 'contain') {
+    const width = Math.max(1, outputAspect / sourceAspect), height = Math.max(1, sourceAspect / outputAspect);
+    return { scale: [width, height], offset: [(1 - width) / 2, (1 - height) / 2] };
+  }
   let width = Math.min(1, outputAspect / sourceAspect) * 100 / settings.cropZoom;
   let height = Math.min(1, sourceAspect / outputAspect) * 100 / settings.cropZoom;
   return { scale: [width, height], offset: [(1 - width) * settings.cropX / 100, (1 - height) * settings.cropY / 100] };

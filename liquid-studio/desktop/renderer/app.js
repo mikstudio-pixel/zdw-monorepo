@@ -2,10 +2,18 @@ import { VideoRenderer } from './video-renderer.js';
 import { DEFAULTS, PRESETS, FORMATS, FPS, validateSettings, cropTransform, PALETTE_COLORS, PALETTE_PRESET_COLORS, DEFAULT_LIQUID_COLORS } from '../shared/settings.js';
 import { RegionMaps, canvasPoint } from '../shared/regions.js';
 import { RegionEditor } from './region-editor.js';
+import { captureEffects, materializeKeyframe, putKeyframe } from '../shared/keyframes.js';
 
 const $ = id => document.getElementById(id);
 const api = window.liquid;
-let settings = { ...DEFAULTS, regions: RegionMaps.empty().serialize() }, media = null, busy = false, frameTime = 0, renderer, drag, editor;
+export const studioEvents = new EventTarget();
+const notify = () => studioEvents.dispatchEvent(new Event('change'));
+const areaMode = api.regionMode === 'area';
+let areaProgress = 1;
+let timelinePreview = false, activeKeyframe = null;
+let scrubbing = false, requestedFrame = null;
+let settings = { ...DEFAULTS, ...(areaMode ? { liquid: true, mediaFit: 'contain', opacity: 100 } : {}),
+  regions: (areaMode ? RegionMaps.empty().useLiquidArea() : RegionMaps.empty()).serialize() }, media = null, busy = false, frameTime = 0, renderer, drag, editor;
 const video = document.createElement('video');
 video.preload = 'auto'; video.playsInline = true;
 const mediaTime = time => Math.max(0, time - (media?.startTime || 0));
@@ -13,6 +21,14 @@ const seekTo = time => { video.currentTime = time + (media?.startTime || 0); };
 // Keep decoded frames alive and available for requestVideoFrameCallback.
 video.hidden = true; document.body.append(video);
 const formatTime = time => `${String(Math.floor(time / 60)).padStart(2, '0')}:${(time % 60).toFixed(2).padStart(5, '0')}`;
+function seekLatestFrame() {
+  if (video.seeking || requestedFrame === null) return;
+  const time = requestedFrame / FPS;
+  if (Math.abs(mediaTime(video.currentTime) - time) < .0001) {
+    requestedFrame = null;
+    draw(true, time);
+  } else seekTo(time);
+}
 const specs = {
   size: ['Velikost kostek', 60, 360, 'px'], strength: ['Síla lomu', 0, 200, '%'],
   aberration: ['Chromatická aberace', 0, 200, '%'], blur: ['Rozostření', 0, 12, 'px'],
@@ -164,22 +180,35 @@ function draw(upload = false, time = frameTime) {
   if (!renderer || !media || video.readyState < 2) return;
   try {
     if (upload) { renderer.upload(api.previewSource ? api.previewSource(video) : video); frameTime = time; }
-    renderer.draw(settings, frameTime, { regions: editor?.maps, editing: editor?.editing });
+    renderer.draw(settings, frameTime, { regions: editor?.maps, editing: editor?.editing,
+      areaPreview: areaMode && editor?.editing && editor.layer === 'liquid', areaProgress,
+      useKeyframes: !areaMode || timelinePreview,
+      previewScale: areaMode && (scrubbing || requestedFrame !== null) ? .5 : 1 });
   } catch (error) { video.pause(); showError(error); }
 }
 function videoFrame(_now, metadata) {
-  if (!busy && media) {
-    draw(true, Math.round(mediaTime(metadata.mediaTime) * FPS) / FPS);
-    $('timeline').value = Math.min(media.frames - 1, Math.round(frameTime * FPS));
-    $('current-time').textContent = formatTime(frameTime);
+  if (!busy && media && !video.seeking) {
+    const time = Math.round(mediaTime(metadata.mediaTime) * FPS) / FPS;
+    if (time !== frameTime) draw(true, time);
+    // A decoded frame must not move the user's thumb back during a seek.
+    if (!scrubbing && requestedFrame === null) {
+      $('timeline').value = Math.min(media.frames - 1, Math.round(frameTime * FPS));
+      $('current-time').textContent = formatTime(frameTime);
+    }
+    studioEvents.dispatchEvent(new Event('timechange'));
   }
   video.requestVideoFrameCallback(videoFrame);
 }
 video.requestVideoFrameCallback(videoFrame);
-video.addEventListener('seeked', () => { if (!busy) draw(true, Math.floor(mediaTime(video.currentTime) * FPS + 1e-5) / FPS); });
+video.addEventListener('seeked', () => {
+  if (requestedFrame === Math.round(mediaTime(video.currentTime) * FPS)) requestedFrame = null;
+  if (!busy) draw(true, Math.floor(mediaTime(video.currentTime) * FPS + 1e-5) / FPS);
+  if (areaMode) seekLatestFrame();
+  studioEvents.dispatchEvent(new Event('timechange'));
+});
 video.addEventListener('play', updatePlay); video.addEventListener('pause', updatePlay); video.addEventListener('ended', updatePlay);
 video.addEventListener('error', () => showError(new Error('Náhled připraveného videa nelze přehrát. Zkuste soubor vložit znovu.')));
-function updatePlay() { $('play').textContent = video.paused ? '▶' : 'Ⅱ'; $('play').setAttribute('aria-label', video.paused ? 'Přehrát' : 'Pozastavit'); }
+function updatePlay() { $('play').textContent = video.paused ? (areaMode ? '▶︎' : '▶') : 'Ⅱ'; $('play').setAttribute('aria-label', video.paused ? 'Přehrát' : 'Pozastavit'); notify(); }
 function setBusy(value) {
   busy = value;
   if (busy) video.pause();
@@ -191,6 +220,7 @@ function setBusy(value) {
   document.querySelectorAll('[data-aspect]').forEach(button => { button.disabled = locked; });
   editor?.sync();
   syncControls();
+  notify();
 }
 function showStatus(title, message = '', { error = false, pending = false, success = false } = {}) {
   $('status').hidden = false; $('status').classList.toggle('error', error);
@@ -212,7 +242,12 @@ export async function importMedia(load) {
   try {
     const result = await unwrap(load());
     if (!result) { $('status').hidden = true; return; }
-    media = result; frameTime = 0;
+    media = result; frameTime = 0; requestedFrame = null; scrubbing = false;
+    if (areaMode) {
+      const ratio = result.width / result.height;
+      settings.aspect = ratio > 1.2 ? '16:9' : ratio < .85 ? '9:16' : '1:1';
+      syncControls();
+    }
     const loaded = new Promise((resolve, reject) => {
       const cleanup = () => { clearTimeout(timeout); video.removeEventListener('loadeddata', ready); video.removeEventListener('seeked', firstFrame); video.removeEventListener('error', error); };
       const firstFrame = () => { cleanup(); resolve(); };
@@ -231,11 +266,12 @@ export async function importMedia(load) {
     $('file-name').textContent = result.name;
     const soundText = result.isImage ? 'obrázek' : result.hasAudio ? 'se zvukem' : 'bez zvuku';
     $('file-info').textContent = `${result.width} × ${result.height} · ${formatTime(result.duration)} · 30 fps · ${soundText}`;
-    $('replace-video').textContent = result.isImage ? 'Změnit obrázek' : 'Změnit video';
+    if (!areaMode) $('replace-video').textContent = result.isImage ? 'Změnit obrázek' : 'Změnit video';
     $('timeline').max = result.frames - 1; $('timeline').value = 0;
     $('duration').textContent = formatTime(result.duration); $('current-time').textContent = formatTime(0);
     $('status').hidden = true;
     draw(true, 0);
+    studioEvents.dispatchEvent(new Event('mediachange'));
   } catch (error) { error.cancelled ? showStatus('Příprava byla zrušena') : showError(error); }
   finally { setBusy(false); }
 }
@@ -256,16 +292,27 @@ $('reset').onclick = () => { settings = { ...DEFAULTS, regions: settings.regions
 $('play').onclick = async () => {
   if (busy || !media || editor?.editing) return;
   if (!video.paused) { video.pause(); return; }
+  if (areaMode) timelinePreview = true;
   if (video.ended || mediaTime(video.currentTime) >= media.duration - 1 / FPS) seekTo(0);
   try { await video.play(); } catch { showError(new Error('Video nelze přehrát. Zkuste jej vložit znovu.')); }
 };
 $('mute').onclick = () => { video.muted = !video.muted; $('mute').textContent = video.muted ? 'Zvuk vyp.' : 'Zvuk zap.'; $('mute').setAttribute('aria-label', video.muted ? 'Zapnout zvuk' : 'Ztlumit zvuk'); };
-$('timeline').oninput = () => { video.pause(); const time = Number($('timeline').value) / FPS; seekTo(time); $('current-time').textContent = formatTime(time); };
+$('timeline').oninput = () => {
+  video.pause();
+  if (areaMode) timelinePreview = true;
+  const time = Number($('timeline').value) / FPS;
+  if (areaMode) {
+    requestedFrame = Math.max(0, Math.min(media.frames - 1, Math.round(time * FPS)));
+    seekLatestFrame();
+  } else seekTo(time);
+  $('current-time').textContent = formatTime(time);
+  studioEvents.dispatchEvent(new Event('timechange'));
+};
 document.addEventListener('keydown', event => {
   if (event.code === 'Space' && !['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)) { event.preventDefault(); $('play').click(); }
 });
 $('preview').addEventListener('pointerdown', event => {
-  if (busy || !media || editor?.editing || event.button !== 0) return;
+  if (areaMode || busy || !media || editor?.editing || event.button !== 0) return;
   if (!canvasPoint(event.clientX, event.clientY, $('preview').getBoundingClientRect(), ...FORMATS[settings.aspect])) return;
   drag = { x: event.clientX, y: event.clientY, cropX: settings.cropX, cropY: settings.cropY };
   $('preview').setPointerCapture(event.pointerId);
@@ -293,13 +340,13 @@ $('export').onclick = async () => {
   } catch (error) { error.cancelled ? showStatus('Export byl zrušen', 'Rozpracovaný soubor byl odstraněn.') : showError(error); }
   finally { setBusy(false); draw(); }
 };
-$('export-image').onclick = async () => {
+async function exportImage(announce = true) {
   if (busy || !media || editor?.editing) return;
   setBusy(true);
-  showStatus('Exportujeme snímek', '', { pending: true });
+  if (announce) showStatus('Exportujeme snímek', '', { pending: true });
   try {
     const [width, height] = FORMATS[settings.aspect];
-    renderer.draw(settings, frameTime, { regions: editor?.maps, editing: false });
+    renderer.draw(settings, frameTime, { regions: editor?.maps, editing: false, useKeyframes: !areaMode || timelinePreview });
     const offscreen = document.createElement('canvas');
     offscreen.width = width; offscreen.height = height;
     const ctx = offscreen.getContext('2d');
@@ -308,11 +355,13 @@ $('export-image').onclick = async () => {
     ctx.putImageData(imgData, 0, 0);
     const dataUrl = offscreen.toDataURL('image/png');
     const result = await unwrap(api.exportImage(dataUrl));
-    if (result) showStatus('Snímek je připravený', `${width} × ${height} · PNG\n${result.path}`, { success: true });
+    if (result && announce) showStatus('Snímek je připravený', `${width} × ${height} · PNG\n${result.path}`, { success: true });
     else $('status').hidden = true;
+    return result;
   } catch (error) { showError(error); }
   finally { setBusy(false); draw(); }
-};
+}
+$('export-image').onclick = () => exportImage();
 api.onProgress(value => {
   $('progress').value = value.progress;
   if (value.kind === 'prepare') $('status-message').textContent = `Lokální příprava náhledu a synchronizace zvuku · ${Math.round(value.progress * 100)} %`;
@@ -331,14 +380,113 @@ $('preview').addEventListener('webglcontextlost', event => { event.preventDefaul
 try { renderer = new VideoRenderer($('preview')); } catch (error) { showError(error); }
 let redrawPending = false;
 editor = new RegionEditor({
+  areaMode,
   canvas: $('preview'), getSettings: () => settings, enabled: () => !busy && Boolean(media && renderer),
   createMaps: () => renderer.editableRegions(settings, frameTime), onError: showError,
   liquidCoverage: maps => renderer.liquidCoverage(settings, frameTime, maps),
   pause: () => video.pause(), onModeChange: () => setBusy(busy),
   onChange: () => {
+    notify();
     if (redrawPending) return;
     redrawPending = true;
     requestAnimationFrame(() => { redrawPending = false; draw(); });
   },
 });
+// Small shared controller: the mobile flow owns navigation, while drawing,
+// settings, PNG rendering and the desktop editor retain one implementation.
+function commitLayer() {
+  const editing = editor.editing;
+  editor.finish(true);
+  if (editing && activeKeyframe !== null && settings.keyframes?.length) {
+    settings.keyframes = putKeyframe(settings.keyframes, activeKeyframe, captureEffects(settings));
+    notify();
+  }
+}
+export const studio = {
+  get ready() { return Boolean(media && renderer); },
+  get busy() { return busy; },
+  get drawing() { return Boolean(editor.stroke); },
+  get seeking() { return video.seeking || requestedFrame !== null; },
+  get scrubbing() { return scrubbing; },
+  get playing() { return !video.paused; },
+  get tool() { return editor.tool; },
+  get frame() { return requestedFrame ?? Math.round(mediaTime(video.currentTime) * FPS); },
+  get frames() { return media?.frames || 1; },
+  get keyframes() { return settings.keyframes || []; },
+  get colors() { return settings.liquidColors; },
+  hasArea(layer) { return Boolean((editor.maps || new RegionMaps(settings.regions)).layers[layer].some(value => value >= 128)); },
+  chooseTool(tool) { editor.choose(tool); },
+  editLayer(layer) { editor.choose(layer); },
+  confirmLayer: commitLayer,
+  resetRegions() {
+    editor.finish(false);
+    settings.regions = RegionMaps.empty().useLiquidArea().serialize();
+    settings.liquid = true;
+    delete settings.keyframes; activeKeyframe = null; timelinePreview = false;
+    syncControls();
+  },
+  setPalette(colors) {
+    settings.liquidColors = Object.freeze([...colors]);
+    if (activeKeyframe !== null && settings.keyframes?.length) settings.keyframes = putKeyframe(settings.keyframes, activeKeyframe, captureEffects(settings));
+    syncControls(); draw(); notify();
+  },
+  prepareImage: () => exportImage(false),
+  setScrubbing(value) {
+    scrubbing = value;
+    if (!value && !studio.seeking) draw();
+  },
+  openTimeline({ seed = true } = {}) {
+    commitLayer();
+    if (seed && !settings.keyframes?.length) {
+      settings.keyframes = [{ frame: 0, effects: captureEffects(settings) }];
+      activeKeyframe = 0;
+    }
+    notify();
+  },
+  closeTimeline() {
+    video.pause();
+    if (timelinePreview) Object.assign(settings, materializeKeyframe(settings, Math.round(frameTime * FPS)));
+    activeKeyframe = settings.keyframes?.some(key => key.frame === studio.frame) ? studio.frame : null;
+    timelinePreview = false; syncControls(); draw();
+  },
+  async seekFrame(frame) {
+    const target = Math.max(0, Math.min(media.frames - 1, Math.round(frame)));
+    $('timeline').value = target;
+    $('timeline').oninput();
+    if (studio.seeking) await new Promise(resolve => {
+      const settled = () => {
+        if (studio.seeking) return;
+        studioEvents.removeEventListener('timechange', settled); resolve();
+      };
+      studioEvents.addEventListener('timechange', settled);
+    });
+  },
+  addKeyframe(layer) {
+    if (timelinePreview) Object.assign(settings, materializeKeyframe(settings, Math.round(frameTime * FPS)));
+    const frame = studio.frame;
+    if (!settings.keyframes?.some(key => key.frame === frame) && layer) {
+      const maps = new RegionMaps(settings.regions); maps.clear(layer); settings.regions = maps.serialize();
+    }
+    settings.keyframes = putKeyframe(settings.keyframes || [], frame, captureEffects(settings));
+    activeKeyframe = frame; timelinePreview = false; notify();
+  },
+  removeKeyframe() {
+    if (studio.frame === 0) return;
+    settings.keyframes = settings.keyframes.filter(key => key.frame !== studio.frame);
+    activeKeyframe = null; timelinePreview = true; draw(); notify();
+  },
+  async morphLiquid() {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const start = performance.now();
+    await new Promise(resolve => {
+      const animate = now => {
+        areaProgress = Math.min(1, (now - start) / 420);
+        draw();
+        if (areaProgress < 1) requestAnimationFrame(animate);
+        else resolve();
+      };
+      requestAnimationFrame(animate);
+    });
+  },
+};
 setBusy(false); selectPreset('signature');

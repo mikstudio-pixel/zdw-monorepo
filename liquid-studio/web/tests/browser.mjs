@@ -25,7 +25,7 @@ let application;
 const checks = [], errors = [];
 try {
   application = await electron.launch({ executablePath: electronExecutable,
-    args: [`${root}tests/browser-host.cjs`, `--user-data-dir=${results}browser-profile`], env: { ...process.env, LIQUID_TEST_URL: `${url}/__qa/?fixture=sync` }, timeout: 60_000 });
+    args: [`${root}tests/browser-host.cjs`, `--user-data-dir=${results}browser-profile`], env: { ...process.env, LIQUID_TEST_URL: `${url}/__qa/?fixture=sync&editor=1` }, timeout: 60_000 });
   const page = await application.firstWindow();
   page.on('pageerror', error => errors.push(error.message));
   await page.waitForFunction(() => document.documentElement.dataset.qaDone === 'true' || document.querySelector('#status.error'), null, { timeout: 120_000 });
@@ -33,7 +33,7 @@ try {
   await page.screenshot({ path: `${results}browser-export.png` });
   const verified = await promisify(execFile)(process.execPath, [`${root}tests/verify.mjs`, 'browser-sync']); console.log(verified.stdout);
   checks.push('Visible import, both brushes, confirmation, preview, frame export and result playback');
-  await page.goto(url); await page.waitForSelector('#liquidStructure');
+  await page.goto(`${url}/?editor=1`); await page.waitForSelector('#liquidStructure');
   await page.waitForFunction(() => document.getElementById('file-name').textContent === 'ZDW – úvodní video.mp4' && !document.getElementById('export').disabled);
   assert.equal(await page.locator('video').evaluate(video => video.paused), true);
   await page.screenshot({ path: `${results}browser-default-video.png` });
@@ -73,7 +73,7 @@ try {
     checks.push(`${name}: offline export, ${result.frames} frames at ${result.width}×${result.height}`);
   }
   assert.deepEqual(errors, []);
-  await page.goto(url);
+  await page.goto(`${url}/?editor=1`);
   await page.waitForFunction(() => document.getElementById('file-name').textContent === 'ZDW – úvodní video.mp4' && !document.getElementById('export').disabled);
   await page.evaluate(() => {
     const input = document.createElement('input'); input.type = 'file'; input.id = 'image-fixture'; document.body.append(input);
@@ -106,7 +106,7 @@ try {
   assert.deepEqual(errors, []);
   checks.push('Image drag/drop, 5-second scene, shared palette, PNG save and 150-frame image animation export');
   await page.route('**/assets/zdw-demo.mp4', route => route.fulfill({ status: 404, body: 'Unavailable' }));
-  await page.goto(url);
+  await page.goto(`${url}/?editor=1`);
   await page.waitForFunction(() => document.getElementById('status').classList.contains('error') && !document.getElementById('choose-video').disabled);
   assert.match(await page.locator('#status-message').innerText(), /Vložte vlastní soubor/);
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#choose-video')]);

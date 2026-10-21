@@ -53,23 +53,33 @@ export function validateRegions(value = EMPTY_REGIONS) {
   const result = {};
   for (const layer of ['glass', 'liquid']) {
     const data = value[layer] ?? null;
-    if (layer === 'liquid' && Array.isArray(data)) readPasses(data);
+    if (layer === 'glass' && data && typeof data === 'object' && !Array.isArray(data)) unpack(data.rle);
+    else if (layer === 'liquid' && Array.isArray(data)) readPasses(data);
     else if (data !== null) decode(data);
     result[layer] = data;
   }
   if (value.liquidErase != null) { decode(value.liquidErase); result.liquidErase = value.liquidErase; }
+  if (value.liquidMode !== undefined) {
+    if (value.liquidMode !== 'area') throw new Error('Neplatný režim oblasti liquidu.');
+    if (!Array.isArray(result.liquid) || result.liquid.length !== 1 || result.liquid[0].diameter !== 0 || unpack(result.liquid[0].erase).some(Boolean)) {
+      throw new Error('Oblast liquidu musí obsahovat jednu společnou masku.');
+    }
+    result.liquidMode = 'area';
+  }
   return result;
 }
 
 export class RegionMaps {
   constructor(regions = EMPTY_REGIONS) {
+    this.liquidMode = regions.liquidMode;
     this.version = 0;
     this.liquidVersion = 0;
     this.layers = {};
     this.custom = {};
     for (const layer of ['glass', 'liquid']) {
       this.custom[layer] = regions[layer] != null;
-      this.layers[layer] = this.custom[layer] && !Array.isArray(regions[layer]) ? decode(regions[layer]) : new Uint8Array(REGION_PIXELS);
+      this.layers[layer] = this.custom[layer] && !Array.isArray(regions[layer])
+        ? (typeof regions[layer] === 'object' ? unpack(regions[layer].rle) : decode(regions[layer])) : new Uint8Array(REGION_PIXELS);
     }
     this.layers.liquidErase = regions.liquidErase ? decode(regions.liquidErase) : new Uint8Array(REGION_PIXELS);
     this.liquidPasses = Array.isArray(regions.liquid) ? readPasses(regions.liquid)
@@ -84,25 +94,40 @@ export class RegionMaps {
   }
   // Pointer-down starts a new object; all coalesced segments belong to it.
   beginLiquidStroke() { this.nextLiquidStroke = true; }
+  // The guided editor paints one union, regardless of gesture or brush size.
+  useLiquidArea() {
+    if (this.liquidMode === 'area') return this;
+    const mask = new Uint8Array(REGION_PIXELS);
+    for (const pass of this.liquidPasses) for (let i = 0; i < REGION_PIXELS; i++) {
+      mask[i] = Math.max(mask[i], Math.min(pass.mask[i], 255 - pass.erase[i]));
+    }
+    this.liquidMode = 'area';
+    this.custom.liquid = true;
+    this.liquidPasses = [{ diameter: 0, mask, erase: new Uint8Array(REGION_PIXELS) }];
+    this.bindLiquidLayers(); this.version++; this.liquidVersion++;
+    return this;
+  }
   static empty() {
     const maps = new RegionMaps();
     maps.custom = { glass: true, liquid: true };
     return maps;
   }
   snapshot() {
-    return { custom: { ...this.custom }, glass: this.layers.glass.slice(),
+    return { liquidMode: this.liquidMode, custom: { ...this.custom }, glass: this.layers.glass.slice(),
       liquidPasses: this.liquidPasses.map(({ diameter, mask, erase }) => ({ diameter, mask: mask.slice(), erase: erase.slice() })) };
   }
   restore(snapshot) {
+    this.liquidMode = snapshot.liquidMode;
     this.custom = { ...snapshot.custom };
     this.layers.glass.set(snapshot.glass);
     this.liquidPasses = snapshot.liquidPasses.map(({ diameter, mask, erase }) => ({ diameter, mask: mask.slice(), erase: erase.slice() }));
     this.bindLiquidLayers();
     this.version++; this.liquidVersion++;
   }
-  serialize() {
-    return { glass: this.custom.glass ? encode(this.layers.glass) : null,
-      liquid: this.custom.liquid ? this.liquidPasses.map(({ diameter, mask, erase }) => ({ diameter, mask: pack(mask), erase: pack(erase) })) : null };
+  serialize({ compact = false } = {}) {
+    return { glass: this.custom.glass ? (compact ? { rle: pack(this.layers.glass) } : encode(this.layers.glass)) : null,
+      liquid: this.custom.liquid ? this.liquidPasses.map(({ diameter, mask, erase }) => ({ diameter, mask: pack(mask), erase: pack(erase) })) : null,
+      ...(this.liquidMode === 'area' ? { liquidMode: 'area' } : {}) };
   }
   clear(layer) {
     this.custom[layer] = true; this.layers[layer].fill(0); this.version++;
@@ -114,9 +139,9 @@ export class RegionMaps {
   // A capsule between consecutive points keeps quick drags continuous. Brush
   // diameter is in reference pixels at 1080 px output height, on every format.
   paint(layer, from, to, diameter, aspect, erase = false) {
-    if (layer === 'liquid' && erase) throw new Error('Guma liquidu maže celé tahy.');
+    if (layer === 'liquid' && erase && this.liquidMode !== 'area') throw new Error('Guma liquidu maže celé tahy.');
     let pass;
-    if (layer === 'liquid') {
+    if (layer === 'liquid' && this.liquidMode !== 'area') {
       pass = this.liquidPasses.at(-1);
       if (pass.sealed || ((this.nextLiquidStroke || pass.diameter !== diameter) && pass.mask.some(Boolean))) {
         if (this.liquidPasses.length >= MAX_LIQUID_PASSES) throw new Error('Kompozice už obsahuje 64 tahů liquidu. Nejdřív některý tah smažte.');

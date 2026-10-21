@@ -10,6 +10,9 @@ import { verifyLiquidRepaint } from './liquid-repaint.mjs';
 import { verifyLiquidObjects } from './liquid-objects.mjs';
 import { RegionMaps } from '../shared/regions.js';
 import { verifyExtensions } from './extensions.mjs';
+import { verifyKeyframeMorph } from './keyframes-visual.mjs';
+import { verifyUnifiedLiquid } from './liquid-area-visual.mjs';
+import { verifyLiquidEvolution } from './liquid-motion-visual.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const results = join(root, 'test-results');
@@ -127,6 +130,9 @@ try {
   for (const key of ['animated', 'guidePixels', 'glassPixels', 'liquidPixels']) assert.ok(regionPixels[key] > 1000, `${key}: ${JSON.stringify(regionPixels)}`);
   assert.ok(regionPixels.legacyCounts.every(count => count > 1000) && regionPixels.legacyGlassError <= 1, JSON.stringify(regionPixels));
   report.metrics.regions = regionPixels;
+  report.metrics.keyframes = await verifyKeyframeMorph(page);
+  report.metrics.liquidArea = await verifyUnifiedLiquid(page);
+  report.metrics.liquidEvolution = await verifyLiquidEvolution(page);
   log('Region GPU checks: empty/outside areas preserved, both effects placed, liquid animates, saved masks match exactly, editor guides stay separate');
   report.metrics.guidedLiquid = await verifyGuidedLiquid(page, results);
   report.metrics.liquidStructure = await verifyLiquidStructure(page, results);

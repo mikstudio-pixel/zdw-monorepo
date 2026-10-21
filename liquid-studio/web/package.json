@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "dev": "npm run build && node scripts/serve.mjs",
-    "test": "npm run build && node tests/browser.mjs"
+    "test": "npm run build && node tests/flow.mjs && node tests/browser.mjs"
   },
   "dependencies": {
     "mediabunny": "1.58.0"

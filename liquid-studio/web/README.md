@@ -1,9 +1,8 @@
 # Liquid Studio pro web
 
-Stávající desktopové ovládání a shodné WebGL 2 efekty, lokální export přes WebCodecs.
-Video se zpracovává v prohlížeči; server pouze poskytuje soubory aplikace. Electron
-ani FFmpeg se při webovém importu či exportu nepoužívají. Dotykové rozhraní zatím
-není upravené; na iPhonu je pro současné rozložení vhodnější orientace na šířku.
+Mobilní průchod pro tvorbu obrázku se sdíleným WebGL 2 rendererem. Média se
+zpracovávají v prohlížeči; server pouze poskytuje soubory aplikace. Electron
+ani FFmpeg se při webovém importu či exportu nepoužívají.
 
 ## Spuštění
 
@@ -17,18 +16,78 @@ Otevřete `http://localhost:4173`. V iOS simulátoru je dostupný stejný localh
 Na fyzickém telefonu vyžadují WebCodecs HTTPS; samotná LAN adresa přes HTTP nestačí.
 Pro nasazení spusťte `npm run build` a poskytujte obsah `dist/` přes HTTPS.
 Balíček obsahuje všechny závislosti, bez CDN. Zpracování již načtené aplikace
-funguje bez sítě; instalace PWA a offline start aplikace nejsou součástí této verze.
+funguje bez sítě; offline start aplikace není součástí této verze. Pro mobilní náhled
+používejte Liquid Studio přidané na plochu jako samostatnou webovou aplikaci
+bez lišt Safari, nikoli běžný panel prohlížeče.
 
 Po otevření se automaticky načte úvodní video Zlin Design Week jako připravená
-ukázka. Přehrávání začíná pozastavené. Tlačítkem **Změnit video** nebo přetažením
-souboru je kdykoli nahradíte vlastním videem či obrázkem.
+ukázka. Mobilní průchod používá její verzi na výšku 9:16 (1080 × 1920),
+vytvořenou středovým ořezem původního videa. Přehrávání začíná pozastavené. Tlačítkem **Nahrát** v prvním kroku
+je nahradíte vlastním videem či obrázkem.
 
-Upravte efekt a použijte **Exportovat video**. Po dokončení tlačítko
+Ovládání používá vzhled Windows XP se šedým ikonovým menu podle Malování,
+hranatými tlačítky s ostrými hranami a dodanými 16×16 pixelovými ikonami z `assets/icons/`. Obrázky se
+zobrazují ostře, hlavní tlačítka mají dotykovou plochu alespoň 44 px a textové názvy
+zůstávají dostupné čtečkám obrazovky. Styl je omezený na mobilní průchod.
+
+Výchozí průchod má tři kroky:
+
+1. **Oblast liquidu:** vyznačte jednu nebo více oblastí. Během kreslení je vidět
+   jednoduchá modrá maska. **Další** ji promění ve společný liquidový povrch.
+   Tahy se slučují, guma ubírá lokálně a šířka štětce mění pouze oblast, nikoli
+   měřítko vzoru. Zpět/znovu i návrat z dalšího kroku zachovávají oblast.
+   Ze společného pole celé oblasti vznikne turbulentní povrch, jeho obrys
+   a otvory. Teprve výsledný povrch se jednou obarví původní paletou;
+   barevné tvary se na sebe nevrství. Přirozený obrys může přesahovat vyznačení.
+   Pohyb navazuje na původní kalibrované deformační pole a průběžně pokračuje
+   do nových stavů, bez zpětného přehrávání nebo restartu smyčky. Deformuje
+   společné pole celé oblasti v pevném měřítku a zachovává stejný výsledek při
+   seeku i exportu. Jemnější vzdálenostní pole udržuje hladké barevné přechody.
+   I uvnitř široké oblasti vznikají zaoblené kanálky a menší otvory v pevném
+   měřítku; vzdálenost od vnějšího okraje se nepoužívá jako plná výplň středu.
+   Mobilní průchod začíná s plnou kryvostí liquidu.
+2. **Kostičky:** nakreslete oblast skleněných kostiček nebo krok přeskočte.
+3. **Paleta:** vyberte Pastel, Festival nebo Modrou a potvrďte **Uložit obrázek**.
+   PNG v plném rozlišení otevře systémové sdílení, kde jej lze uložit do fotek,
+   pokud tuto volbu systém nabízí. Bez podpory sdílení se PNG stáhne jako soubor.
+
+Formát se přizpůsobí médiu (16:9, 9:16 nebo 1:1). Celý zdrojový obraz se zvětší na maximum dostupné plochy bez
+ořezu a deformace. Volné okraje vyplňuje světlejší rozmazaná pixelová kopie aktuálního média se sníženou sytostí;
+pozadí se aktualizuje při přehrávání i posunu času. Pruhy uvnitř výstupního formátu
+se stejným způsobem vyplní také při exportu. Ovládání je nad obrazem; při
+kreslení kroky, guma a navigace dočasně zmizí. Nahoře je jen menu 1–3 a guma,
+dole Nahrát/Zpátky a Další. Palety se zobrazí jako malé vzorníky ve třetím kroku.
+Rozložení funguje na výšku i na šířku. Samotný web nemůže zapisovat přímo do
+galerie bez systémového uložení. PNG se připravuje už při výběru palety,
+aby poslední klepnutí zachovalo oprávnění pro otevření sdílecího panelu v Safari.
+
+**Timeline** je stále vidět ve spodní kompaktní liště: přehrávání, aktuální čas,
+posuvník a značky klíčových snímků v jediném 40px řádku; délka videa je vidět po rozbalení. Video lze přehrát i posouvat
+bez rozbalení. Táhlo reaguje přímo na prst; načítání videa dohání poslední
+zvolený čas bez vracení táhla zpět. Během tažení se používá lehčí náhled, po
+puštění se obnoví plné rozlišení a připraví právě vybraný PNG snímek.
+Při náhledu se zobrazí hotový efekt, dotyk obrazu vrací kreslení.
+Lištu rozbalíte tahem nahoru nebo horní šipkou; dolů či Escape ji zase sbalíte.
+Rozbalená část nabízí přidání, úpravu a odstranění klíčových snímků.
+Rozbalení neposouvá výřez média.
+První otevření uchová výchozí tvar v čase 0. Vyberte nový čas a **Přidat +**:
+panel se zavře a pro aktivní efekt lze nakreslit nový cílový tvar. Předchozí
+snímek zůstává zachovaný. **Upravit →** otevře existující snímek ke kreslení.
+Morf začne automaticky 2 sekundy před cílovým snímkem; pokud jsou snímky blíž,
+využije jejich kratší interval. Před začátkem morfu se drží předchozí tvar.
+Kostičky plynule přecházejí mezi vybranými buňkami, paleta mezi svými barvami.
+Vybraný snímek kromě výchozího lze odstranit. Uložení obrázku zachytí aktuální čas.
+
+Původní podrobný editor zůstává dostupný na `/?editor=1`. V něm upravte efekt
+a použijte **Exportovat video**. Po dokončení tlačítko
 **Uložit soubor** otevře systémové sdílení nebo stáhne výsledek. Podporované obrázky
 PNG, JPEG, WebP a BMP se připraví jako tichá pětisekundová scéna. Aktuální snímek
 lze uložit přes **Exportovat obrázek (PNG)**. Sedm barev liquidu lze upravit
-samostatně nebo použít připravenou paletu; štětec má rozsah 60–1440 px. Nastavení včetně tahů
-štětců používá stejný JSON jako desktop. Průběh lze zrušit.
+samostatně nebo použít připravenou paletu; štětec má rozsah 60–1440 px. Nastavení
+používá stejný JSON jako desktop. Klíčové snímky mají verzi 6 a kompaktní masky,
+samostatné oblasti verzi 5; staré tahové kompozice se nadále ukládají ve verzi 4.
+Animace klíčových snímků se používá i při video exportu v podrobném editoru.
+Průběh lze zrušit.
 
 ## Export a kompatibilita
 
@@ -56,7 +115,11 @@ náhled, nekomprimovaný snímek exportu i zpětně přehrávané video.
 
 ## Ověření a záznam
 
-`npm test` spouští samostatný testovací server a prohlížeč přes vývojový Electron
+`npm test` ověřuje mobilní průchod na rozměrech 320–1440 px včetně orientace na
+šířku, masku, gumu, historii, návraty mezi kroky, palety a skutečné PNG. Sdílení
+ověřuje zachycením předaného souboru; nativní systémový panel tím není otestovaný.
+Snímky a protokol jsou v `test-results/flow/`. Dále kontroluje původní editor,
+video export a synchronizaci zvuku. Spouští samostatný testovací server a prohlížeč přes vývojový Electron
 z `../desktop/node_modules/`. FFmpeg z desktopových závislostí se používá pouze
 pro testovací vstupy a nezávislou analýzu výsledků. Nejde o webový exportní backend.
 
@@ -74,8 +137,10 @@ stejné UI a skutečný export. Přes lokální testovací endpoint pak uloží 
 MP4, screenshoty a protokol. Tyto endpointy jsou vypnuté bez `LIQUID_QA=1`
 a nejsou součástí statického produkčního balíčku.
 
-Ověřeno v Safari 26.5 na iPhone 17 Pro simulátoru a v Chromium/Electron.
-Výkon a paměťové limity fyzického iPhonu je třeba ověřit zvlášť.
+Původní video editor byl ověřen v Safari 26.5 na iPhone 17 Pro simulátoru a v
+Chromium/Electron. Nový mobilní průchod je ověřen v desktop Chromium/Electron
+s mobilními rozměry viewportu. Nový průchod a skutečné uložení do fotek je
+potřeba ještě ověřit na fyzickém telefonu.
 
 ## GitHub Pages
 

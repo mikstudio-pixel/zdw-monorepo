@@ -11,7 +11,7 @@ const closed = new Promise(resolve => recorder.once('close', resolve));
 recorder.stderr.on('data', data => process.stdout.write(data));
 await new Promise(resolve => setTimeout(resolve, 700));
 try {
-  await exec('xcrun', ['simctl', 'openurl', device, `http://localhost:4174/__qa/?fixture=demo&record=${start}`]);
+  await exec('xcrun', ['simctl', 'openurl', device, `http://localhost:4174/__qa/?fixture=demo&editor=1&record=${start}`]);
   const captured = new Set();
   while (Date.now() - start < 180_000) {
     const events = (await readFile(`${directory}events.jsonl`, 'utf8')).trim().split('\n').map(line => JSON.parse(line)).filter(e => e.runId === String(start) && /iPhone/.test(e.userAgent));

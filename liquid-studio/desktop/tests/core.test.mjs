@@ -44,6 +44,18 @@ test('Metadata normalizes SAR/rotation and rejects HDR, interlacing, missing dur
   assert.throws(() => describe({ field_order: 'tt' }), /Prokládané/);
   assert.throws(() => describe({ duration: 'N/A' }), /délku/);
 });
+test('Whole-media fitting preserves every edge and the source aspect for any output format', () => {
+  for (const source of [2.35, 16 / 9, 4 / 3, 1, 9 / 16]) for (const target of [16 / 9, 1, 9 / 16]) {
+    const settings = { ...DEFAULTS, mediaFit: 'contain' };
+    const { scale, offset } = cropTransform(source, target, settings);
+    assert.ok(Math.abs(target * scale[1] / scale[0] - source) < 1e-9, 'No stretching');
+    scale.forEach((size, i) => {
+      assert.ok(-offset[i] / size >= 0 && (1 - offset[i]) / size <= 1 + 1e-9, 'Both original edges are visible');
+    });
+    assert.equal(parseSettings(serializeSettings(settings)).mediaFit, 'contain');
+  }
+  assert.throws(() => validateSettings({ mediaFit: 'cover' }));
+});
 test('Raw frame reader handles arbitrary chunk boundaries and detects truncation', async () => {
   const input = Buffer.from(Array.from({ length: 60 }, (_, i) => i));
   const frames = [];
