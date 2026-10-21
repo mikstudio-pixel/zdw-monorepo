@@ -20,9 +20,11 @@ funguje bez sítě; offline start aplikace není součástí této verze. Pro mo
 používejte Liquid Studio přidané na plochu jako samostatnou webovou aplikaci
 bez lišt Safari, nikoli běžný panel prohlížeče.
 
-Po otevření se automaticky načte úvodní video Zlin Design Week jako připravená
-ukázka. Mobilní průchod používá její verzi na výšku 9:16 (1080 × 1920),
-vytvořenou středovým ořezem původního videa. Přehrávání začíná pozastavené. Tlačítkem **Nahrát** v prvním kroku
+Po otevření se automaticky načte video `ZDW_vrstvy_40s.mov` jako připravená
+ukázka dlouhá přibližně 38,5 sekundy se zvukem. Mobilní průchod používá její
+verzi na výšku 9:16 (1080 × 1920), vytvořenou středovým ořezem původního videa.
+Podrobný editor používá stejný klip v původním formátu 16:9.
+Přehrávání začíná pozastavené. Tlačítkem **Nahrát** v prvním kroku
 je nahradíte vlastním videem či obrázkem.
 
 Ovládání používá vzhled Windows XP se šedým ikonovým menu podle Malování,
@@ -47,36 +49,44 @@ Výchozí průchod má tři kroky:
    měřítku; vzdálenost od vnějšího okraje se nepoužívá jako plná výplň středu.
    Mobilní průchod začíná s plnou kryvostí liquidu.
 2. **Kostičky:** nakreslete oblast skleněných kostiček nebo krok přeskočte.
-3. **Paleta:** vyberte Pastel, Festival nebo Modrou a potvrďte **Uložit obrázek**.
-   PNG v plném rozlišení otevře systémové sdílení, kde jej lze uložit do fotek,
-   pokud tuto volbu systém nabízí. Bez podpory sdílení se PNG stáhne jako soubor.
+3. **Paleta:** vyberte Pastel, Festival nebo Modrou. Tlačítko exportu podle
+   vloženého média uloží aktuální snímek jako PNG v plném rozlišení, nebo
+   připraví celé video MP4 se zvukem a animací klíčových snímků. Hotový soubor
+   lze sdílet nebo stáhnout. Systémové sdílení nabídne uložení do fotek, pokud tuto
+   volbu systém nabízí.
 
 Formát se přizpůsobí médiu (16:9, 9:16 nebo 1:1). Celý zdrojový obraz se zvětší na maximum dostupné plochy bez
 ořezu a deformace. Volné okraje vyplňuje světlejší rozmazaná pixelová kopie aktuálního média se sníženou sytostí;
 pozadí se aktualizuje při přehrávání i posunu času. Pruhy uvnitř výstupního formátu
 se stejným způsobem vyplní také při exportu. Ovládání je nad obrazem; při
 kreslení kroky, guma a navigace dočasně zmizí. Nahoře je jen menu 1–3 a guma,
-dole Nahrát/Zpátky a Další. Palety se zobrazí jako malé vzorníky ve třetím kroku.
+dole Nahrát/Zpátky a Další. Ve třetím kroku timeline nahradí spodní pruh
+s barevnými vzorníky; při větším počtu témat se posouvá vodorovně.
 Rozložení funguje na výšku i na šířku. Samotný web nemůže zapisovat přímo do
-galerie bez systémového uložení. PNG se připravuje už při výběru palety,
+galerie bez systémového uložení. U obrázku se PNG připravuje už při výběru palety,
 aby poslední klepnutí zachovalo oprávnění pro otevření sdílecího panelu v Safari.
 
-**Timeline** je stále vidět ve spodní kompaktní liště: přehrávání, aktuální čas,
-posuvník a značky klíčových snímků v jediném 40px řádku; délka videa je vidět po rozbalení. Video lze přehrát i posouvat
-bez rozbalení. Táhlo reaguje přímo na prst; načítání videa dohání poslední
+U fotografie je spodní lišta v prvních dvou krocích skrytá a navigační tlačítka
+jsou u spodního okraje. Ve třetím kroku se zobrazí lišta s barevnými tématy.
+Fotografie se v průvodci načítají přímo, bez převodu na video a bez kodéru
+WebCodecs. Rozpoznávají se podle typu souboru i přípony (včetně HEIC/HEIF,
+pokud je prohlížeč umí otevřít). Načítání lze zrušit; po 15 sekundách se při
+neúspěšném dekódování zobrazí chyba.
+
+**Timeline videa** je v prvních dvou krocích vidět ve spodní 60px liště: vlevo je
+ikona klíčového snímku s pluskem, následuje aktuální čas, posuvník se značkami
+a vpravo přehrávání. Lišta se nevysouvá. Táhlo reaguje přímo na prst; načítání videa dohání poslední
 zvolený čas bez vracení táhla zpět. Během tažení se používá lehčí náhled, po
 puštění se obnoví plné rozlišení a připraví právě vybraný PNG snímek.
 Při náhledu se zobrazí hotový efekt, dotyk obrazu vrací kreslení.
-Lištu rozbalíte tahem nahoru nebo horní šipkou; dolů či Escape ji zase sbalíte.
-Rozbalená část nabízí přidání, úpravu a odstranění klíčových snímků.
-Rozbalení neposouvá výřez média.
-První otevření uchová výchozí tvar v čase 0. Vyberte nový čas a **Přidat +**:
-panel se zavře a pro aktivní efekt lze nakreslit nový cílový tvar. Předchozí
-snímek zůstává zachovaný. **Upravit →** otevře existující snímek ke kreslení.
+Vyberte nový čas a klepněte na ikonu s pluskem: přehrávání se pozastaví a pro
+aktivní efekt lze rovnou nakreslit nový cílový tvar. První přidání uchová také
+výchozí tvar v čase 0. Předchozí snímek zůstává zachovaný. Na existujícím
+klíčovém snímku stejná ikona otevře jeho úpravu bez vytvoření kopie.
 Morf začne automaticky 2 sekundy před cílovým snímkem; pokud jsou snímky blíž,
 využije jejich kratší interval. Před začátkem morfu se drží předchozí tvar.
 Kostičky plynule přecházejí mezi vybranými buňkami, paleta mezi svými barvami.
-Vybraný snímek kromě výchozího lze odstranit. Uložení obrázku zachytí aktuální čas.
+Uložení obrázku zachytí aktuální čas.
 
 Původní podrobný editor zůstává dostupný na `/?editor=1`. V něm upravte efekt
 a použijte **Exportovat video**. Po dokončení tlačítko

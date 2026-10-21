@@ -21,6 +21,9 @@ const seekTo = time => { video.currentTime = time + (media?.startTime || 0); };
 // Keep decoded frames alive and available for requestVideoFrameCallback.
 video.hidden = true; document.body.append(video);
 const formatTime = time => `${String(Math.floor(time / 60)).padStart(2, '0')}:${(time % 60).toFixed(2).padStart(5, '0')}`;
+const formatTimelineTime = time => areaMode
+  ? `${String(Math.floor(time / 60)).padStart(2, '0')}:${String(Math.floor(time) % 60).padStart(2, '0')}`
+  : formatTime(time);
 function seekLatestFrame() {
   if (video.seeking || requestedFrame === null) return;
   const time = requestedFrame / FPS;
@@ -177,7 +180,7 @@ function syncControls() {
   $('export-spec').textContent = `MP4 / H.264 · ${resolution} · 30 fps · ${media?.hasAudio === false ? 'bez zvuku' : 'synchronizovaný zvuk'}`;
 }
 function draw(upload = false, time = frameTime) {
-  if (!renderer || !media || video.readyState < 2) return;
+  if (!renderer || !media || (!media.isStill && video.readyState < 2)) return;
   try {
     if (upload) { renderer.upload(api.previewSource ? api.previewSource(video) : video); frameTime = time; }
     renderer.draw(settings, frameTime, { regions: editor?.maps, editing: editor?.editing,
@@ -187,13 +190,13 @@ function draw(upload = false, time = frameTime) {
   } catch (error) { video.pause(); showError(error); }
 }
 function videoFrame(_now, metadata) {
-  if (!busy && media && !video.seeking) {
+  if (!busy && media && !media.isStill && !video.seeking) {
     const time = Math.round(mediaTime(metadata.mediaTime) * FPS) / FPS;
     if (time !== frameTime) draw(true, time);
     // A decoded frame must not move the user's thumb back during a seek.
     if (!scrubbing && requestedFrame === null) {
       $('timeline').value = Math.min(media.frames - 1, Math.round(frameTime * FPS));
-      $('current-time').textContent = formatTime(frameTime);
+      $('current-time').textContent = formatTimelineTime(frameTime);
     }
     studioEvents.dispatchEvent(new Event('timechange'));
   }
@@ -201,6 +204,7 @@ function videoFrame(_now, metadata) {
 }
 video.requestVideoFrameCallback(videoFrame);
 video.addEventListener('seeked', () => {
+  if (media?.isStill) return;
   if (requestedFrame === Math.round(mediaTime(video.currentTime) * FPS)) requestedFrame = null;
   if (!busy) draw(true, Math.floor(mediaTime(video.currentTime) * FPS + 1e-5) / FPS);
   if (areaMode) seekLatestFrame();
@@ -222,11 +226,13 @@ function setBusy(value) {
   syncControls();
   notify();
 }
-function showStatus(title, message = '', { error = false, pending = false, success = false } = {}) {
+function showStatus(title, message = '', { error = false, pending = false, success = false, revealType, revealLabel } = {}) {
   $('status').hidden = false; $('status').classList.toggle('error', error);
   $('status-title').textContent = title; $('status-message').textContent = message;
   $('progress').hidden = !pending; $('cancel').hidden = !pending; $('cancel').disabled = false;
   $('reveal').hidden = !success; $('dismiss').hidden = pending;
+  if (revealType) $('reveal').dataset.exportType = revealType;
+  if (revealLabel) $('reveal').textContent = revealLabel;
 }
 function showError(error) { showStatus('Něco se nepovedlo', error.message || String(error), { error: true }); }
 async function unwrap(promise) {
@@ -238,7 +244,7 @@ function importVideo(file) { return importMedia(() => file ? api.importFile(file
 export async function importMedia(load) {
   if (busy || editor?.editing) return;
   setBusy(true); $('progress').value = 0;
-  showStatus('Připravujeme médium', '', { pending: true });
+  showStatus('Příprava média', '', { pending: true });
   try {
     const result = await unwrap(load());
     if (!result) { $('status').hidden = true; return; }
@@ -248,31 +254,36 @@ export async function importMedia(load) {
       settings.aspect = ratio > 1.2 ? '16:9' : ratio < .85 ? '9:16' : '1:1';
       syncControls();
     }
-    const loaded = new Promise((resolve, reject) => {
-      const cleanup = () => { clearTimeout(timeout); video.removeEventListener('loadeddata', ready); video.removeEventListener('seeked', firstFrame); video.removeEventListener('error', error); };
-      const firstFrame = () => { cleanup(); resolve(); };
-      const ready = () => {
-        video.addEventListener('seeked', firstFrame, { once: true });
-        seekTo(0);
-        if (!video.seeking) firstFrame();
-      };
-      const error = () => { cleanup(); reject(new Error('Nepodařilo se načíst náhled média.')); };
-      const timeout = setTimeout(error, 20000);
-      video.addEventListener('loadeddata', ready, { once: true }); video.addEventListener('error', error, { once: true });
-    });
-    video.src = result.url; video.load();
-    await loaded;
+    if (result.isStill) {
+      video.removeAttribute('src'); video.load();
+    } else {
+      const loaded = new Promise((resolve, reject) => {
+        const cleanup = () => { clearTimeout(timeout); video.removeEventListener('loadeddata', ready); video.removeEventListener('seeked', firstFrame); video.removeEventListener('error', error); };
+        const firstFrame = () => { cleanup(); resolve(); };
+        const ready = () => {
+          video.addEventListener('seeked', firstFrame, { once: true });
+          seekTo(0);
+          if (!video.seeking) firstFrame();
+        };
+        const error = () => { cleanup(); reject(new Error('Nepodařilo se načíst náhled média.')); };
+        const timeout = setTimeout(error, 20000);
+        video.addEventListener('loadeddata', ready, { once: true }); video.addEventListener('error', error, { once: true });
+      });
+      video.src = result.url; video.load();
+      await loaded;
+    }
     $('empty').hidden = true; $('preview').hidden = false;
     $('file-name').textContent = result.name;
     const soundText = result.isImage ? 'obrázek' : result.hasAudio ? 'se zvukem' : 'bez zvuku';
-    $('file-info').textContent = `${result.width} × ${result.height} · ${formatTime(result.duration)} · 30 fps · ${soundText}`;
+    $('file-info').textContent = result.isStill ? `${result.width} × ${result.height} · obrázek`
+      : `${result.width} × ${result.height} · ${formatTime(result.duration)} · 30 fps · ${soundText}`;
     if (!areaMode) $('replace-video').textContent = result.isImage ? 'Změnit obrázek' : 'Změnit video';
     $('timeline').max = result.frames - 1; $('timeline').value = 0;
-    $('duration').textContent = formatTime(result.duration); $('current-time').textContent = formatTime(0);
+    $('duration').textContent = formatTime(result.duration); $('current-time').textContent = formatTimelineTime(0);
     $('status').hidden = true;
     draw(true, 0);
     studioEvents.dispatchEvent(new Event('mediachange'));
-  } catch (error) { error.cancelled ? showStatus('Příprava byla zrušena') : showError(error); }
+  } catch (error) { error.cancelled ? showStatus('Příprava média byla zrušena') : showError(error); }
   finally { setBusy(false); }
 }
 $('choose-video').onclick = () => importVideo(); $('replace-video').onclick = () => importVideo();
@@ -290,7 +301,7 @@ $('liquid').onchange = () => { settings.liquid = $('liquid').checked; selectPres
 $('center-crop').onclick = () => { Object.assign(settings, { cropX: 50, cropY: 50, cropZoom: 100 }); syncControls(); draw(); };
 $('reset').onclick = () => { settings = { ...DEFAULTS, regions: settings.regions }; selectPreset('signature'); syncControls(); draw(); };
 $('play').onclick = async () => {
-  if (busy || !media || editor?.editing) return;
+  if (busy || !media || media.isStill || editor?.editing) return;
   if (!video.paused) { video.pause(); return; }
   if (areaMode) timelinePreview = true;
   if (video.ended || mediaTime(video.currentTime) >= media.duration - 1 / FPS) seekTo(0);
@@ -305,7 +316,7 @@ $('timeline').oninput = () => {
     requestedFrame = Math.max(0, Math.min(media.frames - 1, Math.round(time * FPS)));
     seekLatestFrame();
   } else seekTo(time);
-  $('current-time').textContent = formatTime(time);
+  $('current-time').textContent = formatTimelineTime(time);
   studioEvents.dispatchEvent(new Event('timechange'));
 };
 document.addEventListener('keydown', event => {
@@ -329,17 +340,21 @@ $('preview').addEventListener('pointermove', event => {
 });
 for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) $('preview').addEventListener(event, () => { drag = null; });
 let exportStart;
-$('export').onclick = async () => {
+async function exportVideo() {
   if (busy || !media || editor?.editing) return;
   setBusy(true); exportStart = performance.now(); $('progress').value = 0;
   showStatus('Exportujeme video', '', { pending: true });
   try {
     const result = await unwrap(api.exportVideo(settings));
-    if (result) showStatus('Video je připravené', `${result.width} × ${result.height} · ${result.frames} snímků · ${formatTime(result.duration)}\n${result.path}`, { success: true });
+    if (result) showStatus('Video je připravené', `${result.width} × ${result.height} · ${result.frames} snímků · ${formatTime(result.duration)}\n${result.path}`, {
+      success: true, revealType: 'video', revealLabel: areaMode ? 'Uložit video' : 'Zobrazit soubor',
+    });
     else $('status').hidden = true;
+    return result;
   } catch (error) { error.cancelled ? showStatus('Export byl zrušen', 'Rozpracovaný soubor byl odstraněn.') : showError(error); }
   finally { setBusy(false); draw(); }
-};
+}
+$('export').onclick = () => exportVideo();
 async function exportImage(announce = true) {
   if (busy || !media || editor?.editing) return;
   setBusy(true);
@@ -355,7 +370,9 @@ async function exportImage(announce = true) {
     ctx.putImageData(imgData, 0, 0);
     const dataUrl = offscreen.toDataURL('image/png');
     const result = await unwrap(api.exportImage(dataUrl));
-    if (result && announce) showStatus('Snímek je připravený', `${width} × ${height} · PNG\n${result.path}`, { success: true });
+    if (result && announce) showStatus('Snímek je připravený', `${width} × ${height} · PNG\n${result.path}`, {
+      success: true, revealType: 'image', revealLabel: areaMode ? 'Uložit obrázek' : 'Zobrazit soubor',
+    });
     else $('status').hidden = true;
     return result;
   } catch (error) { showError(error); }
@@ -364,7 +381,7 @@ async function exportImage(announce = true) {
 $('export-image').onclick = () => exportImage();
 api.onProgress(value => {
   $('progress').value = value.progress;
-  if (value.kind === 'prepare') $('status-message').textContent = `Lokální příprava náhledu a synchronizace zvuku · ${Math.round(value.progress * 100)} %`;
+  if (value.kind === 'prepare') $('status-message').textContent = `Příprava náhledu a synchronizace zvuku · ${Math.round(value.progress * 100)} %`;
   else if (value.phase === 'render') {
     const elapsed = (performance.now() - exportStart) / 1000;
     const remaining = value.frames > 5 ? ` · zbývá přibližně ${formatTime(elapsed / value.frames * (value.total - value.frames))}` : '';
@@ -373,7 +390,7 @@ api.onProgress(value => {
 });
 $('cancel').onclick = async () => { $('cancel').disabled = true; $('status-title').textContent = 'Rušíme zpracování…'; try { await unwrap(api.cancel()); } catch (error) { showError(error); } };
 $('dismiss').onclick = () => { $('status').hidden = true; };
-$('reveal').onclick = async () => { try { await unwrap(api.revealExport()); } catch (error) { showError(error); } };
+$('reveal').onclick = async () => { try { await unwrap(api.revealExport($('reveal').dataset.exportType)); } catch (error) { showError(error); } };
 $('save-settings').onclick = async () => { try { if (await unwrap(api.saveSettings(settings))) showStatus('Nastavení je uložené'); } catch (error) { showError(error); } };
 $('load-settings').onclick = async () => { try { const value = await unwrap(api.loadSettings()); if (value) { settings = validateSettings(value); selectPreset(null); syncControls(); draw(); showStatus('Nastavení je načtené'); } } catch (error) { showError(error); } };
 $('preview').addEventListener('webglcontextlost', event => { event.preventDefault(); video.pause(); renderer = null; setBusy(busy); showError(new Error('Grafický kontext byl přerušen. Restartujte aplikaci; uložená nastavení můžete znovu načíst.')); });
@@ -404,6 +421,7 @@ function commitLayer() {
 }
 export const studio = {
   get ready() { return Boolean(media && renderer); },
+  get isImage() { return Boolean(media?.isImage); },
   get busy() { return busy; },
   get drawing() { return Boolean(editor.stroke); },
   get seeking() { return video.seeking || requestedFrame !== null; },
@@ -414,6 +432,7 @@ export const studio = {
   get frames() { return media?.frames || 1; },
   get keyframes() { return settings.keyframes || []; },
   get colors() { return settings.liquidColors; },
+  exportVideo,
   hasArea(layer) { return Boolean((editor.maps || new RegionMaps(settings.regions)).layers[layer].some(value => value >= 128)); },
   chooseTool(tool) { editor.choose(tool); },
   editLayer(layer) { editor.choose(layer); },

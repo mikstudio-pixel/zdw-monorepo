@@ -1,9 +1,11 @@
-import { inspectVideo, renderVideo, prepareImage } from './media.js';
-import { parseSettings, serializeSettings } from '../../desktop/shared/settings.js';
+import { inspectVideo, renderVideo, prepareImage, prepareStillImage } from './media.js';
+import { FPS, parseSettings, serializeSettings } from '../../desktop/shared/settings.js';
 import { MAX_SETTINGS_BYTES } from '../../desktop/shared/regions.js';
 import { PixelBackdrop } from './pixel-backdrop.js';
 
-let current, previewUrl, exported, exportedUrl, controller;
+let current, previewUrl, controller, stillSource, latestExport = 'image';
+const outputs = { image: null, video: null };
+const outputUrls = { image: null, video: null };
 let backdrop;
 const listeners = new Set();
 const previewCanvas = document.createElement('canvas');
@@ -38,12 +40,20 @@ async function importFile(file, { defaultVideo = false } = {}) {
       if (!response.ok) throw new Error('Ukázkové video se nepodařilo načíst. Vložte vlastní soubor.');
       file = new File([await response.blob()], portrait ? 'ZDW – úvodní video na výšku.mp4' : 'ZDW – úvodní video.mp4', { type: 'video/mp4' });
     }
-    const isImage = /\.(png|jpe?g|webp|bmp)$/i.test(file.name);
-    if (isImage) file = await prepareImage(file, controller.signal);
-    const info = await inspectVideo(file, controller.signal);
+    const isImage = /^image\//i.test(file.type) || /\.(png|jpe?g|webp|bmp|heic|heif|avif|gif)$/i.test(file.name);
+    const still = isImage && window.liquid.regionMode === 'area' ? await prepareStillImage(file, controller.signal) : null;
+    if (isImage && !still) file = await prepareImage(file, controller.signal);
+    const info = still ? { name: file.name, width: still.width, height: still.height, startTime: 0,
+      duration: 1 / FPS, frames: 1, fps: FPS, hasAudio: false } : await inspectVideo(file, controller.signal);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
-    current = file; previewUrl = URL.createObjectURL(file);
-    return { ...info, url: previewUrl, isImage };
+    for (const type of ['image', 'video']) {
+      if (outputUrls[type]) URL.revokeObjectURL(outputUrls[type]);
+      outputs[type] = outputUrls[type] = null;
+    }
+    latestExport = 'image';
+    if (stillSource) stillSource.width = stillSource.height = 1;
+    current = file; stillSource = still; previewUrl = still ? null : URL.createObjectURL(file);
+    return { ...info, url: previewUrl, isImage, isStill: Boolean(still) };
   } finally { controller = null; }
 }
 window.liquid = {
@@ -51,38 +61,44 @@ window.liquid = {
   // Normalize through RGB, just like decoded export frames. This also avoids
   // Safari simulator's NV12-to-WebGL texture upload color corruption.
   previewSource: video => {
-    if (previewCanvas.width !== video.videoWidth || previewCanvas.height !== video.videoHeight) {
-      previewCanvas.width = video.videoWidth; previewCanvas.height = video.videoHeight;
+    const width = stillSource ? stillSource.width : video.videoWidth;
+    const height = stillSource ? stillSource.height : video.videoHeight;
+    if (previewCanvas.width !== width || previewCanvas.height !== height) {
+      previewCanvas.width = width; previewCanvas.height = height;
     }
-    previewContext.drawImage(video, 0, 0);
+    previewContext.drawImage(stillSource || video, 0, 0);
     if (window.liquid.regionMode === 'area') (backdrop ||= new PixelBackdrop()).draw(previewCanvas);
     return previewCanvas;
   },
-  chooseVideo: () => wrap(async () => importFile(await pick('video/*,.mp4,.mov,.m4v,.webm,.png,.jpg,.jpeg,.webp,.bmp'))),
+  chooseVideo: () => wrap(async () => importFile(await pick('video/*,image/*,.mp4,.mov,.m4v,.webm,.png,.jpg,.jpeg,.webp,.bmp,.heic,.heif,.avif,.gif'))),
   importFile: file => wrap(() => importFile(file)),
   exportVideo: settings => wrap(async () => {
     if (!current) throw new Error('Nejdříve vložte video.');
     controller = new AbortController();
     try {
-      const result = await renderVideo(current, settings, { signal: controller.signal, onProgress: progress });
-      if (exportedUrl) URL.revokeObjectURL(exportedUrl);
-      exported = result.file; exportedUrl = URL.createObjectURL(exported);
-      return { ...result, url: exportedUrl };
+      const input = stillSource ? await prepareImage(current, controller.signal) : current;
+      const result = await renderVideo(input, settings, { signal: controller.signal, onProgress: progress });
+      if (outputUrls.video) URL.revokeObjectURL(outputUrls.video);
+      outputs.video = result.file; outputUrls.video = URL.createObjectURL(outputs.video);
+      latestExport = 'video';
+      return { ...result, url: outputUrls.video };
     } finally { controller = null; }
   }),
   cancel: () => wrap(async () => { controller?.abort(); }),
   exportImage: dataUrl => wrap(async () => {
     if (!current) throw new Error('Nejdříve vložte médium.');
     const bytes = Uint8Array.from(atob(dataUrl.split(',')[1]), character => character.charCodeAt(0));
-    exported = new File([bytes], `${current.name.replace(/\.[^.]+$/, '')}-liquid.png`, { type: 'image/png' });
-    if (exportedUrl) URL.revokeObjectURL(exportedUrl);
-    exportedUrl = URL.createObjectURL(exported);
-    return { path: exported.name, url: exportedUrl };
+    outputs.image = new File([bytes], `${current.name.replace(/\.[^.]+$/, '')}-liquid.png`, { type: 'image/png' });
+    if (outputUrls.image) URL.revokeObjectURL(outputUrls.image);
+    outputUrls.image = URL.createObjectURL(outputs.image);
+    latestExport = 'image';
+    return { path: outputs.image.name, url: outputUrls.image };
   }),
-  revealExport: () => wrap(async () => {
-    if (!exported) return;
-    if (navigator.canShare?.({ files: [exported] })) await navigator.share({ files: [exported] });
-    else download(exported, exported.name);
+  revealExport: type => wrap(async () => {
+    const file = outputs[type === 'video' || type === 'image' ? type : latestExport];
+    if (!file) return;
+    if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file] });
+    else download(file, file.name);
   }),
   saveSettings: settings => wrap(async () => { download(new Blob([serializeSettings(settings)], { type: 'application/json' }), 'liquid-settings.json'); return true; }),
   loadSettings: () => wrap(async () => {

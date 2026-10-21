@@ -8,6 +8,41 @@ const cancelled = () => new DOMException('Zpracování bylo zrušeno.', 'AbortEr
 const check = signal => { if (signal?.aborted) throw cancelled(); };
 class VideoInputError extends Error {}
 
+// Guided photo editing needs a decoded still, without a video encoder/player.
+export async function prepareStillImage(file, signal) {
+  if (!file.size || file.size > 300 * 1024 * 1024) throw new Error('Vyberte obrázek do 300 MB.');
+  check(signal);
+  const image = new Image(), url = URL.createObjectURL(file);
+  let timeout, abort;
+  try {
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error('Fotku nelze otevřít. Zkuste ji uložit jako JPEG nebo PNG a vložit znovu.'));
+      abort = () => reject(cancelled());
+      signal?.addEventListener('abort', abort, { once: true });
+      timeout = setTimeout(() => reject(new Error('Načtení fotky trvá příliš dlouho. Zkuste ji vložit znovu jako JPEG nebo PNG.')), 15000);
+      image.src = url;
+      if (signal?.aborted) abort();
+    });
+    check(signal);
+    const width = image.naturalWidth, height = image.naturalHeight;
+    if (!width || !height) throw new Error('Fotka nemá platné rozměry.');
+    if (width > 8192 || height > 8192) throw new Error('Obrázek je příliš velký. Maximum je 8192 px na stranu.');
+    const scale = Math.min(1, 1920 / Math.max(width, height), Math.sqrt(1920 * 1080 / (width * height)));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    canvas.getContext('2d', { alpha: false }).drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', abort);
+    image.onload = image.onerror = null;
+    image.removeAttribute('src');
+    URL.revokeObjectURL(url);
+  }
+}
+
 // Normalize stills to a short local video so the shared player, timeline and
 // frame-by-frame exporter use the same path for images and videos.
 export async function prepareImage(file, signal) {

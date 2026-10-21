@@ -1,6 +1,6 @@
 import './bridge.js';
 import { mountFlow, startFlow } from './flow.js';
-const guided = !new URLSearchParams(location.search).has('editor');
+const guided = document.body.classList.contains('guided');
 if (guided) { mountFlow(); window.liquid.regionMode = 'area'; }
 const { importMedia, studio, studioEvents } = await import('../../desktop/renderer/app.js');
 document.getElementById('reveal').textContent = 'Uložit soubor';

@@ -1,27 +1,19 @@
 const $ = id => document.getElementById(id);
 const timeLabel = frame => `${Math.floor(frame / 1800)}:${String(Math.floor(frame / 30) % 60).padStart(2, '0')}.${String(frame % 30).padStart(2, '0')}`;
 
-export function setupTimeline({ studio, events, locked, onOpenChange, onPreview, onSettled, getLayer }) {
-  const toggle = $('timeline-toggle'), range = $('timeline'), track = range.parentElement;
-  let open = false, gesture = null, suppressClick = false, markers = null, scrub = null, settledTimer;
-  const preview = () => { clearTimeout(settledTimer); onPreview(); };
-  const settle = () => {
-    clearTimeout(settledTimer);
-    if (studio.scrubbing || studio.playing || studio.seeking) return;
-    settledTimer = setTimeout(() => {
-      if (!studio.scrubbing && !studio.playing && !studio.seeking) onSettled();
-    }, 100);
-  };
+export function setupTimeline({ studio, events, locked, onPreview, onEdit, getLayer }) {
+  const add = $('timeline-add'), range = $('timeline'), track = range.parentElement;
+  let markers = null, scrub = null;
+  const preview = (seed = false) => onPreview(seed);
   const updateTime = () => {
-    $('timeline').style.setProperty('--progress', `${studio.frame / Math.max(1, studio.frames - 1) * 100}%`);
-    for (const id of ['timeline-add', 'timeline-remove']) $(id).disabled = locked() || !open || studio.seeking;
+    track.style.setProperty('--progress', `${studio.frame / Math.max(1, studio.frames - 1) * 100}%`);
+    add.disabled = locked() || studio.seeking || studio.scrubbing;
     const selected = studio.keyframes.some(key => key.frame === studio.frame);
-    $('timeline-add').textContent = selected ? 'Upravit →' : 'Přidat +';
-    $('timeline-remove').hidden = !selected || studio.frame === 0;
+    add.title = selected ? 'Upravit klíčový snímek' : 'Přidat klíčový snímek';
+    add.setAttribute('aria-label', add.title);
     for (const button of $('timeline-markers').children) button.setAttribute('aria-pressed', String(Number(button.dataset.frame) === studio.frame));
   };
   const sync = () => {
-    toggle.disabled = locked();
     for (const id of ['play', 'timeline']) $(id).disabled = locked();
     if (markers !== studio.keyframes) {
       markers = studio.keyframes;
@@ -38,50 +30,33 @@ export function setupTimeline({ studio, events, locked, onOpenChange, onPreview,
     for (const button of $('timeline-markers').children) button.disabled = locked();
     updateTime();
   };
-  const setOpen = (value, notify = true) => {
-    if (value === open) return;
-    clearTimeout(settledTimer);
-    open = value;
-    document.body.dataset.timelineOpen = String(open);
-    $('timeline-actions').inert = !open;
-    toggle.setAttribute('aria-expanded', String(open));
-    toggle.setAttribute('aria-label', open ? 'Sbalit timeline videa' : 'Rozbalit timeline videa');
-    if (notify) onOpenChange(open);
-    sync();
-  };
-  toggle.onclick = () => {
-    if (suppressClick) { suppressClick = false; return; }
-    setOpen(!open);
-  };
-  toggle.addEventListener('pointerdown', event => {
-    if (locked() || event.button !== 0) return;
-    gesture = { id: event.pointerId, y: event.clientY };
-    toggle.setPointerCapture(event.pointerId);
-  });
-  toggle.addEventListener('pointerup', event => {
-    if (!gesture || event.pointerId !== gesture.id) return;
-    const distance = gesture.y - event.clientY;
-    gesture = null;
-    if (Math.abs(distance) > 24) {
-      suppressClick = true; setOpen(distance > 0);
-      setTimeout(() => { suppressClick = false; }, 0);
-    }
-    if (toggle.hasPointerCapture(event.pointerId)) toggle.releasePointerCapture(event.pointerId);
-  });
-  toggle.addEventListener('pointercancel', () => { gesture = null; });
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && open) { event.preventDefault(); setOpen(false); toggle.focus(); }
-  });
-  $('timeline-add').onclick = () => { studio.addKeyframe(getLayer()); setOpen(false); };
-  $('timeline-remove').onclick = () => studio.removeKeyframe();
   const play = $('play').onclick, seek = $('timeline').oninput;
-  $('play').onclick = async () => { preview(); await play(); settle(); };
+  add.onclick = async () => {
+    if (add.disabled) return;
+    if (studio.playing) await play();
+    preview(true);
+    studio.addKeyframe(getLayer());
+    onEdit();
+  };
+  $('play').onclick = () => { preview(); return play(); };
   range.oninput = () => { preview(); seek(); };
   const scrubTo = (x, force = false) => {
     const box = range.getBoundingClientRect();
-    const fraction = Math.max(0, Math.min(1, (x - box.left - 6) / Math.max(1, box.width - 12)));
-    const frame = scrub.marker !== null && Math.abs(x - scrub.startX) < 6
-      ? scrub.marker : Math.round(fraction * (studio.frames - 1));
+    const thumbInset = 6, travel = Math.max(1, box.width - thumbInset * 2);
+    const start = box.left + thumbInset;
+    const fraction = Math.max(0, Math.min(1, (x - start) / travel));
+    const maxFrame = Math.max(1, studio.frames - 1);
+    let frame = Math.round(fraction * maxFrame);
+    if (scrub.marker !== null && Math.abs(x - scrub.startX) < 6) frame = scrub.marker;
+    else {
+      let nearest = null;
+      for (const key of studio.keyframes) {
+        const markerX = start + key.frame / maxFrame * travel;
+        const distance = Math.abs(markerX - x);
+        if (!nearest || distance < nearest.distance) nearest = { frame: key.frame, distance };
+      }
+      if (nearest?.distance <= 10) frame = nearest.frame;
+    }
     if (!force && Number(range.value) === frame) return;
     range.value = frame; range.oninput();
   };
@@ -102,7 +77,7 @@ export function setupTimeline({ studio, events, locked, onOpenChange, onPreview,
     if (event?.type === 'pointerup') scrubTo(event.clientX);
     const id = scrub.id; scrub = null;
     if (track.hasPointerCapture(id)) track.releasePointerCapture(id);
-    studio.setScrubbing(false); settle();
+    studio.setScrubbing(false); updateTime();
   };
   for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) track.addEventListener(event, finishScrub);
   window.addEventListener('blur', () => finishScrub());
@@ -111,9 +86,6 @@ export function setupTimeline({ studio, events, locked, onOpenChange, onPreview,
   track.addEventListener('click', event => {
     if (event.detail > 0) { event.preventDefault(); event.stopPropagation(); }
   }, { capture: true });
-  events.addEventListener('timechange', () => {
-    updateTime();
-    settle();
-  });
-  return { sync, close: () => setOpen(false), reset: () => setOpen(false, false) };
+  events.addEventListener('timechange', updateTime);
+  return { sync };
 }

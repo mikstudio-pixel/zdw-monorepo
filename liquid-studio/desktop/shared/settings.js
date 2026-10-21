@@ -20,6 +20,7 @@ export function liquidPaletteFloats(colors = DEFAULT_LIQUID_COLORS) {
 
 export const FPS = 30;
 export const FORMATS = { '16:9': [1920, 1080], '9:16': [1080, 1920], '1:1': [1080, 1080] };
+export const GLASS_SIZE_SCALE = .7;
 export const DEFAULTS = Object.freeze({
   aspect: '16:9', size: 146, strength: 100, aberration: 100, blur: 0,
   liquid: false, opacity: 65, liquidStructure: 50, cropX: 50, cropY: 50, cropZoom: 100,

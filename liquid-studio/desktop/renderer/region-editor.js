@@ -1,5 +1,5 @@
 import { canvasPoint } from '../shared/regions.js';
-import { FORMATS } from '../shared/settings.js';
+import { FORMATS, GLASS_SIZE_SCALE } from '../shared/settings.js';
 
 const $ = id => document.getElementById(id);
 const brushes = {
@@ -131,7 +131,7 @@ export class RegionEditor {
     const from = this.stroke.last || point, diameter = Number($('brush-size').value);
     try {
       this.targets().forEach(layer => {
-        if (layer === 'glass' && this.tool === 'erase') this.maps.eraseGlass(from, point, diameter, w / h, settings.size);
+        if (layer === 'glass' && this.tool === 'erase') this.maps.eraseGlass(from, point, diameter, w / h, settings.size * GLASS_SIZE_SCALE);
         else if (layer === 'liquid' && this.tool === 'erase' && this.maps.liquidMode !== 'area') this.maps.eraseLiquid(from, point, diameter, w / h,
           this.stroke.liquidCoverage ||= this.liquidCoverage(this.maps));
         else this.maps.paint(layer, from, point, diameter, w / h, this.tool === 'erase');

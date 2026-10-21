@@ -1,7 +1,7 @@
 import { LiquidSource } from '../vendor/liquid-source.js';
 import { createDeformationTexture, bindDeformation } from '../vendor/liquid-deformation.js';
 import { vertex, sourceFragment, glassFragment } from '../vendor/shaders.js';
-import { cropTransform, FORMATS, FPS, liquidPaletteFloats } from '../shared/settings.js';
+import { cropTransform, FORMATS, FPS, GLASS_SIZE_SCALE, liquidPaletteFloats } from '../shared/settings.js';
 import { sampleKeyframes } from '../shared/keyframes.js';
 import { RegionMaps, REGION_SIZE } from '../shared/regions.js';
 import { liquidGuides, liquidScale, MAX_LIQUID_GUIDES } from '../shared/liquid-guides.js';
@@ -259,7 +259,7 @@ export class VideoRenderer {
       const { program, uniforms } = this.legacyMaskProgram;
       gl.useProgram(program); bindDeformation(gl, this.deformationTexture, uniforms); this.liquidSource.bind(uniforms); gl.bindVertexArray(this.vao); gl.viewport(0, 0, REGION_SIZE, REGION_SIZE);
       gl.uniform2fv(uniforms.u_resolution, FORMATS[settings.aspect]);
-      gl.uniform1f(uniforms.u_time, time); gl.uniform1f(uniforms.u_size, settings.size);
+      gl.uniform1f(uniforms.u_time, time); gl.uniform1f(uniforms.u_size, settings.size * GLASS_SIZE_SCALE);
       gl.uniform1f(uniforms.u_liquidStructure, (settings.liquidStructure ?? 50) / 100);
       gl.uniform1f(uniforms.u_liquidScale, liquidScale(settings.liquidStructure));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -291,7 +291,7 @@ export class VideoRenderer {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, REGION_SIZE, REGION_SIZE, 0, gl.RGBA, gl.UNSIGNED_BYTE, maps.textureData());
     }
     if (changed || this.tileSize !== settings.size || this.tileAspect !== aspect) {
-      this.tiles = maps.tiles(settings.size, aspect);
+      this.tiles = maps.tiles(settings.size * GLASS_SIZE_SCALE, aspect);
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.tileTexture);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, ...this.tiles.count, 0, gl.RED, gl.UNSIGNED_BYTE, this.tiles.data);
       this.tileSize = settings.size; this.tileAspect = aspect;
@@ -337,7 +337,7 @@ export class VideoRenderer {
       this.nextTileTexture = this.texture();
       for (const key of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, key, gl.NEAREST);
     }
-    const tiles = this.nextMaps.tiles(size, aspect);
+    const tiles = this.nextMaps.tiles(size * GLASS_SIZE_SCALE, aspect);
     gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, this.nextTileTexture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, ...tiles.count, 0, gl.RED, gl.UNSIGNED_BYTE, tiles.data);
     if (changed) {
@@ -432,7 +432,7 @@ export class VideoRenderer {
       u_containMedia: Number(settings.mediaFit === 'contain'),
       u_liquidOpacity: settings.liquid ? settings.opacity / 100 : 0, u_time: time,
       u_liquidStructure: (settings.liquidStructure ?? 50) / 100, u_liquidScale: liquidScale(settings.liquidStructure),
-      u_pointer: [.5, .5], u_interaction: 0, u_glass: 1, u_size: settings.size,
+      u_pointer: [.5, .5], u_interaction: 0, u_glass: 1, u_size: settings.size * GLASS_SIZE_SCALE,
       // Match the web renderer: neutral magnification and enabled rim lighting.
       u_zoom: 1, u_light: 1, u_blur: settings.blur, u_strength: settings.strength / 100, u_aberration: settings.aberration / 100,
       u_customGlass: Number(maps.custom.glass), u_customLiquid: Number(maps.custom.liquid), u_editing: Number(editing),

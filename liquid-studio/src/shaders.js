@@ -235,9 +235,10 @@ void main() {
   if(u_glass<.5) { outColor=vec4(original,1.); return; }
   // Reference-space pixels preserve the tile-to-art scale across resolutions.
   vec2 p=(v_uv-.5)*vec2(u_resolution.x/u_resolution.y,1.)*1080.;
-  vec2 tile=floor(p/u_size);
-  vec2 center=(tile+.5)*u_size;
-  vec2 local=(p-center)/u_size;
+  float cubeSize=u_size;
+  vec2 tile=floor(p/cubeSize);
+  vec2 center=(tile+.5)*cubeSize;
+  vec2 local=(p-center)/cubeSize;
   float check=mod(tile.x+tile.y+200.,2.);
   // A study layout: two diagonal bands. The reference images below show the
   // actual compositions; this responsive layout is not claimed as an AE copy.
@@ -255,13 +256,13 @@ void main() {
   // Independent x/y bevels cannot reproduce Figma's curved corner lobes.
   vec2 edgeDistance=.5-abs(local);
   vec2 radial=local/max(length(local),.00001);
-  float bevelDepth=min(100.,u_size*.5);
-  float inset=min(edgeDistance.x,edgeDistance.y)*u_size;
+  float bevelDepth=min(100.,cubeSize*.5);
+  float inset=min(edgeDistance.x,edgeDistance.y)*cubeSize;
   float curvature=pow(max(1.-inset/bevelDepth,0.),3.3);
   vec2 bend=-radial*curvature*(bevelDepth*1.045)*strength*referenceToUv;
 
   // Surface normal is used only for the directional rim lighting.
-  float bevelWidth=bevelDepth/u_size;
+  float bevelWidth=bevelDepth/cubeSize;
   vec2 t=clamp(edgeDistance/bevelWidth,0.,1.);
   vec2 u=1.-t;
   vec2 height=pow(max(vec2(.0001),1.-u*u*u*u),vec2(.25));
@@ -315,7 +316,7 @@ void main() {
 
   // A fine outer glint and a broader inner caustic, rather than a flat border.
   float edge=max(abs(local.x),abs(local.y));
-  float antialias=1080./(u_resolution.y*u_size);
+  float antialias=1080./(u_resolution.y*cubeSize);
   float rim=1.-smoothstep(max(antialias,.006),max(antialias*2.,.017),.5-edge);
   float caustic=exp(-pow((.5-edge-.035)/.019,2.));
   float glint=(rim*(.08+.42*pow(max(facing,0.),3.))+

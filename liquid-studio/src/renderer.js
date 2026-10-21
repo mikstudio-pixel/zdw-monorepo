@@ -1,6 +1,7 @@
 import { LiquidSource } from './liquid-source.js';
 import { createDeformationTexture, bindDeformation } from './liquid-deformation.js';
 import { vertex, sourceFragment, glassFragment } from './shaders.js';
+import { GLASS_SIZE_SCALE } from '../desktop/shared/settings.js';
 
 export class LiquidRenderer {
   constructor(canvas) {
@@ -112,7 +113,7 @@ export class LiquidRenderer {
       u_reveal: state.mode === 'reveal' ? 1 : 0, u_repel: state.mode === 'repel' || state.mode === 'scatter' ? 1 : 0,
       u_erase: state.mode === 'repel' ? 1 : 0,
       u_repelStrength: state.mode === 'repel' ? 1 : state.repelStrength/100,
-      u_glass: state.glass ? 1 : 0, u_size: state.size, u_zoom: state.zoom / 100, u_blur: state.blur,
+      u_glass: state.glass ? 1 : 0, u_size: state.size * GLASS_SIZE_SCALE, u_zoom: state.zoom / 100, u_blur: state.blur,
       u_strength: state.strength / 100,
       u_aberration: state.aberration / 100,
       u_light: 1,
