@@ -152,9 +152,9 @@ test('Liquid palette colors and WebGL floats match specifications', () => {
   assert.equal(PALETTE_PRESET_COLORS.length, 7);
   const defaultFloats = liquidPaletteFloats();
   assert.equal(defaultFloats.length, 21);
-  assert.equal(defaultFloats[0], 201);
-  assert.equal(defaultFloats[1], 191);
-  assert.equal(defaultFloats[2], 145);
+  assert.equal(defaultFloats[0], 233);
+  assert.equal(defaultFloats[1], 154);
+  assert.equal(defaultFloats[2], 230);
   const paletteFloats = liquidPaletteFloats(PALETTE_PRESET_COLORS);
   assert.equal(paletteFloats[0], 22);
   assert.equal(paletteFloats[1], 83);

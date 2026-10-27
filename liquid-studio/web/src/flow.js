@@ -51,7 +51,7 @@ export function startFlow(studio, events) {
     document.body.classList.toggle('is-drawing', studio.drawing);
     document.body.dataset.mediaType = studio.isImage ? 'image' : 'video';
     $('flow-timeline').hidden = studio.isImage || step === 2;
-    next.disabled = disabled || (step === 0 && !studio.hasArea('liquid')) || (step === 2 && studio.isImage && !prepared);
+    next.disabled = disabled || (step === 2 && studio.isImage && !prepared);
     next.setAttribute('aria-label', step === 2 ? studio.isImage ? 'Uložit obrázek PNG' : 'Exportovat video MP4' : 'Další krok');
     $('flow-next-label').textContent = step === 2 ? studio.isImage ? 'Obrázek ↓' : 'Export MP4' : 'Další →';
     $('flow-save-icon').hidden = step !== 2;

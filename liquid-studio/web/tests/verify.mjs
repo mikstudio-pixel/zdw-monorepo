@@ -21,7 +21,8 @@ assert.equal(color.matrix, 'bt709'); assert.equal(color.fullRange, false);
 const toRgb = `scale=in_color_matrix=${color.matrix}:in_range=tv`;
 assert.equal(video.codec_name, 'h264'); assert.equal(video.width, 1920); assert.equal(video.height, 1080);
 assert.equal(video.avg_frame_rate, '30/1');
-const frameCount = prefix.endsWith('sync') ? 48 : 180;
+const synchronized = prefix.endsWith('sync') || prefix.endsWith('material');
+const frameCount = synchronized ? 48 : 180;
 assert.equal(Number(video.nb_frames), frameCount);
 const timestampJob = command(ffprobe, ['-v', 'error', '-select_streams', 'v', '-show_entries', 'frame=best_effort_timestamp_time', '-of', 'json', file]);
 let json = ''; for await (const chunk of timestampJob.child.stdout) json += chunk; await timestampJob.done;
@@ -63,14 +64,15 @@ for (const index of [21, 24, 36]) {
   assert.ok(mae < 6 && psnr > 27, `Frame ${index} mismatch: MAE=${mae}, PSNR=${psnr}`);
   report.additionalFrames[index] = { mae, psnr };
 }
-if (prefix.endsWith('sync')) {
+if (synchronized) {
   assert.equal(audio.codec_name, 'aac');
   const pcm = await bytes(['-i', file, '-map', '0:a:0', '-af', 'aresample=48000:async=1:first_pts=0', '-ac', '1', '-f', 'f32le', 'pipe:1']);
   const samples = new Float32Array(pcm.buffer, pcm.byteOffset, pcm.length / 4);
   const onset = samples.findIndex(value => Math.abs(value) > .1) / 48000;
   assert.ok(Math.abs(onset - .8) < .015, `Audio pulse was at ${onset}, expected 0.8`);
   const flash = await bytes(['-i', file, '-vf', `select=eq(n\\,24),${toRgb}`, '-frames:v', '1', '-pix_fmt', 'rgb24', '-f', 'rawvideo', 'pipe:1']);
-  assert.ok(flash[(540 * 1920 + 960) * 3] > 235, 'Video flash is at frame 24 / 800 ms');
+  const flashPixel = prefix.endsWith('material') ? (80 * 1920 + 1800) * 3 : (540 * 1920 + 960) * 3;
+  assert.ok(flash[flashPixel] > 235, 'Video flash outside the liquid area is at frame 24 / 800 ms');
   report.audioPulseSeconds = onset; report.videoFlashSeconds = .8;
 } else assert.ok(!audio, 'Silent input stays silent');
 report.success = true;

@@ -27,14 +27,15 @@ export async function handle(req, res) {
   }
   if (url.pathname === '/__qa/') {
     const version = Date.now();
+    const script = url.searchParams.get('fixture') === 'material' ? 'material' : 'demo';
     const html = (await readFile(`${root}dist/index.html`, 'utf8')).replace('<head>', '<head><base href="/">')
-      .replace('./app.js', `./app.js?v=${version}`).replace('</body>', `<script type="module" src="/__qa/demo.js?v=${version}"></script></body>`);
+      .replace('./app.js', `./app.js?v=${version}`).replace('</body>', `<script type="module" src="/__qa/${script}.js?v=${version}"></script></body>`);
     res.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' }).end(html); return true;
   }
   if (url.pathname === '/__qa/probe') {
     res.writeHead(200, { 'Content-Type': 'text/html' }).end('<!doctype html><body style="background:#101412;color:white"><h1>Ověření kodeků</h1><pre id="log"></pre><script type="module" src="/__qa/probe.js"></script>'); return true;
   }
-  const files = { '/__qa/demo.js': ['tests/demo.js', 'text/javascript'], '/__qa/probe.js': ['tests/probe.js', 'text/javascript'], '/__qa/bunny.js': ['node_modules/mediabunny/dist/bundles/mediabunny.mjs', 'text/javascript'], '/__qa/demo.mp4': ['test-results/demo-input.mp4', 'video/mp4'], '/__qa/sync.mp4': ['test-results/sync-input.mp4', 'video/mp4'] };
+  const files = { '/__qa/material.js': ['tests/material.js', 'text/javascript'], '/__qa/demo.js': ['tests/demo.js', 'text/javascript'], '/__qa/probe.js': ['tests/probe.js', 'text/javascript'], '/__qa/bunny.js': ['node_modules/mediabunny/dist/bundles/mediabunny.mjs', 'text/javascript'], '/__qa/demo.mp4': ['test-results/demo-input.mp4', 'video/mp4'], '/__qa/sync.mp4': ['test-results/sync-input.mp4', 'video/mp4'] };
   const file = files[url.pathname];
   if (file) res.writeHead(200, { 'Content-Type': file[1], 'Cache-Control': 'no-store' }).end(await readFile(root + file[0]));
   else res.writeHead(404).end();

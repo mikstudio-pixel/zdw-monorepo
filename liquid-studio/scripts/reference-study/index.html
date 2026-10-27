@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="cs"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Liquid – studie reference</title>
+<style>
+body{margin:24px;background:#191919;color:#eee;font:15px system-ui}h1{font-size:20px}main{display:grid;grid-template-columns:1fr 1fr;gap:16px}canvas,video{display:block;width:100%;background:black;aspect-ratio:16/9}label{display:block;margin-bottom:8px}input{width:min(700px,70vw)}button{margin:16px 12px 16px 0}p{max-width:1100px;color:#bbb} #quality{font-variant-numeric:tabular-nums;line-height:1.7} #quality strong{color:#eee} a{color:#abc8ff}
+</style>
+<h1>Reference a destilovaný model</h1>
+<main><section><label>Reference · původní video</label><video id="reference" src="/reference.mp4" muted playsinline></video></section><section><label id="variant">Naučený model · stejný snímek a měřítko</label><canvas id="surface" width="1920" height="1080"></canvas></section></main>
+<button id="play">Přehrát / pozastavit</button><input id="time" type="range" min="0" max="26.7666667" value="0" step="0.0333333333"><output id="clock">0.00 s</output>
+<p id="quality" aria-live="polite">Načítám měření shody…</p>
+<p>Naučená rekonstrukce vzhledu a pohybu z 26,8 s reference. Každý pátý snímek byl vynechán z fitu. SSIM se měří také kolem kapaliny, aby černé pozadí nezvyšovalo výsledek; nejde o procento totožných pixelů. <a href="/web/test-results/reference-study-v3/similarity.json">Měření všech 804 snímků</a> · <a href="/?previous=1">Předchozí generátor</a></p>
+<script type="module" src="/scripts/reference-study/study.js"></script>
+</html>

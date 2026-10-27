@@ -1,12 +1,15 @@
 import { LiquidSource } from '../vendor/liquid-source.js';
 import { createDeformationTexture, bindDeformation } from '../vendor/liquid-deformation.js';
 import { vertex, sourceFragment, glassFragment } from '../vendor/shaders.js';
-import { cropTransform, FORMATS, FPS, GLASS_SIZE_SCALE, liquidPaletteFloats } from '../shared/settings.js';
+import { cropTransform, FORMATS, FPS, GLASS_SIZE_SCALE, liquidPaletteFloats, DEFAULT_LIQUID_COLORS } from '../shared/settings.js';
 import { sampleKeyframes } from '../shared/keyframes.js';
 import { RegionMaps, REGION_SIZE } from '../shared/regions.js';
 import { liquidGuides, liquidScale, MAX_LIQUID_GUIDES } from '../shared/liquid-guides.js';
 import { liquidAreaDistance, liquidAreaFrame } from '../shared/liquid-area.js';
 import { areaLiquidShader } from './liquid-area.js';
+import { LiquidFlow } from '../vendor/liquid-flow.js';
+import { LiquidFilter, MATERIAL_FILTER } from '../vendor/liquid-filter.js';
+import { LiquidAppearance } from '../vendor/liquid-appearance.js';
 
 const regionUniforms = `
 uniform sampler2D u_regions;
@@ -47,8 +50,8 @@ void main() {
   outColor=vec4(color,1.);
 }`;
 
-// Both the reference scene and brush material use the calibrated web palette,
-// filter chain and native deformation map. Only their source geometry differs.
+// Legacy guide strokes retain their calibrated source. Area selections use
+// the shared procedural material while retaining their existing distance masks.
 const sourceHelpers = sourceFragment.slice(0, sourceFragment.indexOf('void main()'));
 const liquidStructureShader = `
 uniform float u_liquidStructure;
@@ -354,9 +357,30 @@ export class VideoRenderer {
     if (this.areaRenderKey === key) return;
     const gl = this.gl;
     this.areaProgram ||= this.program(vertex, areaLiquidShader(sourceHelpers));
+    this.areaAppearance ||= new LiquidAppearance(gl, fragment => this.program(vertex, fragment));
+    this.areaFlow ||= new LiquidFlow(gl, fragment => this.program(vertex, fragment));
+    this.areaFilter ||= new LiquidFilter(gl, fragment => this.program(vertex, fragment));
+    this.areaRawTexture ||= this.texture();
+    this.areaRawFramebuffer ||= gl.createFramebuffer();
+    const rasterKey = `${this.liquidWidth},${this.liquidHeight}`;
+    if (this.areaRasterKey !== rasterKey) {
+      gl.bindTexture(gl.TEXTURE_2D, this.areaRawTexture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, this.liquidWidth, this.liquidHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.areaRawFramebuffer);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.areaRawTexture, 0);
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Materiál liquidu nelze připravit.');
+      this.areaRasterKey = rasterKey;
+    }
+    this.areaAppearance.render(time);
+    this.areaFlow.render(time);
     const { program, uniforms } = this.areaProgram;
-    gl.useProgram(program); gl.bindFramebuffer(gl.FRAMEBUFFER, this.liquidFramebuffer);
-    bindDeformation(gl, this.deformationTexture, uniforms);
+    gl.useProgram(program); gl.bindFramebuffer(gl.FRAMEBUFFER, this.areaRawFramebuffer);
+    this.areaFlow.bind(uniforms);
+    this.areaAppearance.bind(uniforms);
+    const continuation = Math.max(0, Math.min(1, (time - LiquidAppearance.lastTime) / 4));
+    const referenceMix = 1 - continuation * continuation * (3 - 2 * continuation);
+    gl.uniform1f(uniforms.u_referenceMix, referenceMix);
+    gl.uniform1f(uniforms.u_referencePalette, colors.every((color, i) => color.toLowerCase() === DEFAULT_LIQUID_COLORS[i].toLowerCase()) ? 1 : 0);
     gl.uniform1f(uniforms.u_structure, structure / 100);
     gl.uniform1f(uniforms.u_customPalette, 1);
     gl.uniform3fv(uniforms['u_paletteColors[0]'], liquidPaletteFloats(colors));
@@ -371,6 +395,9 @@ export class VideoRenderer {
     gl.uniform1f(uniforms.u_areaProgress, progress);
     gl.viewport(0, 0, this.liquidWidth, this.liquidHeight);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    this.areaFilter.render(this.areaRawTexture, this.liquidFramebuffer, width, height, progress, {
+      sigma: 1.5 * referenceMix + MATERIAL_FILTER.sigma * (1 - referenceMix), angle: MATERIAL_FILTER.angle * (1 - referenceMix),
+    });
     this.areaRenderKey = key;
   }
   drawLiquid(width, height, time, structure, passes = this.liquidPasses, raster = [this.liquidWidth, this.liquidHeight], colors) {
@@ -489,6 +516,11 @@ export class VideoRenderer {
     if (this.guidedProgram) gl.deleteProgram(this.guidedProgram.program);
     gl.deleteTexture(this.liquidTexture); gl.deleteFramebuffer(this.liquidFramebuffer);
     if (this.areaProgram) gl.deleteProgram(this.areaProgram.program);
+    this.areaAppearance?.destroy();
+    this.areaFlow?.destroy();
+    this.areaFilter?.destroy();
+    if (this.areaRawTexture) gl.deleteTexture(this.areaRawTexture);
+    if (this.areaRawFramebuffer) gl.deleteFramebuffer(this.areaRawFramebuffer);
     if (this.areaTexture) gl.deleteTexture(this.areaTexture);
     if (this.areaNextTexture) gl.deleteTexture(this.areaNextTexture);
     if (this.nextTileTexture) gl.deleteTexture(this.nextTileTexture);

@@ -24,7 +24,7 @@ test('A new shape holds its predecessor, then morphs over the two seconds before
   assert.deepEqual(sampleKeyframes(settings, 999).state.regions, settings.keyframes[1].effects.regions);
   const short = { ...settings, keyframes: [settings.keyframes[0], { ...settings.keyframes[1], frame: 30 }] };
   assert.equal(sampleKeyframes(short, 15).mix, .5, 'Closely spaced targets use the available interval');
-  assert.deepEqual(sampleKeyframes(settings, 120).state.liquidColors[0], '#e4dfc8');
+  assert.deepEqual(sampleKeyframes(settings, 120).state.liquidColors[0], '#f4cdf3');
 });
 
 test('Keyframes compactly round-trip distinct liquid and cube shapes; replacement is sorted and bounded', () => {

@@ -43,7 +43,7 @@ try {
   assert.deepEqual(await page.locator('video').evaluate(video => [video.videoWidth, video.videoHeight]), [1080, 1920]);
   assert.deepEqual(await page.locator('#preview').evaluate(canvas => [canvas.width, canvas.height]), [1080, 1920]);
   checks.push('The portrait demo loads as the default 1080×1920 source and output');
-  assert.equal(await next.isDisabled(), true);
+  assert.equal(await next.isDisabled(), false);
   for (const [width, height] of [[320, 568], [390, 844], [430, 932], [844, 390], [1440, 1000]]) {
     await page.setViewportSize({ width, height });
     const layout = await page.evaluate(() => {
@@ -55,7 +55,7 @@ try {
     assert.ok(layout.stage > 60, `Drawing canvas remains usable at ${width}×${height}`);
   }
   await page.setViewportSize({ width: 390, height: 844 });
-  checks.push('Responsive layout at 320–1440 px, portrait and landscape; empty liquid cannot advance');
+  checks.push('Responsive layout at 320–1440 px, portrait and landscape; liquid drawing is optional');
   const slider = (id, value) => page.locator(`#${id}`).evaluate((input, value) => { input.value = value; input.dispatchEvent(new Event('input', { bubbles: true })); }, value);
   const stroke = async (from, to) => {
     const rect = await page.locator('#preview').evaluate(canvas => {
@@ -221,7 +221,7 @@ try {
   const add = await page.locator('#timeline-add').boundingBox();
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: add.x + add.width / 2, y: add.y + add.height / 2 }] });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  assert.equal(await next.isDisabled(), true, 'A new target starts with a blank liquid area');
+  assert.equal(await next.isDisabled(), false, 'A blank liquid target can advance without drawing');
   const firstTarget = await settings();
   assert.deepEqual(firstTarget.keyframes.map(key => key.frame), [0, 150]);
   assert.deepEqual(new RegionMaps(firstTarget.keyframes[0].effects.regions).snapshot(), new RegionMaps(seed.regions).snapshot(), 'Direct add preserves the initial shape at frame zero');
@@ -271,7 +271,7 @@ try {
   await chooser.setFiles(`${root}assets/zdw-demo.mp4`);
   await page.waitForFunction(() => document.getElementById('file-name').textContent === 'zdw-demo.mp4' && !document.getElementById('brush-options').hidden);
   assert.equal(await page.locator('#replace-video .flow-icon').count(), 1, 'Replacing media preserves the upload icon');
-  assert.equal(await next.isDisabled(), true);
+  assert.equal(await next.isDisabled(), false);
   assert.equal(await page.locator('#status').isVisible(), false);
   assert.deepEqual(errors, []);
   checks.push('Failed demo loading recovers through the real file picker into a fresh liquid area');

@@ -183,7 +183,8 @@ async function serve(request) {
   }
   const path = resolve(root, '.' + decodeURIComponent(url.pathname));
   if (!['renderer', 'shared', 'vendor'].some(folder => path.startsWith(join(root, folder) + sep))) return new Response('Not found', { status: 404 });
-  const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' }[extname(path)];
+  const mime = path === join(root, 'vendor', 'liquid-appearance.bin.gz') ? 'application/octet-stream'
+    : { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' }[extname(path)];
   if (!mime) return new Response('Not found', { status: 404 });
   return new Response(await readFile(path), { headers: { 'Content-Type': `${mime}; charset=utf-8` } });
 }

@@ -19,10 +19,10 @@ export async function verifyUnifiedLiquid(page) {
     };
     const a = maps(false), b = maps(true);
     const settings = regions => ({ ...DEFAULTS, liquid: true, liquidColors: colors, regions: regions.serialize() });
-    const render = (regions, time = 0) => {
+    const render = (regions, time = 0, unfiltered = false) => {
       renderer.draw(settings(regions), time);
       const gl = renderer.gl, pixels = new Uint8Array(renderer.liquidWidth * renderer.liquidHeight * 4);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, renderer.liquidFramebuffer);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, unfiltered ? renderer.areaRawFramebuffer : renderer.liquidFramebuffer);
       gl.readPixels(0, 0, renderer.liquidWidth, renderer.liquidHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
       assertNoError(gl);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -32,18 +32,21 @@ export async function verifyUnifiedLiquid(page) {
     const error = (a, b) => a.reduce((max, value, i) => Math.max(max, Math.abs(value - b[i])), 0);
     try {
       const pixels = render(a), orderError = error(pixels, render(b));
+      // A real optical filter blends neighboring pixels. Verify the fused
+      // palette before filtering, and order/opacity/connectivity after it.
+      const palettePixels = render(a, 0, true);
       for (const [from, to, size] of strokes) a.paint('liquid', from, to, size, 16 / 9);
       const repeatError = error(pixels, render(a));
       let opaque = 0, paletteError = 0, alphaPixels = 0;
       for (let i = 0; i < pixels.length; i += 4) {
         if (pixels[i + 3] > 127) alphaPixels++;
-        if (pixels[i + 3] !== 255) continue;
+        if (palettePixels[i + 3] !== 255) continue;
         opaque++;
         let nearest = Infinity;
         for (let j = 1; j < palette.length; j++) {
           const start = palette[j - 1], delta = palette[j].map((v, c) => v - start[c]);
-          const t = Math.max(0, Math.min(1, delta.reduce((sum, v, c) => sum + v * (pixels[i + c] - start[c]), 0) / delta.reduce((sum, v) => sum + v * v, 0)));
-          nearest = Math.min(nearest, Math.hypot(...delta.map((v, c) => pixels[i + c] - start[c] - t * v)));
+          const t = Math.max(0, Math.min(1, delta.reduce((sum, v, c) => sum + v * (palettePixels[i + c] - start[c]), 0) / delta.reduce((sum, v) => sum + v * v, 0)));
+          nearest = Math.min(nearest, Math.hypot(...delta.map((v, c) => palettePixels[i + c] - start[c] - t * v)));
         }
         paletteError = Math.max(paletteError, nearest);
       }
@@ -80,8 +83,12 @@ export async function verifyUnifiedLiquid(page) {
             for (let x = Math.floor(bounds[0] * width); x < bounds[2] * width; x++) {
               const i = (y * width + x) * 4, alpha = material[i + 3]; total++;
               if (alpha < 32) openings++;
-              if (alpha > 127) filled++;
-              if (alpha === 255 && Math.hypot(material[i] - 255, material[i + 1], material[i + 2]) > 24) varied++;
+              if (alpha > 127) {
+                filled++;
+                // The optical halo may keep even an interior pixel below
+                // alpha=255. Compare straight color, independent of coverage.
+                if (Math.hypot(material[i] * 255 / alpha - 255, material[i + 1] * 255 / alpha, material[i + 2] * 255 / alpha) > 24) varied++;
+              }
             }
           }
           interiors.push({ name, time, coverage: filled / total, openings: openings / total, varied: varied / filled });
@@ -93,7 +100,7 @@ export async function verifyUnifiedLiquid(page) {
   assert.equal(metrics.orderError, 0, 'The union is independent of gesture order');
   assert.equal(metrics.repeatError, 0, 'Repainting cannot accumulate material or opacity');
   assert.ok(metrics.opaque > 3000, 'The shared material has a substantial interior');
-  assert.ok(metrics.paletteError < 2, `Each interior pixel receives one palette color, without averaged layers: ${metrics.paletteError}`);
+  assert.ok(metrics.paletteError < 2, `The unfiltered fused material receives one palette color, without averaged layers: ${metrics.paletteError}`);
   assert.ok(metrics.connectedRatio > .9, 'A connected guide produces one dominant liquid body');
   assert.ok(metrics.animationChange > 20, 'The shared surface evolves over time');
   assert.equal(metrics.emptyPixels, 0, 'An empty guide never produces stray liquid');
