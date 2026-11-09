@@ -24,7 +24,7 @@ Po otevření se automaticky načte video `ZDW_vrstvy_40s.mov` jako připravená
 ukázka dlouhá přibližně 38,5 sekundy se zvukem. Mobilní průchod používá její
 verzi na výšku 9:16 (1080 × 1920), vytvořenou středovým ořezem původního videa.
 Podrobný editor používá stejný klip v původním formátu 16:9.
-Přehrávání začíná pozastavené. Tlačítkem **Nahrát** v prvním kroku
+Přehrávání začíná pozastavené. Tlačítkem **Nahrát**
 je nahradíte vlastním videem či obrázkem.
 
 Ovládání používá vzhled Windows XP se šedým ikonovým menu podle Malování,
@@ -32,12 +32,12 @@ hranatými tlačítky s ostrými hranami a dodanými 16×16 pixelovými ikonami 
 zobrazují ostře, hlavní tlačítka mají dotykovou plochu alespoň 44 px a textové názvy
 zůstávají dostupné čtečkám obrazovky. Styl je omezený na mobilní průchod.
 
-Výchozí průchod má tři kroky:
+Nástroje lze vybrat v libovolném pořadí:
 
 1. **Oblast liquidu:** vyznačte jednu nebo více oblastí. Během kreslení je vidět
-   jednoduchá modrá maska. **Další** ji promění ve společný liquidový povrch.
+   jednoduchá modrá maska. Přepnutí nástroje ji promění ve společný liquidový povrch.
    Tahy se slučují, guma ubírá lokálně a šířka štětce mění pouze oblast, nikoli
-   měřítko vzoru. Zpět/znovu i návrat z dalšího kroku zachovávají oblast.
+   měřítko vzoru. Zpět/znovu i přepínání nástrojů zachovávají oblast.
    Ze společného pole celé oblasti vznikne turbulentní povrch, jeho obrys
    a otvory. Teprve výsledný povrch se jednou obarví původní paletou;
    barevné tvary se na sebe nevrství. Přirozený obrys může přesahovat vyznačení.
@@ -48,8 +48,8 @@ Výchozí průchod má tři kroky:
    I uvnitř široké oblasti vznikají zaoblené kanálky a menší otvory v pevném
    měřítku; vzdálenost od vnějšího okraje se nepoužívá jako plná výplň středu.
    Mobilní průchod začíná s plnou kryvostí liquidu.
-2. **Kostičky:** nakreslete oblast skleněných kostiček nebo krok přeskočte.
-3. **Paleta:** vyberte Pastel, Festival nebo Modrou. Tlačítko exportu podle
+2. **Kostičky:** nakreslete oblast skleněných kostiček, pokud je chcete použít.
+3. **Paleta:** vyberte Pastel, Festival nebo Modrou. Tlačítko **Render** dostupné u každého nástroje podle
    vloženého média uloží aktuální snímek jako PNG v plném rozlišení, nebo
    připraví celé video MP4 se zvukem a animací klíčových snímků. Hotový soubor
    lze sdílet nebo stáhnout. Systémové sdílení nabídne uložení do fotek, pokud tuto
@@ -59,15 +59,14 @@ Formát se přizpůsobí médiu (16:9, 9:16 nebo 1:1). Celý zdrojový obraz se 
 ořezu a deformace. Volné okraje vyplňuje světlejší rozmazaná pixelová kopie aktuálního média se sníženou sytostí;
 pozadí se aktualizuje při přehrávání i posunu času. Pruhy uvnitř výstupního formátu
 se stejným způsobem vyplní také při exportu. Ovládání je nad obrazem; při
-kreslení kroky, guma a navigace dočasně zmizí. Nahoře je jen menu 1–3 a guma,
-dole Nahrát/Zpátky a Další. Ve třetím kroku timeline nahradí spodní pruh
+kreslení nástroje a tlačítka dočasně zmizí. Na mobilu je menu svisle vpravo
+od poloviny výšky obrazovky a guma je oddělena do vlastního políčka. Dole jsou
+tlačítka Nahrát a Render. Při výběru palety timeline nahradí spodní pruh
 s barevnými vzorníky; při větším počtu témat se posouvá vodorovně.
 Rozložení funguje na výšku i na šířku. Samotný web nemůže zapisovat přímo do
-galerie bez systémového uložení. U obrázku se PNG připravuje už při výběru palety,
-aby poslední klepnutí zachovalo oprávnění pro otevření sdílecího panelu v Safari.
+galerie bez systémového uložení. PNG se připraví při stisknutí tlačítka Render.
 
-U fotografie je spodní lišta v prvních dvou krocích skrytá a navigační tlačítka
-jsou u spodního okraje. Ve třetím kroku se zobrazí lišta s barevnými tématy.
+U fotografie je spodní lišta mimo výběr palety skrytá a tlačítka jsou u spodního okraje.
 Fotografie se v průvodci načítají přímo, bez převodu na video a bez kodéru
 WebCodecs. Rozpoznávají se podle typu souboru i přípony (včetně HEIC/HEIF,
 pokud je prohlížeč umí otevřít). Načítání lze zrušit; po 15 sekundách se při

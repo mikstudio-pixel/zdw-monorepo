@@ -1,5 +1,6 @@
 import { RegionMaps, REGION_PIXELS, REGION_SIZE } from './regions.js';
 import { liquidAreaDistance, liquidAreaFrame, sampleAreaDistance } from './liquid-area.js';
+import { areaLiquidColors } from './liquid-colors.js';
 
 export const MORPH_FRAMES = 60; // Two seconds at the shared 30 fps timebase.
 export const MAX_KEYFRAMES = 32;
@@ -37,7 +38,9 @@ export function sampleKeyframes(settings, frame) {
   for (const key of EFFECT_KEYS) {
     if (typeof state[key] === 'number') state[key] += (after.effects[key] - state[key]) * amount;
   }
-  state.liquidColors = before.effects.liquidColors.map((color, i) => mixColor(color, after.effects.liquidColors[i], amount));
+  const fromColors = areaLiquidColors(before.effects.liquidColors);
+  const toColors = areaLiquidColors(after.effects.liquidColors);
+  state.liquidColors = fromColors.map((color, i) => mixColor(color, toColors[i], amount));
   state.liquid = before.effects.liquid || after.effects.liquid;
   state.opacity = (before.effects.liquid ? before.effects.opacity : 0) * (1 - amount) + (after.effects.liquid ? after.effects.opacity : 0) * amount;
   return { state, next: after.effects.regions, mix: amount };

@@ -70,3 +70,15 @@ test('Area conversion merges legacy overlapping passes while preserving their cu
   assert.throws(() => validateRegions({ ...area, liquid: [...area.liquid, ...area.liquid] }), /společnou masku/);
   assert.throws(() => validateRegions({ ...area, liquid: [{ ...area.liquid[0], diameter: 180 }] }), /společnou masku/);
 });
+
+test('Native source has exact deep distances and a finite canvas boundary', () => {
+  const n=REGION_SIZE,mask=new Uint8Array(REGION_PIXELS),range=512/1080;
+  for(let y=64;y<448;y++)mask.fill(255,y*n+64,y*n+448);
+  const field=liquidAreaDistance(mask,1,{float:true,range,finite:true});
+  const distance=(x,y)=>(field[y*n+x]*2-1)*range;
+  assert.ok(Math.abs(distance(33,49)+Math.hypot(31,15)/n)<1e-7,'Diagonal source profiles use Euclidean distance');
+  assert.ok(distance(256,256)>234/1080,'The original stroke can end before a broad area center');
+  mask.fill(255);
+  const finite=liquidAreaDistance(mask,1,{float:true,range,finite:true});
+  assert.ok(Math.abs((finite[256*n]*2-1)*range-.5/n)<1e-7,'An edge closes at the finite source boundary');
+});

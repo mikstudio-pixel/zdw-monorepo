@@ -39,23 +39,100 @@ try {
   await page.waitForFunction(() => { const icons = [...document.querySelectorAll('.flow-icon')]; return icons.length === 5 && icons.every(image => image.complete && image.naturalWidth === 16 && image.naturalHeight === 16); });
   assert.equal(await page.getByRole('button', { name: 'Guma', exact: true }).count(), 1);
   checks.push('Supplied 16×16 pixel assets load; icon controls retain accessible names');
-  const next = page.locator('#flow-next');
+  const next = page.locator('#flow-render');
   assert.deepEqual(await page.locator('video').evaluate(video => [video.videoWidth, video.videoHeight]), [1080, 1920]);
   assert.deepEqual(await page.locator('#preview').evaluate(canvas => [canvas.width, canvas.height]), [1080, 1920]);
   checks.push('The portrait demo loads as the default 1080×1920 source and output');
   assert.equal(await next.isDisabled(), false);
+  assert.equal(await page.locator('#flow-next, #flow-back').count(), 0);
   for (const [width, height] of [[320, 568], [390, 844], [430, 932], [844, 390], [1440, 1000]]) {
     await page.setViewportSize({ width, height });
     const layout = await page.evaluate(() => {
-      const button = document.getElementById('flow-next').getBoundingClientRect();
-      return { overflow: document.documentElement.scrollWidth > innerWidth, bottom: button.bottom, height: innerHeight, stage: document.getElementById('stage').clientHeight };
+      const button = document.getElementById('flow-render').getBoundingClientRect();
+      const toolbar = document.querySelector('.flow-top').getBoundingClientRect();
+      const tools = document.querySelector('.flow-steps').getBoundingClientRect();
+      const eraser = document.querySelector('.flow-eraser-box').getBoundingClientRect();
+      const timeline = document.getElementById('flow-timeline').getBoundingClientRect();
+      return {
+        overflow: document.documentElement.scrollWidth > innerWidth,
+        bottom: button.bottom, height: innerHeight, stage: document.getElementById('stage').clientHeight,
+        toolbar: toolbar.toJSON(), tools: tools.toJSON(), eraser: eraser.toJSON(), timeline: timeline.toJSON(),
+      };
     });
     assert.equal(layout.overflow, false, `No horizontal overflow at ${width}×${height}`);
     assert.ok(layout.bottom <= layout.height, `Next is visible at ${width}×${height}`);
     assert.ok(layout.stage > 60, `Drawing canvas remains usable at ${width}×${height}`);
+    if (width <= 600) {
+      assert.equal(layout.toolbar.bottom, layout.timeline.top - 12);
+      assert.equal(layout.toolbar.right, width - 12);
+      assert.ok(layout.eraser.top > layout.tools.bottom);
+    }
   }
   await page.setViewportSize({ width: 390, height: 844 });
   checks.push('Responsive layout at 320–1440 px, portrait and landscape; liquid drawing is optional');
+  const cdp = await page.context().newCDPSession(page);
+  const docks = ['.flow-top', '.flow-files'];
+  const dockLayout = () => Promise.all(docks.map(selector => page.locator(selector).getAttribute('data-flow-dock')));
+  const centerOf = async selector => {
+    const box = await page.locator(selector).boundingBox();
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const sendTouch = (type, touchPoints = []) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints });
+  const dragDock = async (selector, to, end = 'touchEnd') => {
+    const from = await centerOf(selector);
+    await sendTouch('touchStart', [from]);
+    for (const progress of [.2, .55, 1]) {
+      await sendTouch('touchMove', [{ x: from.x + (to.x - from.x) * progress, y: from.y + (to.y - from.y) * progress }]);
+    }
+    assert.equal(await page.locator('.flow-dock-target:visible').count(), 2);
+    await sendTouch(end);
+    await page.waitForFunction(selectors => !document.querySelector('.flow-dock-target:not([hidden])') &&
+      selectors.every(selector => document.querySelector(selector).getAnimations().length === 0), docks);
+  };
+  const tapDock = async selector => {
+    await sendTouch('touchStart', [await centerOf(selector)]);
+    await sendTouch('touchEnd');
+  };
+  await page.waitForFunction(() => document.querySelector('.flow-top').dataset.flowDock === 'bottom-right');
+  const defaults = ['bottom-right', 'bottom-left'];
+  assert.deepEqual(await dockLayout(), defaults);
+  await page.screenshot({ path: `${results}corners-default.png` });
+  await page.evaluate(() => {
+    window.dockActions = { load: 0, save: 0 };
+    window.liquid.chooseVideo = async () => { window.dockActions.load++; return { ok: true, value: null }; };
+    window.liquid.exportVideo = async () => { window.dockActions.save++; return { ok: true, value: null }; };
+  });
+  await dragDock('[data-step-index="1"]', { x: 25, y: 25 });
+  assert.deepEqual(await dockLayout(), ['top-left', 'bottom-left']);
+  assert.equal(await page.locator('body').getAttribute('data-step'), 'liquid', 'Dragging the toolkit does not choose a tool');
+  await dragDock('#replace-video', { x: 25, y: 25 });
+  assert.deepEqual(await dockLayout(), ['top-left', 'bottom-left'], 'An occupied corner rejects the drop');
+  await dragDock('#flow-render', { x: 365, y: 755 });
+  assert.deepEqual(await dockLayout(), ['top-left', 'bottom-right'], 'Dragging save moves the whole file block');
+  await dragDock('#replace-video', { x: 365, y: 25 });
+  const moved = ['top-left', 'top-right'];
+  assert.deepEqual(await dockLayout(), moved);
+  await dragDock('#flow-render', { x: 25, y: 755 }, 'touchCancel');
+  assert.deepEqual(await dockLayout(), moved);
+  assert.deepEqual(await page.evaluate(() => window.dockActions), { load: 0, save: 0 });
+  await page.screenshot({ path: `${results}corners-moved.png` });
+  await tapDock('[data-step-index="1"]');
+  await page.waitForFunction(() => document.body.dataset.step === 'glass');
+  await tapDock('#replace-video');
+  await tapDock('#flow-render');
+  await page.waitForFunction(() => window.dockActions.load === 1 && window.dockActions.save === 1);
+  await page.reload();
+  await page.waitForFunction(() => document.getElementById('flow-render')?.disabled === false);
+  assert.deepEqual(await dockLayout(), moved, 'Corner positions persist across reloads');
+  await page.evaluate(() => localStorage.setItem('liquid-studio-corners', '["top-left","top-right","bottom-right"]'));
+  await page.reload();
+  await page.waitForFunction(() => document.getElementById('flow-render')?.disabled === false);
+  assert.deepEqual(await dockLayout(), moved, 'A previous layout docks the grouped buttons at the saved load corner');
+  await page.evaluate(() => localStorage.removeItem('liquid-studio-corners'));
+  await page.reload();
+  await page.waitForFunction(() => document.getElementById('flow-render')?.disabled === false);
+  assert.deepEqual(await dockLayout(), defaults);
+  checks.push('Touch docks the toolkit and the load/save block, preserves button taps and restores both corners on reload');
   const slider = (id, value) => page.locator(`#${id}`).evaluate((input, value) => { input.value = value; input.dispatchEvent(new Event('input', { bubbles: true })); }, value);
   const stroke = async (from, to) => {
     const rect = await page.locator('#preview').evaluate(canvas => {
@@ -84,15 +161,15 @@ try {
   await stroke([.85, .45], [.87, .95]);
   assert.equal(await next.isDisabled(), false);
   await page.screenshot({ path: `${results}area-mobile.png` });
-  await next.click();
-  await page.waitForFunction(() => document.body.dataset.step === 'glass' && !document.getElementById('flow-next').disabled);
+  await page.locator('[data-step-index="1"]').click();
+  await page.waitForFunction(() => document.body.dataset.step === 'glass' && !document.getElementById('flow-render').disabled);
   assert.deepEqual(errors, []);
   const originalSettings = await settings(), maps = new RegionMaps(originalSettings.regions);
   assert.equal(maps.liquidMode, 'area'); assert.equal(maps.liquidPasses.length, 1);
   assert.equal(maps.liquidPasses[0].diameter, 0);
   checks.push('Two edge gestures become one saved area and morph into liquid before glass painting');
   // Undo, redo and repeated drawing must preserve the material exactly.
-  await page.locator('#flow-back').click();
+  await page.locator('[data-step-index="0"]').click();
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#flow-eraser').isVisible(), true);
   await stroke([.12, .08], [.18, .55]);
@@ -102,12 +179,12 @@ try {
   await page.keyboard.press('Meta+z');
   await page.keyboard.press('Meta+Shift+z');
   await page.keyboard.press('Meta+z');
-  await next.click();
-  await page.waitForFunction(() => !document.getElementById('flow-next').disabled);
+  await page.locator('[data-step-index="1"]').click();
+  await page.waitForFunction(() => !document.getElementById('flow-render').disabled);
   const repainted = await settings();
   assert.equal(JSON.stringify(repainted.regions) === JSON.stringify(originalSettings.regions), true, 'Erase undo/redo restores the original area');
-  await next.click(); // skip optional glass
-  await page.waitForFunction(() => document.body.dataset.step === 'palette' && !document.getElementById('flow-next').disabled);
+  await page.locator('[data-step-index="2"]').click(); // select palette
+  await page.waitForFunction(() => document.body.dataset.step === 'palette' && !document.getElementById('flow-render').disabled);
   await page.screenshot({ path: `${results}after-mobile.png` });
   const capturePng = async () => page.evaluate(async () => {
     const original = window.liquid.exportImage;
@@ -118,54 +195,24 @@ try {
   });
   const pastel = await capturePng();
   await writeFile(`${results}after-render.png`, Buffer.from(pastel.split(',')[1], 'base64'));
-  checks.push('Back navigation, local eraser, undo/redo and repeat painting preserve the saved union');
+  checks.push('Tool switching, local eraser, undo/redo and repeat painting preserve the saved union');
   await page.locator('[data-flow-palette="1"]').click();
-  await page.waitForFunction(() => !document.getElementById('flow-next').disabled);
+  await page.waitForFunction(() => !document.getElementById('flow-render').disabled);
   const festival = await capturePng();
   assert.notEqual(festival, pastel);
-  const exported = await page.evaluate(async () => {
-    const original = navigator.canShare, share = navigator.share;
-    let file;
-    navigator.canShare = () => true;
-    navigator.share = async ({ files }) => { [file] = files; };
-    try {
-      await document.getElementById('flow-next').onclick();
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const bitmap = await createImageBitmap(file);
-      return { type: file.type, width: bitmap.width, height: bitmap.height, signature: Array.from(bytes.slice(0, 8)) };
-    } finally { navigator.canShare = original; navigator.share = share; }
-  });
-  assert.deepEqual(exported, { type: 'image/png', width: 1080, height: 1920, signature: [137, 80, 78, 71, 13, 10, 26, 10] });
-  await page.evaluate(async () => {
-    const original = navigator.canShare, share = navigator.share;
-    navigator.canShare = () => true;
-    navigator.share = async () => { throw new DOMException('User cancelled', 'AbortError'); };
-    try { await document.getElementById('flow-next').onclick(); }
-    finally { navigator.canShare = original; navigator.share = share; }
-  });
-  assert.equal(await next.isDisabled(), false);
-  assert.equal(await page.locator('#status').isVisible(), false);
-  const downloaded = application.evaluate(({ BrowserWindow }) => new Promise(resolve => {
-    BrowserWindow.getAllWindows()[0].webContents.session.once('will-download', (_event, item) => {
-      resolve(item.getFilename()); item.cancel();
-    });
-  }));
-  await next.click();
-  assert.match(await downloaded, /-liquid\.png$/);
-  checks.push('Palette changes the real PNG; native file share and download fallback receive a full-resolution 1080×1920 PNG');
+  checks.push('Palette changes the real PNG preview');
   // Return to glass and verify the existing cube editor and selected palette.
-  await page.locator('#flow-back').click();
+  await page.locator('[data-step-index="1"]').click();
   await stroke([.25, .3], [.75, .7]);
-  await next.click();
-  await page.waitForFunction(() => !document.getElementById('flow-next').disabled);
+  await page.locator('[data-step-index="2"]').click();
+  await page.waitForFunction(() => !document.getElementById('flow-render').disabled);
   const withGlass = await settings();
   assert.ok(new RegionMaps(withGlass.regions).layers.glass.some(Boolean));
   assert.deepEqual(withGlass.liquidColors, ['#16533f', '#5c300f', '#9fbaff', '#f8cf49', '#ffa9ef', '#fd3d62', '#16533f']);
   await page.screenshot({ path: `${results}glass-palette-mobile.png` });
   assert.deepEqual(errors, []);
-  checks.push('Glass drawing and the selected palette survive back/forward navigation; no uncaught browser errors');
+  checks.push('Glass drawing and the selected palette survive tool changes; no uncaught browser errors');
   await page.locator('[data-step-index="0"]').click();
-  const cdp = await page.context().newCDPSession(page);
   await page.evaluate(() => {
     const original = window.liquid.exportImage;
     window.scrubExports = 0;
@@ -194,7 +241,7 @@ try {
   assert.equal(await page.locator('#timeline').isEnabled(), true);
   await page.evaluate(() => window.restoreScrubExport());
   await slider('timeline', 0);
-  await page.waitForFunction(() => !document.getElementById('flow-next').disabled && document.querySelector('video').currentTime < .04);
+  await page.waitForFunction(() => !document.getElementById('flow-render').disabled && document.querySelector('video').currentTime < .04);
   checks.push('Rapid touch scrubbing keeps the thumb in place and PNG export idle; release/cancel restore full resolution');
   assert.equal(await page.locator('#play').isVisible(), true);
   assert.equal(await page.locator('#timeline').isVisible(), true);
@@ -275,6 +322,62 @@ try {
   assert.equal(await page.locator('#status').isVisible(), false);
   assert.deepEqual(errors, []);
   checks.push('Failed demo loading recovers through the real file picker into a fresh liquid area');
+  // Render must commit an active editor and start video export from any tool.
+  for (const index of [0, 1, 2]) {
+    await page.locator(`[data-step-index="${index}"]`).click();
+    await page.waitForFunction(() => !document.getElementById('flow-render').disabled);
+    const called = await page.evaluate(async () => {
+      const original = window.liquid.exportVideo;
+      let captured;
+      window.liquid.exportVideo = async settings => {
+        captured = structuredClone(settings);
+        return { ok: true, value: { width: 1920, height: 1080, frames: 48, duration: 1.6, path: 'test.mp4' } };
+      };
+      try { await document.getElementById('flow-render').onclick(); }
+      finally { window.liquid.exportVideo = original; document.getElementById('status').hidden = true; }
+      return Boolean(captured);
+    });
+    assert.equal(called, true, `Video render starts from tool ${index}`);
+    assert.equal(await next.isDisabled(), false);
+  }
+  checks.push('Render commits the editor and starts video export from every tool');
+  const [imageChooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#replace-video')]);
+  await imageChooser.setFiles(`${results}after-render.png`);
+  await page.waitForFunction(() => document.body.dataset.mediaType === 'image' && !document.getElementById('flow-render').disabled);
+  for (const index of [0, 1, 2]) {
+  await page.locator(`[data-step-index="${index}"]`).click();
+  await page.waitForFunction(() => !document.getElementById('flow-render').disabled);
+  const exported = await page.evaluate(async () => {
+    const original = navigator.canShare, share = navigator.share;
+    let file;
+    navigator.canShare = () => true;
+    navigator.share = async ({ files }) => { [file] = files; };
+    try {
+      await document.getElementById('flow-render').onclick();
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const bitmap = await createImageBitmap(file);
+      return { type: file.type, width: bitmap.width, height: bitmap.height, signature: Array.from(bytes.slice(0, 8)) };
+    } finally { navigator.canShare = original; navigator.share = share; }
+  });
+  assert.deepEqual(exported, { type: 'image/png', width: 1080, height: 1920, signature: [137, 80, 78, 71, 13, 10, 26, 10] });
+  }
+  await page.evaluate(async () => {
+    const original = navigator.canShare, share = navigator.share;
+    navigator.canShare = () => true;
+    navigator.share = async () => { throw new DOMException('User cancelled', 'AbortError'); };
+    try { await document.getElementById('flow-render').onclick(); }
+    finally { navigator.canShare = original; navigator.share = share; }
+  });
+  assert.equal(await next.isDisabled(), false);
+  assert.equal(await page.locator('#status').isVisible(), false);
+  const downloaded = application.evaluate(({ BrowserWindow }) => new Promise(resolve => {
+    BrowserWindow.getAllWindows()[0].webContents.session.once('will-download', (_event, item) => {
+      resolve(item.getFilename()); item.cancel();
+    });
+  }));
+  await next.click();
+  assert.match(await downloaded, /-liquid\.png$/);
+  checks.push('Render saves the current image from each tool; share and download receive a full-resolution PNG');
   // A labelled contact sheet of actual captures, without altering their pixels.
   const images = await Promise.all(['before-mobile', 'after-mobile', 'before-render', 'after-render'].map(async name => {
     try { return `data:image/png;base64,${(await readFile(`${results}${name}.png`)).toString('base64')}`; } catch { return null; }

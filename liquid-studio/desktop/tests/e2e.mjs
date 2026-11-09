@@ -13,6 +13,7 @@ import { verifyExtensions } from './extensions.mjs';
 import { verifyKeyframeMorph } from './keyframes-visual.mjs';
 import { verifyUnifiedLiquid } from './liquid-area-visual.mjs';
 import { verifyLiquidEvolution } from './liquid-motion-visual.mjs';
+import { verifyLiquidMatte } from './liquid-matte-visual.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const results = join(root, 'test-results');
@@ -132,6 +133,7 @@ try {
   report.metrics.regions = regionPixels;
   report.metrics.keyframes = await verifyKeyframeMorph(page);
   report.metrics.liquidArea = await verifyUnifiedLiquid(page);
+  report.metrics.liquidMatte = await verifyLiquidMatte(page);
   report.metrics.liquidEvolution = await verifyLiquidEvolution(page);
   log('Region GPU checks: empty/outside areas preserved, both effects placed, liquid animates, saved masks match exactly, editor guides stay separate');
   report.metrics.guidedLiquid = await verifyGuidedLiquid(page, results);

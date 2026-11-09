@@ -1,12 +1,8 @@
 import { EMPTY_REGIONS, validateRegions, MAX_SETTINGS_BYTES } from './regions.js';
 import { EFFECT_KEYS, MAX_KEYFRAMES } from './keyframes.js';
+import { DEFAULT_LIQUID_COLORS } from './liquid-colors.js';
 
-export const DEFAULT_LIQUID_COLORS = Object.freeze([
-  '#e99ae6', '#b5b0ed', '#a2b8f6', '#f4d45e', '#f89954', '#ed3b66', '#20583f',
-]);
-export const PALETTE_COLORS = Object.freeze([
-  '#16533f', '#f8cf49', '#9fbaff', '#5c300f', '#fd3d62', '#ffa9ef',
-]);
+export { AREA_DEFAULT_LIQUID_COLORS, DEFAULT_LIQUID_COLORS, PALETTE_COLORS, areaLiquidColors } from './liquid-colors.js';
 export const PALETTE_PRESET_COLORS = Object.freeze([
   '#16533f', '#5c300f', '#9fbaff', '#f8cf49', '#ffa9ef', '#fd3d62', '#16533f',
 ]);

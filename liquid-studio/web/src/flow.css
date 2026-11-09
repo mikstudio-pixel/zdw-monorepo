@@ -18,8 +18,16 @@ body { height:100svh; height:100dvh }
 .guided #preview { display:block; width:100%; height:100%; object-fit:contain; cursor:crosshair }
 .guided #media-backdrop { position:absolute; inset:0; width:100%; height:100%; image-rendering:pixelated; pointer-events:none }
 .guided #preview { position:relative }
-.guided .flow-top { position:fixed; top:calc(var(--inset) + env(safe-area-inset-top)); left:calc(var(--inset) + env(safe-area-inset-left)); z-index:5; display:flex; align-items:center; gap:8px; padding:6px; border:1px solid var(--surface-border); border-radius:0; background:var(--surface); box-shadow:inset 1px 1px var(--bevel-light),inset -1px -1px var(--bevel-mid),1px 1px var(--bevel-exterior) }
-.guided .flow-steps { display:flex; gap:4px }
+.guided [data-flow-dock] { position:fixed; z-index:5; touch-action:none; user-select:none; -webkit-touch-callout:none }
+.guided [data-flow-dock^="top-"] { top:calc(var(--inset) + env(safe-area-inset-top)) }
+.guided [data-flow-dock^="bottom-"] { bottom:calc(var(--inset) + env(safe-area-inset-bottom) + var(--bottom-bar-height)) }
+.guided [data-flow-dock$="-left"] { left:calc(var(--inset) + env(safe-area-inset-left)) }
+.guided [data-flow-dock$="-right"] { right:calc(var(--inset) + env(safe-area-inset-right)) }
+.guided [data-dock-dragging] { z-index:8; cursor:grabbing }
+.guided .flow-dock-target { z-index:4; pointer-events:none; border:2px dashed var(--control-outline); background:color-mix(in srgb, var(--surface) 35%, transparent) }
+.guided .flow-dock-target.is-over { border-style:solid; background:color-mix(in srgb, var(--surface) 65%, transparent) }
+.guided .flow-top { display:flex; align-items:flex-start; gap:6px }
+.guided .flow-steps, .guided .flow-eraser-box { display:flex; gap:4px; padding:6px; border:1px solid var(--surface-border); background:var(--surface); box-shadow:inset 1px 1px var(--bevel-light),inset -1px -1px var(--bevel-mid),1px 1px var(--bevel-exterior) }
 .guided .flow-top button { width:44px; min-height:44px; padding:5px; border-color:transparent; background:transparent; box-shadow:none }
 .guided .flow-top button:hover:enabled { background:var(--chrome-hover); border-color:var(--bevel-pressed); box-shadow:inset 1px 1px var(--bevel-light) }
 .guided .flow-top button:disabled { background:transparent; border-color:transparent; box-shadow:none }
@@ -29,15 +37,15 @@ body { height:100svh; height:100dvh }
 .palette-icon i:nth-child(1) { background:#ff727b }.palette-icon i:nth-child(2) { background:#ffdb64 }.palette-icon i:nth-child(3) { background:#9dbcfb }.palette-icon i:nth-child(4) { background:#65bb8c }
 .guided #flow-eraser { width:44px; height:44px; min-height:44px; padding:0 }
 .guided #flow-eraser[aria-pressed=true] { background:var(--surface-selected); border-color:var(--active-border); box-shadow:inset 1px 1px var(--bevel-pressed),inset -1px -1px var(--bevel-light) }
-.guided footer { position:fixed; z-index:5; left:calc(var(--inset) + env(safe-area-inset-left)); right:calc(var(--inset) + env(safe-area-inset-right)); bottom:calc(var(--inset) + env(safe-area-inset-bottom) + var(--bottom-bar-height)); display:flex; justify-content:space-between; height:auto; min-height:0; padding:0; border:0; background:none; pointer-events:none; transition:bottom .25s ease }
-.guided footer>button { pointer-events:auto; min-width:112px; min-height:50px; background:var(--surface); border-color:var(--surface-border); box-shadow:inset 1px 1px var(--bevel-light),inset -1px -1px var(--bevel-mid),1px 1px var(--bevel-exterior) }
-.guided #replace-video { justify-content:flex-end }
-.guided footer>button:hover:enabled { background:var(--chrome-hover); border-color:var(--surface-border); box-shadow:inset 1px 1px var(--bevel-light),inset -1px -1px var(--bevel-mid),1px 1px var(--bevel-exterior) }
-.guided footer>button:active:enabled { background:var(--footer-active); box-shadow:inset 1px 1px var(--bevel-pressed),inset -1px -1px var(--bevel-light) }
-.guided footer>button:disabled { color:var(--disabled-ink); background:var(--surface); border-color:var(--surface-border); box-shadow:inset 1px 1px var(--bevel-light),inset -1px -1px var(--bevel-mid),1px 1px var(--bevel-exterior) }
-.guided #flow-next { margin-left:auto }
-.guided[data-step=palette] footer>button { min-width:0; gap:5px; padding-inline:8px; font-size:11px }
-.guided #flow-save-icon:not([hidden]) { display:flex }
+.guided footer { display:contents }
+.guided .flow-files { display:flex; gap:6px }
+.guided .flow-files>button { width:50px; min-width:50px; height:50px; min-height:50px; padding:0; background:var(--surface); border-color:var(--surface-border); box-shadow:inset 1px 1px var(--bevel-light),inset -1px -1px var(--bevel-mid),1px 1px var(--bevel-exterior) }
+.guided .flow-files>button:hover:enabled { background:var(--chrome-hover); border-color:var(--surface-border); box-shadow:inset 1px 1px var(--bevel-light),inset -1px -1px var(--bevel-mid),1px 1px var(--bevel-exterior) }
+.guided .flow-files>button:active:enabled { background:var(--footer-active); box-shadow:inset 1px 1px var(--bevel-pressed),inset -1px -1px var(--bevel-light) }
+.guided .flow-files>button:disabled { color:var(--disabled-ink); background:var(--surface); border-color:var(--surface-border); box-shadow:inset 1px 1px var(--bevel-light),inset -1px -1px var(--bevel-mid),1px 1px var(--bevel-exterior) }
+@media(max-width:600px) and (min-height:480px) {
+  .guided .flow-top, .guided .flow-steps { flex-direction:column }
+}
 .guided .flow-chrome { transition:opacity .14s ease }
 .guided.is-drawing .flow-chrome { opacity:0; pointer-events:none }
 .guided.is-drawing .flow-chrome * { pointer-events:none }

@@ -1,0 +1,83 @@
+{
+  "sourceSha256": "931e11c5ebab0bd26dc7b372a7ebfc8987e741600f3924ca88b5e6058f651792",
+  "comp": "LIQUID EFFECT",
+  "fps": 25,
+  "size": [
+    1920,
+    1080
+  ],
+  "wave": {
+    "type": "Semicircle",
+    "height": 100,
+    "width": 242.5,
+    "speed": 0.22,
+    "direction": 90
+  },
+  "blur": {
+    "radius": 5,
+    "iterations": 3
+  },
+  "radial": {
+    "nativeType": 6,
+    "amount": 8,
+    "quality": 50
+  },
+  "turbulence": {
+    "type": "Bulge",
+    "amount": 346,
+    "size": 93,
+    "complexity": 1.63,
+    "evolution": 295,
+    "seed": 0,
+    "pinning": 3
+  },
+  "map": {
+    "size": [
+      960,
+      540
+    ],
+    "quantizationPixels": 0.03125,
+    "gzipBytes": 1209157,
+    "kind": "Inverse displacement coordinates from independent native 16bpc probes; contains no appearance or frame animation"
+  },
+  "palettePositions": [
+    0.2053375244140625,
+    0.2185821533203125,
+    0.365447998046875,
+    0.45501708984375,
+    0.5118408203125,
+    0.5823211669921875
+  ],
+  "paletteColors": [
+    [
+      92,
+      48,
+      15
+    ],
+    [
+      22,
+      83,
+      63
+    ],
+    [
+      253,
+      61,
+      98
+    ],
+    [
+      248,
+      207,
+      73
+    ],
+    [
+      159,
+      186,
+      255
+    ],
+    [
+      255,
+      169,
+      239
+    ]
+  ]
+}

@@ -1,15 +1,12 @@
 import { LiquidSource } from '../vendor/liquid-source.js';
 import { createDeformationTexture, bindDeformation } from '../vendor/liquid-deformation.js';
 import { vertex, sourceFragment, glassFragment } from '../vendor/shaders.js';
-import { cropTransform, FORMATS, FPS, GLASS_SIZE_SCALE, liquidPaletteFloats, DEFAULT_LIQUID_COLORS } from '../shared/settings.js';
+import { cropTransform, FORMATS, FPS, GLASS_SIZE_SCALE, liquidPaletteFloats, AREA_DEFAULT_LIQUID_COLORS, areaLiquidColors } from '../shared/settings.js';
 import { sampleKeyframes } from '../shared/keyframes.js';
 import { RegionMaps, REGION_SIZE } from '../shared/regions.js';
 import { liquidGuides, liquidScale, MAX_LIQUID_GUIDES } from '../shared/liquid-guides.js';
-import { liquidAreaDistance, liquidAreaFrame } from '../shared/liquid-area.js';
-import { areaLiquidShader } from './liquid-area.js';
-import { LiquidFlow } from '../vendor/liquid-flow.js';
-import { LiquidFilter, MATERIAL_FILTER } from '../vendor/liquid-filter.js';
-import { LiquidAppearance } from '../vendor/liquid-appearance.js';
+import { liquidAreaDistance, liquidAreaEdgeContact, liquidAreaFrame, NATIVE_AREA_DISTANCE_RANGE } from '../shared/liquid-area.js';
+import { AELiquid } from './liquid-area.js';
 
 const regionUniforms = `
 uniform sampler2D u_regions;
@@ -304,8 +301,7 @@ export class VideoRenderer {
       // Do no distance transforms or material generation during painting.
       if (!areaPreview && (this.areaMaps !== maps || this.areaVersion !== maps.liquidVersion || this.areaAspect !== aspect)) {
         this.areaTexture ||= this.texture();
-        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.areaTexture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, REGION_SIZE, REGION_SIZE, 0, gl.RED, gl.FLOAT, liquidAreaDistance(maps.layers.liquid, aspect, { float: true }));
+        this.areaEdges = this.uploadAreaDistance(this.areaTexture, gl.TEXTURE1, maps.layers.liquid, aspect);
         this.areaMaps = maps; this.areaVersion = maps.liquidVersion; this.areaAspect = aspect;
         this.areaFrame = liquidAreaFrame(maps.layers.liquid);
         this.areaRenderKey = null;
@@ -345,58 +341,37 @@ export class VideoRenderer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, ...tiles.count, 0, gl.RED, gl.UNSIGNED_BYTE, tiles.data);
     if (changed) {
       this.areaNextTexture ||= this.texture();
-      gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, this.areaNextTexture);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, REGION_SIZE, REGION_SIZE, 0, gl.RED, gl.FLOAT, liquidAreaDistance(this.nextMaps.layers.liquid, aspect, { float: true }));
+      this.nextAreaEdges = this.uploadAreaDistance(this.areaNextTexture, gl.TEXTURE6, this.nextMaps.layers.liquid, aspect);
       this.nextAreaFrame = liquidAreaFrame(this.nextMaps.layers.liquid);
       this.areaRenderKey = null;
     }
     this.nextRegions = regions; this.nextAspect = aspect; this.nextSize = size;
   }
+  uploadAreaDistance(texture, unit, mask, aspect) {
+    const gl = this.gl, edges = liquidAreaEdgeContact(mask);
+    const distance = liquidAreaDistance(mask, aspect, {
+      float: true, range: NATIVE_AREA_DISTANCE_RANGE, finite: true,
+    });
+    gl.activeTexture(unit); gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, REGION_SIZE, REGION_SIZE, 0, gl.RED, gl.FLOAT, distance);
+    return edges;
+  }
   drawArea(width, height, time, structure, colors, progress, mix = 0) {
+    colors = areaLiquidColors(colors);
     const key = [width, height, time, structure, ...colors, progress, mix].join(',');
     if (this.areaRenderKey === key) return;
     const gl = this.gl;
-    this.areaProgram ||= this.program(vertex, areaLiquidShader(sourceHelpers));
-    this.areaAppearance ||= new LiquidAppearance(gl, fragment => this.program(vertex, fragment));
-    this.areaFlow ||= new LiquidFlow(gl, fragment => this.program(vertex, fragment));
-    this.areaFilter ||= new LiquidFilter(gl, fragment => this.program(vertex, fragment));
-    this.areaRawTexture ||= this.texture();
-    this.areaRawFramebuffer ||= gl.createFramebuffer();
-    const rasterKey = `${this.liquidWidth},${this.liquidHeight}`;
-    if (this.areaRasterKey !== rasterKey) {
-      gl.bindTexture(gl.TEXTURE_2D, this.areaRawTexture);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, this.liquidWidth, this.liquidHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.areaRawFramebuffer);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.areaRawTexture, 0);
-      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Materiál liquidu nelze připravit.');
-      this.areaRasterKey = rasterKey;
-    }
-    this.areaAppearance.render(time);
-    this.areaFlow.render(time);
-    const { program, uniforms } = this.areaProgram;
-    gl.useProgram(program); gl.bindFramebuffer(gl.FRAMEBUFFER, this.areaRawFramebuffer);
-    this.areaFlow.bind(uniforms);
-    this.areaAppearance.bind(uniforms);
-    const continuation = Math.max(0, Math.min(1, (time - LiquidAppearance.lastTime) / 4));
-    const referenceMix = 1 - continuation * continuation * (3 - 2 * continuation);
-    gl.uniform1f(uniforms.u_referenceMix, referenceMix);
-    gl.uniform1f(uniforms.u_referencePalette, colors.every((color, i) => color.toLowerCase() === DEFAULT_LIQUID_COLORS[i].toLowerCase()) ? 1 : 0);
-    gl.uniform1f(uniforms.u_structure, structure / 100);
-    gl.uniform1f(uniforms.u_customPalette, 1);
-    gl.uniform3fv(uniforms['u_paletteColors[0]'], liquidPaletteFloats(colors));
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.areaTexture);
-    gl.uniform1i(uniforms.u_areaDistance, 1);
-    gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, mix ? this.areaNextTexture : this.areaTexture);
-    gl.uniform1i(uniforms.u_areaNextDistance, 6); gl.uniform1f(uniforms.u_keyframeMix, mix);
-    gl.uniform4fv(uniforms.u_areaFrom, this.areaFrame);
-    gl.uniform4fv(uniforms.u_areaTo, mix ? this.nextAreaFrame : this.areaFrame);
-    gl.uniform2f(uniforms.u_resolution, width, height);
-    gl.uniform1f(uniforms.u_time, time);
-    gl.uniform1f(uniforms.u_areaProgress, progress);
-    gl.viewport(0, 0, this.liquidWidth, this.liquidHeight);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-    this.areaFilter.render(this.areaRawTexture, this.liquidFramebuffer, width, height, progress, {
-      sigma: 1.5 * referenceMix + MATERIAL_FILTER.sigma * (1 - referenceMix), angle: MATERIAL_FILTER.angle * (1 - referenceMix),
+    this.areaPipeline ||= new AELiquid(gl, fragment => this.program(vertex, fragment));
+    const referencePalette = colors.every((color, i) => color.toLowerCase() === AREA_DEFAULT_LIQUID_COLORS[i]);
+    this.areaPipeline.render({
+      width: this.liquidWidth, height: this.liquidHeight, aspect: width / height,
+      time, structure: structure / 100, referencePalette,
+      palette: referencePalette ? undefined : liquidPaletteFloats(colors),
+      framebuffer: this.liquidFramebuffer, mask: this.areaTexture,
+      nextMask: mix ? this.areaNextTexture : this.areaTexture,
+      from: this.areaFrame, to: mix ? this.nextAreaFrame : this.areaFrame,
+      edgeContact: mix ? this.areaEdges.map((edge, axis) => edge || this.nextAreaEdges[axis]) : this.areaEdges,
+      morph: mix, progress,
     });
     this.areaRenderKey = key;
   }
@@ -515,12 +490,7 @@ export class VideoRenderer {
     if (this.legacyMaskProgram) gl.deleteProgram(this.legacyMaskProgram.program);
     if (this.guidedProgram) gl.deleteProgram(this.guidedProgram.program);
     gl.deleteTexture(this.liquidTexture); gl.deleteFramebuffer(this.liquidFramebuffer);
-    if (this.areaProgram) gl.deleteProgram(this.areaProgram.program);
-    this.areaAppearance?.destroy();
-    this.areaFlow?.destroy();
-    this.areaFilter?.destroy();
-    if (this.areaRawTexture) gl.deleteTexture(this.areaRawTexture);
-    if (this.areaRawFramebuffer) gl.deleteFramebuffer(this.areaRawFramebuffer);
+    this.areaPipeline?.destroy();
     if (this.areaTexture) gl.deleteTexture(this.areaTexture);
     if (this.areaNextTexture) gl.deleteTexture(this.areaNextTexture);
     if (this.nextTileTexture) gl.deleteTexture(this.nextTileTexture);

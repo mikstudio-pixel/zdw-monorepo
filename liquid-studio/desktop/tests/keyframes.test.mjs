@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RegionMaps, REGION_PIXELS, canvasPoint } from '../shared/regions.js';
-import { DEFAULTS, serializeSettings, parseSettings, validateSettings } from '../shared/settings.js';
+import { AREA_DEFAULT_LIQUID_COLORS, DEFAULTS, serializeSettings, parseSettings, validateSettings } from '../shared/settings.js';
 import { captureEffects, putKeyframe, sampleKeyframes, materializeKeyframe, MORPH_FRAMES } from '../shared/keyframes.js';
 
 function scene(x, colors = DEFAULTS.liquidColors) {
@@ -24,7 +24,8 @@ test('A new shape holds its predecessor, then morphs over the two seconds before
   assert.deepEqual(sampleKeyframes(settings, 999).state.regions, settings.keyframes[1].effects.regions);
   const short = { ...settings, keyframes: [settings.keyframes[0], { ...settings.keyframes[1], frame: 30 }] };
   assert.equal(sampleKeyframes(short, 15).mix, .5, 'Closely spaced targets use the available interval');
-  assert.deepEqual(sampleKeyframes(settings, 120).state.liquidColors[0], '#f4cdf3');
+  assert.deepEqual(sampleKeyframes(settings, 90).state.liquidColors, AREA_DEFAULT_LIQUID_COLORS);
+  assert.equal(sampleKeyframes(settings, 120).state.liquidColors[0], '#ae9887');
 });
 
 test('Keyframes compactly round-trip distinct liquid and cube shapes; replacement is sorted and bounded', () => {

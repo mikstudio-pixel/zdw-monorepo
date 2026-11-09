@@ -13,3 +13,6 @@ __pycache__/
 *.sql
 *.sql.gz
 liquid-studio/preview/
+
+# Disposable native After Effects calibration projects and their footage.
+/liquid-studio/reference/ae-rebuild/

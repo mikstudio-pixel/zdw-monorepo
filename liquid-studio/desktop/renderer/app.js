@@ -1,5 +1,5 @@
 import { VideoRenderer } from './video-renderer.js';
-import { DEFAULTS, PRESETS, FORMATS, FPS, validateSettings, cropTransform, PALETTE_COLORS, PALETTE_PRESET_COLORS, DEFAULT_LIQUID_COLORS } from '../shared/settings.js';
+import { DEFAULTS, PRESETS, FORMATS, FPS, validateSettings, cropTransform, PALETTE_COLORS, PALETTE_PRESET_COLORS, DEFAULT_LIQUID_COLORS, areaLiquidColors } from '../shared/settings.js';
 import { RegionMaps, canvasPoint } from '../shared/regions.js';
 import { RegionEditor } from './region-editor.js';
 import { captureEffects, materializeKeyframe, putKeyframe } from '../shared/keyframes.js';
@@ -56,12 +56,16 @@ for (const [key, [label, min, max, unit]] of Object.entries(specs)) {
 }
 
 let activeStopIndex = 0;
+function currentLiquidColors() {
+  return settings.regions.liquidMode === 'area' ? areaLiquidColors(settings.liquidColors) : settings.liquidColors;
+}
+
 function selectStop(index) {
   activeStopIndex = index;
   document.querySelectorAll('.liquid-stop-row').forEach((row, i) => row.classList.toggle('selected', i === index));
 }
 function updateLiquidColor(index, hex) {
-  const current = [...(settings.liquidColors || DEFAULT_LIQUID_COLORS)];
+  const current = [...currentLiquidColors()];
   current[index] = hex.toLowerCase();
   settings.liquidColors = Object.freeze(current);
   selectPreset(null);
@@ -104,14 +108,14 @@ for (let i = 0; i < 7; i++) {
   const preview = document.createElement('div');
   preview.className = 'color-picker-preview';
   preview.id = `liquid-color-preview-${i}`;
-  preview.style.backgroundColor = (settings.liquidColors || DEFAULT_LIQUID_COLORS)[i];
+  preview.style.backgroundColor = currentLiquidColors()[i];
 
   const input = document.createElement('input');
   input.type = 'color';
   input.setAttribute('aria-label', `Barva liquidu, bod ${i + 1}`);
   input.className = 'color-picker-input';
   input.id = `liquid-color-${i}`;
-  input.value = (settings.liquidColors || DEFAULT_LIQUID_COLORS)[i];
+  input.value = currentLiquidColors()[i];
   input.addEventListener('input', () => {
     selectStop(i);
     updateLiquidColor(i, input.value);
@@ -165,7 +169,7 @@ function syncControls() {
   for (const el of document.querySelectorAll('#liquid-colors-container input, #liquid-colors-container button')) {
     el.disabled = liquidDisabled;
   }
-  const colors = settings.liquidColors || DEFAULT_LIQUID_COLORS;
+  const colors = currentLiquidColors();
   for (let i = 0; i < 7; i++) {
     const input = $(`liquid-color-${i}`);
     const preview = $(`liquid-color-preview-${i}`);
@@ -431,7 +435,7 @@ export const studio = {
   get frame() { return requestedFrame ?? Math.round(mediaTime(video.currentTime) * FPS); },
   get frames() { return media?.frames || 1; },
   get keyframes() { return settings.keyframes || []; },
-  get colors() { return settings.liquidColors; },
+  get colors() { return currentLiquidColors(); },
   exportVideo,
   hasArea(layer) { return Boolean((editor.maps || new RegionMaps(settings.regions)).layers[layer].some(value => value >= 128)); },
   chooseTool(tool) { editor.choose(tool); },

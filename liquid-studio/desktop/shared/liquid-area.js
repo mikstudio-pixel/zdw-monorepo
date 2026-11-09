@@ -22,39 +22,55 @@ export function sampleAreaDistance(field, x, y) {
     + (field[y1 * n + ix] * (1 - tx) + field[y1 * n + x1] * tx) * ty;
 }
 
-// A signed distance to the union, in output-height units. The brush size and
-// gesture history never enter this calculation. Canvas edges are not cuts.
-// The renderer keeps subpixel precision; compact CPU morphs use the byte form.
-export function liquidAreaDistance(mask, aspect, { float = false } = {}) {
-  const n = REGION_SIZE, dx = aspect / n, dy = 1 / n, diagonal = Math.hypot(dx, dy);
-  const distanceTo = inside => {
-    const distance = new Float32Array(REGION_PIXELS);
-    for (let i = 0; i < REGION_PIXELS; i++) distance[i] = (mask[i] >= 128) === inside ? 0 : AREA_DISTANCE_RANGE;
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-      const i = y * n + x;
-      if (x) distance[i] = Math.min(distance[i], distance[i - 1] + dx);
-      if (y) {
-        distance[i] = Math.min(distance[i], distance[i - n] + dy);
-        if (x) distance[i] = Math.min(distance[i], distance[i - n - 1] + diagonal);
-        if (x + 1 < n) distance[i] = Math.min(distance[i], distance[i - n + 1] + diagonal);
+// Exact separable squared Euclidean distance, in output-height units.
+// The envelope of parabolas keeps this linear in the number of mask pixels.
+function distanceTo(mask, inside, aspect, limit) {
+  const n=REGION_SIZE, data=new Float64Array(REGION_PIXELS);
+  for(let i=0;i<data.length;i++) data[i]=((mask[i]>=128)===inside)?0:limit*limit;
+  const values=new Float64Array(n),v=new Int32Array(n),z=new Float64Array(n+1),out=new Float64Array(n);
+  for(let axis=0;axis<2;axis++) {
+    const weight=(axis?1:aspect)**2/(n*n);
+    for(let line=0;line<n;line++) {
+      for(let q=0;q<n;q++)values[q]=data[axis?q*n+line:line*n+q];
+      let k=0;v[0]=0;z[0]=-Infinity;z[1]=Infinity;
+      for(let q=1;q<n;q++) {
+        let intersection;
+        do {
+          const at=v[k];intersection=((values[q]+weight*q*q)-(values[at]+weight*at*at))/(2*weight*(q-at));
+          if(intersection<=z[k])k--;else break;
+        }while(k>=0);
+        k++;v[k]=q;z[k]=intersection;z[k+1]=Infinity;
       }
+      k=0;
+      for(let q=0;q<n;q++){while(z[k+1]<q)k++;out[q]=values[v[k]]+weight*(q-v[k])**2;}
+      for(let q=0;q<n;q++)data[axis?q*n+line:line*n+q]=out[q];
     }
-    for (let y = n - 1; y >= 0; y--) for (let x = n - 1; x >= 0; x--) {
-      const i = y * n + x;
-      if (x + 1 < n) distance[i] = Math.min(distance[i], distance[i + 1] + dx);
-      if (y + 1 < n) {
-        distance[i] = Math.min(distance[i], distance[i + n] + dy);
-        if (x) distance[i] = Math.min(distance[i], distance[i + n - 1] + diagonal);
-        if (x + 1 < n) distance[i] = Math.min(distance[i], distance[i + n + 1] + diagonal);
-      }
-    }
-    return distance;
-  };
-  const outside = distanceTo(false), inside = distanceTo(true);
-  const data = float ? new Float32Array(REGION_PIXELS) : new Uint8Array(REGION_PIXELS);
-  for (let i = 0; i < REGION_PIXELS; i++) {
-    const value = .5 + .5 * (outside[i] - inside[i]) / AREA_DISTANCE_RANGE;
-    data[i] = float ? value : Math.round(value * 255);
+  }
+  return data;
+}
+
+export const NATIVE_AREA_DISTANCE_RANGE=512/1080;
+
+export function liquidAreaEdgeContact(mask) {
+  const size = REGION_SIZE;
+  let horizontal = false, vertical = false;
+  for (let i = 0; i < size && !(horizontal && vertical); i++) {
+    horizontal ||= mask[i * size] >= 128 || mask[(i + 1) * size - 1] >= 128;
+    vertical ||= mask[i] >= 128 || mask[(size - 1) * size + i] >= 128;
+  }
+  return [horizontal, vertical];
+}
+
+// Legacy byte morphs keep their previous range and border policy. The native
+// effect uses a deeper field for the original stroke profile.
+export function liquidAreaDistance(mask, aspect, { float=false, range=AREA_DISTANCE_RANGE, finite=false }={}) {
+  const n=REGION_SIZE,outside=distanceTo(mask,false,aspect,range),inside=distanceTo(mask,true,aspect,range);
+  const data=float?new Float32Array(REGION_PIXELS):new Uint8Array(REGION_PIXELS);
+  for(let i=0;i<data.length;i++) {
+    let outer=Math.sqrt(outside[i]);
+    if(finite && mask[i]>=128){const x=i%n,y=Math.floor(i/n);outer=Math.min(outer,(x+.5)*aspect/n,(n-x-.5)*aspect/n,(y+.5)/n,(n-y-.5)/n);}
+    const value=.5+.5*(outer-Math.sqrt(inside[i]))/range;
+    data[i]=float?value:Math.round(value*255);
   }
   return data;
 }

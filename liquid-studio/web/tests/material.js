@@ -22,14 +22,14 @@ try{
   const file=new File([await(await fetch('/__qa/sync.mp4')).blob()],'Material sync.mp4',{type:'video/mp4'});
   const choose=window.liquid.chooseVideo;window.liquid.chooseVideo=()=>window.liquid.importFile(file);
   try{await $('replace-video').onclick();}finally{window.liquid.chooseVideo=choose;}
-  await waitFor(()=>$('file-name').textContent===file.name&&!$('flow-next').disabled);
+  await waitFor(()=>$('file-name').textContent===file.name&&!$('flow-render').disabled);
   document.querySelector('[data-aspect="16:9"]').click();
   slider('brush-size',480);await stroke([.2,.25],[.7,.4]);await stroke([.3,.7],[.8,.65]);
   await event('painted');
-  await $('flow-next').onclick();await waitFor(()=>!$('flow-next').disabled);
+  document.querySelector('[data-step-index="1"]').click();await waitFor(()=>!$('flow-render').disabled);
   const saved=await settings();assert(saved.regions.liquidMode==='area','Expected area mode');assert(saved.regions.liquid.length===1,'Gestures must form one area');
   await send('settings.json',JSON.stringify(saved));
-  await $('flow-next').onclick();await waitFor(()=>!$('flow-next').disabled);
+  document.querySelector('[data-step-index="2"]').click();await waitFor(()=>!$('flow-render').disabled);
   const first=await png();
   await send('preview.png',new Blob([Uint8Array.from(atob(first.split(',')[1]),c=>c.charCodeAt(0))],{type:'image/png'}));
   for(const frame of [21,24,36,0]){

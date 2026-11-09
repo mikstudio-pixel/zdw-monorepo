@@ -1,10 +1,10 @@
 import { build } from 'esbuild';
-import { mkdir, readFile, writeFile, copyFile, cp } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, copyFile, cp, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 await mkdir(`${root}dist`, { recursive: true });
 await mkdir(`${root}dist/assets`, { recursive: true });
-await copyFile(`${root}../src/liquid-appearance.bin.gz`, `${root}dist/liquid-appearance.bin.gz`);
+await rm(`${root}dist/liquid-appearance.bin.gz`, { force: true });
 for (const file of ['zdw-demo.mp4', 'zdw-demo-portrait.mp4']) await copyFile(`${root}assets/${file}`, `${root}dist/assets/${file}`);
 await cp(`${root}assets/icons`, `${root}dist/assets/icons`, { recursive: true });
 await copyFile(`${root}src/startup.js`, `${root}dist/startup.js`);

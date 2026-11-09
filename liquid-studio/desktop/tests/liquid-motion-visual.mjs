@@ -1,53 +1,25 @@
 import assert from 'node:assert/strict';
 
 export async function verifyLiquidEvolution(page) {
-  const metrics = await page.evaluate(async () => {
-    const { VideoRenderer } = await import('./video-renderer.js');
-    const { RegionMaps } = await import('../shared/regions.js');
-    const { DEFAULTS } = await import('../shared/settings.js');
-    const renderer = new VideoRenderer(document.createElement('canvas'));
-    renderer.upload(new Uint8Array([20, 30, 40, 255]), 1, 1);
-    const maps = RegionMaps.empty().useLiquidArea();
-    maps.paint('liquid', [0, .5], [1, .5], 4000, 16 / 9);
-    const settings = { ...DEFAULTS, liquid: true, regions: maps.serialize() };
-    const render = time => {
-      renderer.draw(settings, time);
-      const gl = renderer.gl, pixels = new Uint8Array(renderer.liquidWidth * renderer.liquidHeight * 4);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, renderer.liquidFramebuffer);
-      gl.readPixels(0, 0, renderer.liquidWidth, renderer.liquidHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-      if (gl.getError() !== gl.NO_ERROR) throw new Error('Cannot read liquid motion');
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      return pixels;
-    };
-    const difference = (a, b) => a.reduce((sum, value, i) => sum + Math.abs(value - b[i]), 0) / a.length;
-    try {
-      render(0);
-      const gl = renderer.gl, coordinates = new Uint8Array(320 * 180 * 4);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, renderer.areaFlow.framebuffer);
-      gl.readPixels(0, 0, 320, 180, gl.RGBA, gl.UNSIGNED_BYTE, coordinates);
-      let flowIdentityError = 0;
-      coordinates.forEach((value, i) => { flowIdentityError = Math.max(flowIdentityError, Math.abs(value - (i % 2 ? 0 : 128))); });
-      const ditherRestored = gl.isEnabled(gl.DITHER);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      // The previous cosine clock replayed exactly the same poses in reverse
-      // after its 7.48s turning point. These pairs must now show different poses.
-      const oldPeriod = 2 * Math.PI / .42;
-      const mirrored = [2, 4, 6].map(time => difference(render(time), render(oldPeriod - time)));
-      const continuing = [18, 45, 120].map(time => difference(render(time), render(time + 4)));
-      const continuity = [4.36, oldPeriod / 2, oldPeriod, 30, 120]
-        .map(time => difference(render(time - 1 / 60), render(time + 1 / 60)));
-      const pose = render(22.25);
-      render(3);
-      const seekError = difference(pose, render(22.25));
-      return { mirrored, continuing, continuity, seekError, flowIdentityError, ditherRestored };
-    } finally { renderer.destroy(); }
-  });
-  assert.ok(metrics.mirrored.every(error => error > 3), `Motion must not replay earlier poses backwards: ${metrics.mirrored}`);
-  assert.ok(metrics.continuing.every(error => error > 3), `Motion continues after the finite reference ends: ${metrics.continuing}`);
-  assert.ok(metrics.continuity.every(error => error < 8), `Motion has no reset jumps: ${metrics.continuity}`);
-  assert.equal(metrics.seekError, 0, 'Seeking and export reproduce the same evolving pose');
-  assert.equal(metrics.flowIdentityError, 0, 'Numeric flow bytes must not be altered by color dithering');
-  assert.equal(metrics.ditherRestored, true, 'Color rendering keeps its original dithering state');
-  console.log('Liquid evolution GPU:', JSON.stringify(metrics));
-  return metrics;
+ const metrics=await page.evaluate(async()=>{
+  const {VideoRenderer}=await import('./video-renderer.js'),{RegionMaps}=await import('../shared/regions.js'),{DEFAULTS}=await import('../shared/settings.js');
+  const renderer=new VideoRenderer(document.createElement('canvas'));renderer.upload(new Uint8Array([20,30,40,255]),1,1);
+  const maps=RegionMaps.empty().useLiquidArea();maps.clear('glass');maps.paint('liquid',[.25,.65],[.75,.65],430,9/16);
+  const settings={...DEFAULTS,aspect:'9:16',liquid:true,regions:maps.serialize()};
+  const render=time=>{renderer.draw(settings,time,{regions:maps});return renderer.readPixels().slice();};
+  const error=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
+  try{
+   const pose=render(.75);render(120);const seekError=error(pose,render(.75));
+   const nativePeriod=1/.22,periodError=error(pose,render(.75+nativePeriod));
+   const continuing=[18,45,120].map(t=>error(render(t),render(t+.7)));
+   const continuity=[nativePeriod,30,120].map(t=>error(render(t-1/60),render(t+1/60)));
+   return{seekError,periodError,continuing,continuity,ditherRestored:renderer.gl.isEnabled(renderer.gl.DITHER)};
+  }finally{renderer.destroy();}
+ });
+ assert.equal(metrics.seekError,0,'Seek/export is independent of previous frames');
+ assert.equal(metrics.periodError,0,'Motion has the original AE Wave Warp period of 1 / 0.22 seconds');
+ assert.ok(metrics.continuing.every(v=>v>1),`The native clock continues for long videos: ${metrics.continuing}`);
+ assert.ok(metrics.continuity.every(v=>v<8),`There is no reset flash at a wave cycle or later seek: ${metrics.continuity}`);
+ assert.equal(metrics.ditherRestored,true,'The filter restores the original GPU dithering state');
+ console.log('Native AE motion GPU:',JSON.stringify(metrics));return metrics;
 }
